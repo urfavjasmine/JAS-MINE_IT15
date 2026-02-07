@@ -1,0 +1,68 @@
+﻿<style>
+    .sidebar {
+        width: 260px;
+        height: 100vh;
+        background: #0f2c49;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+    }
+
+        .sidebar a {
+            color: #fff;
+            text-decoration: none;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 10px;
+            margin: 4px 8px;
+        }
+
+            .sidebar a:hover {
+                background: rgba(255,255,255,.1);
+            }
+
+        .sidebar .active {
+            background: rgba(255,255,255,.15);
+        }
+
+    .sidebar-header {
+        padding: 18px;
+        font-weight: bold;
+        border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+</style>
+
+<aside class="sidebar">
+
+    <div class="sidebar-header">
+        JAS-MINE<br />
+        <small>Knowledge Portal</small>
+    </div>
+
+    <a asp-controller="Home" asp-action="DashboardHome">
+        <i class="bi bi-grid"></i> Dashboard
+    </a>
+
+    <a asp-action="KnowledgeRepository">
+        <i class="bi bi-folder2-open"></i> Knowledge Repository
+    </a>
+
+    <a asp-action="PoliciesManagement">
+        <i class="bi bi-file-earmark-text"></i> Policies & Procedures
+    </a>
+
+    <a asp-action="LessonsLearned">
+        <i class="bi bi-lightbulb"></i> Lessons Learned
+    </a>
+
+    <a asp-action="BestPractices">
+        <i class="bi bi-award"></i> Best Practices
+    </a>
+
+    <a asp-action="KnowledgeSharing">
+        <i class="bi bi-chat-left-text"></i> Knowledge Sharing
+    </a>
+
+</aside>

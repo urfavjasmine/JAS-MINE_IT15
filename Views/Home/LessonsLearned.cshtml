@@ -1,0 +1,443 @@
+﻿@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = "Lessons Learned";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    // UI-only (no backend)
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var canSubmit = true;
+
+    var lessons = new[]
+    {
+        new {
+            Id=1,
+            Title="COVID-19 Vaccination Drive Success",
+            Project="Health Program",
+            Summary="Successfully implemented community-wide vaccination drive reaching 95% of target population through mobile vaccination units and community partnerships.",
+            SubmittedBy="Ana Reyes",
+            Date="2024-02-01",
+            Status="approved",
+            Tags=new[]{"health","community","vaccination"},
+            Likes=24,
+            Comments=8
+        },
+        new {
+            Id=2,
+            Title="Digital Payment Implementation Challenges",
+            Project="Finance Modernization",
+            Summary="Key learnings from rolling out digital payment systems including training requirements and connectivity issues in remote areas.",
+            SubmittedBy="Pedro Garcia",
+            Date="2024-01-28",
+            Status="pending",
+            Tags=new[]{"finance","technology","digital"},
+            Likes=12,
+            Comments=5
+        },
+        new {
+            Id=3,
+            Title="Youth Sports Program Engagement",
+            Project="Youth Development",
+            Summary="Strategies that worked for engaging at-risk youth through sports programs and mentorship initiatives.",
+            SubmittedBy="Juan dela Cruz",
+            Date="2024-01-20",
+            Status="approved",
+            Tags=new[]{"youth","sports","community"},
+            Likes=45,
+            Comments=15
+        },
+        new {
+            Id=4,
+            Title="Disaster Preparedness Training Results",
+            Project="Disaster Risk Reduction",
+            Summary="Evaluation of community disaster preparedness training showing improved response times and awareness levels.",
+            SubmittedBy="Maria Santos",
+            Date="2024-01-15",
+            Status="approved",
+            Tags=new[]{"disaster","training","safety"},
+            Likes=33,
+            Comments=11
+        },
+    };
+
+    var projectTypes = new[] { "All Projects", "Health Program", "Finance Modernization", "Youth Development", "Disaster Risk Reduction", "Education", "Environment" };
+
+    string StatusBadge(string status) => status switch
+    {
+        "approved" => "<span class=\"badge badge-approved\">Approved</span>",
+        "pending" => "<span class=\"badge badge-pending\">Under Review</span>",
+        _ => $"<span class=\"badge badge-draft\">{status}</span>"
+    };
+}
+
+<style>
+    .page-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f2747;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .page-subtitle {
+        color: #6c7a89;
+        margin-top: 4px;
+    }
+
+    .soft-card {
+        background: #fff;
+        border: 1px solid #e6edf5;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(16,24,40,.06);
+    }
+
+    .btn-primary-custom {
+        background: #163a5f;
+        border-color: #163a5f;
+        border-radius: 10px;
+        height: 42px;
+        font-weight: 700;
+        padding: 0 18px;
+    }
+
+        .btn-primary-custom:hover {
+            background: #102d49;
+            border-color: #102d49;
+        }
+
+    .filter-card {
+        padding: 14px;
+    }
+
+    .search-wrap {
+        position: relative;
+    }
+
+    .search-ico {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7b8794;
+        font-size: 16px;
+    }
+
+    .search-input {
+        height: 46px;
+        padding-left: 42px;
+        border-radius: 10px;
+        border: 1px solid #d9e3ef;
+    }
+
+        .search-input:focus {
+            box-shadow: none;
+            border-color: #9bb7d6;
+        }
+
+    .select-input {
+        height: 46px;
+        border-radius: 10px;
+        border: 1px solid #d9e3ef;
+    }
+
+    /* Badges (match your other pages) */
+    .badge-approved {
+        background: #dff5e6;
+        color: #1b7a3a;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+    }
+
+    .badge-pending {
+        background: #fff3da;
+        color: #b36b00;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+    }
+
+    .badge-draft {
+        background: #eef2f6;
+        color: #55657a;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+    }
+
+    /* Lesson card */
+    .lesson-card {
+        padding: 18px 18px 12px 18px;
+    }
+
+    .lesson-project {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1b7a3a; /* green like screenshot label */
+        display: inline-block;
+        margin-bottom: 6px;
+    }
+
+    .lesson-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #1f2d3d;
+        margin: 0;
+    }
+
+    .lesson-summary {
+        color: #6c7a89;
+        margin-top: 10px;
+        margin-bottom: 14px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: #f1f5f9;
+        border-radius: 999px;
+        color: #6c7a89;
+        font-size: 12px;
+        border: 1px solid #e6edf5;
+    }
+
+    .card-footer-row {
+        border-top: 1px solid #eef3f8;
+        padding: 10px 18px 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .meta {
+        color: #6c7a89;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 14px;
+        white-space: nowrap;
+    }
+
+    .stats {
+        color: #6c7a89;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        white-space: nowrap;
+    }
+
+    .ico {
+        color: #6c7a89;
+    }
+
+    /* Modal */
+    .modal .form-label {
+        font-weight: 700;
+        color: #1f2d3d;
+    }
+
+    .modal .form-control, .modal .form-select {
+        border-radius: 10px;
+        border: 1px solid #d9e3ef;
+        height: 44px;
+    }
+
+    .modal textarea.form-control {
+        height: auto;
+    }
+</style>
+
+<div class="container-fluid">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="page-title">
+                <i class="bi bi-lightbulb" style="color:#f59e0b;"></i>
+                Lessons Learned
+            </div>
+            <div class="page-subtitle">Record and share insights from programs and activities</div>
+        </div>
+
+        @if (canSubmit)
+        {
+            <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#submitLessonModal">
+                <i class="bi bi-plus-lg me-2"></i>Submit Lesson
+            </button>
+        }
+    </div>
+
+    <!-- Filters -->
+    <div class="soft-card filter-card mb-4">
+        <div class="row g-3 align-items-center">
+            <div class="col-12 col-lg-8">
+                <div class="search-wrap">
+                    <span class="search-ico"><i class="bi bi-search"></i></span>
+                    <input id="lessonSearch" class="form-control search-input" placeholder="Search lessons..." />
+                </div>
+            </div>
+            <div class="col-12 col-lg-4">
+                <div class="position-relative">
+                    <span class="search-ico" style="left:14px;"><i class="bi bi-funnel"></i></span>
+                    <select id="projectFilter" class="form-select select-input" style="padding-left:42px;">
+                        @foreach (var p in projectTypes)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lessons Grid -->
+    <div id="lessonsGrid" class="row g-4">
+        @foreach (var lesson in lessons)
+        {
+            <div class="col-12 col-lg-6 lesson-item"
+                 data-title="@lesson.Title.ToLower()"
+                 data-summary="@lesson.Summary.ToLower()"
+                 data-tags="@string.Join(" ", lesson.Tags).ToLower()"
+                 data-project="@lesson.Project">
+                <div class="soft-card">
+                    <div class="lesson-card">
+                        <div class="d-flex align-items-start justify-content-between gap-3">
+                            <div>
+                                <div class="lesson-project">@lesson.Project</div>
+                                <h3 class="lesson-title">@lesson.Title</h3>
+                            </div>
+                            @Html.Raw(StatusBadge(lesson.Status))
+                        </div>
+
+                        <div class="lesson-summary">@lesson.Summary</div>
+
+                        <!-- Tags -->
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            @foreach (var t in lesson.Tags)
+                            {
+                                <span class="tag-pill">
+                                    <i class="bi bi-tag ico"></i> @t
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="card-footer-row">
+                        <div class="d-flex flex-wrap">
+                            <span class="meta">
+                                <i class="bi bi-person ico"></i> @lesson.SubmittedBy
+                            </span>
+                            <span class="meta">
+                                <i class="bi bi-calendar3 ico"></i> @lesson.Date
+                            </span>
+                        </div>
+
+                        <div class="stats">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-hand-thumbs-up ico"></i> @lesson.Likes
+                            </span>
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-chat-left-text ico"></i> @lesson.Comments
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Submit Lesson Modal (UI only) -->
+<div class="modal fade" id="submitLessonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:0;">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Submit Lesson Learned</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" placeholder="Brief descriptive title" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Project/Program</label>
+                    <select class="form-select">
+                        <option value="">Select project type</option>
+                        @foreach (var p in projectTypes.Skip(1))
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Summary</label>
+                    <textarea class="form-control" rows="4"
+                              placeholder="Describe the lesson learned, what worked, what didn't, and recommendations..."></textarea>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Tags (comma-separated)</label>
+                    <input class="form-control" placeholder="e.g., health, community" />
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:10px;height:42px;">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary-custom" data-bs-dismiss="modal">
+                    Submit for Review
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const search = document.getElementById("lessonSearch");
+        const project = document.getElementById("projectFilter");
+        const items = Array.from(document.querySelectorAll(".lesson-item"));
+
+        function applyFilters() {
+            const q = (search.value || "").toLowerCase().trim();
+            const p = project.value || "All Projects";
+
+            items.forEach(it => {
+                const title = it.getAttribute("data-title") || "";
+                const summary = it.getAttribute("data-summary") || "";
+                const tags = it.getAttribute("data-tags") || "";
+                const proj = it.getAttribute("data-project") || "";
+
+                const matchesSearch = !q || title.includes(q) || summary.includes(q) || tags.includes(q);
+                const matchesProject = (p === "All Projects") || (proj === p);
+
+                it.style.display = (matchesSearch && matchesProject) ? "" : "none";
+            });
+        }
+
+        search && search.addEventListener("input", applyFilters);
+        project && project.addEventListener("change", applyFilters);
+    })();
+</script>

@@ -1,0 +1,222 @@
+﻿@model JAS_MINE_IT15.Models.LoginViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Login";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - JAS-MINE</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+        body {
+            background: #f3f5f7;
+        }
+
+        .login-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            padding: 24px;
+        }
+
+        .branding {
+            text-align: center;
+        }
+
+        .brand-logo {
+            width: 120px;
+            height: auto;
+        }
+
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: .6px;
+            color: #0f2747;
+            margin-top: 14px;
+            margin-bottom: 6px;
+        }
+
+        .brand-subtitle {
+            color: #6c7a89;
+            margin: 0;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 560px;
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.10);
+        }
+
+            .login-card .card-body {
+                padding: 30px;
+            }
+
+        .welcome-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .welcome-sub {
+            color: #6c7a89;
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #1f2d3d;
+        }
+
+        .input-group-text {
+            background: #f8f9fa;
+            border-right: 0;
+        }
+
+        .form-control, .form-select {
+            height: 46px;
+            border-left: 0;
+        }
+
+            .form-control:focus, .form-select:focus {
+                box-shadow: none;
+            }
+
+        .btn-primary-custom {
+            background: #163a5f;
+            border-color: #163a5f;
+            color: #ffffff;
+            height: 46px;
+            font-weight: 600;
+        }
+
+            .btn-primary-custom:hover {
+                background: #102d49;
+                border-color: #102d49;
+                color: #ffffff;
+            }
+
+        .forgot-link {
+            text-decoration: none;
+        }
+
+            .forgot-link:hover {
+                text-decoration: underline;
+            }
+
+        .footer-text {
+            color: #7b8794;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-shell">
+
+        <div class="branding">
+            <img src="~/images/jasmine-logo.png" class="brand-logo" alt="JAS-MINE" />
+            <h2 class="brand-title">JAS-MINE</h2>
+            <p class="brand-subtitle">Integrated ERP-Based Knowledge Management System</p>
+        </div>
+
+        <div class="card login-card">
+            <div class="card-body">
+
+                <div class="text-center mb-4">
+                    <h3 class="welcome-title">Welcome Back</h3>
+                    <div class="welcome-sub">Sign in to access your barangay portal</div>
+                </div>
+
+                @* SHOW VALIDATION ERRORS (so you can see why it stays) *@
+                <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+                @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+
+                <form asp-action="Login" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-envelope"></i>
+                            </span>
+                            <input asp-for="Email" class="form-control" placeholder="Enter your email" />
+                        </div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                        </div>
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Select Role</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-shield-lock"></i>
+                            </span>
+                            <select asp-for="Role" class="form-select">
+                                <option value="">-- Select Role --</option>
+                                <option value="barangay_staff">Barangay Staff</option>
+                                <option value="barangay_secretary">Barangay Secretary</option>
+                                <option value="barangay_admin">Barangay Admin</option>
+                                <option value="super_admin">Super Admin</option>
+                                <option value="council_member">Council Member</option>
+                            </select>
+                        </div>
+                        <span asp-validation-for="Role" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-custom w-100">
+                        Sign In
+                    </button>
+
+                    <div class="text-center mt-3">
+                        <a class="forgot-link text-primary" asp-controller="Home" asp-action="ForgotPassword">
+                            Forgot your password?
+                        </a>
+                    </div>
+
+                    <div class="text-center mt-4 footer-text">
+                        © 2026 JAS-MINE. All rights reserved.
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    @* REQUIRED for client-side validation *@
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+</body>
+</html>

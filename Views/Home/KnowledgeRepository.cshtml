@@ -1,0 +1,454 @@
+﻿@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = "Knowledge Repository";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // Mock role (optional): if you want to hide Upload button based on role
+    // var role = Context.Session.GetString("Role") ?? "super_admin";
+    // var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+    var canUpload = true; // UI only (no backend)
+}
+
+<style>
+    /* Page header */
+    .page-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f2747;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .page-subtitle {
+        color: #6c7a89;
+        margin-top: 4px;
+    }
+
+    /* Card-like sections */
+    .soft-card {
+        background: #fff;
+        border: 1px solid #e6edf5;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(16, 24, 40, .06);
+    }
+
+    /* Search & select inside filter bar */
+    .filter-wrap {
+        padding: 16px;
+    }
+
+    .input-soft, .select-soft {
+        height: 46px;
+        border-radius: 10px;
+        border: 1px solid #d9e3ef;
+    }
+
+        .input-soft:focus, .select-soft:focus {
+            box-shadow: none;
+            border-color: #9bb7d6;
+        }
+
+    .input-icon-left {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #72839a;
+        font-size: 16px;
+        pointer-events: none;
+    }
+
+    .input-with-icon {
+        padding-left: 42px;
+    }
+
+    /* Upload button (top right) */
+    .btn-upload {
+        height: 44px;
+        border-radius: 10px;
+        font-weight: 600;
+        background: #163a5f;
+        border-color: #163a5f;
+    }
+
+        .btn-upload:hover {
+            background: #102d49;
+            border-color: #102d49;
+        }
+
+    /* Table style */
+    .table thead th {
+        color: #6c7a89;
+        font-weight: 700;
+        border-bottom: 1px solid #e6edf5 !important;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        white-space: nowrap;
+    }
+
+    .table tbody td {
+        vertical-align: middle;
+        border-bottom: 1px solid #eef3f8 !important;
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
+
+    .doc-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: #eef4ff;
+        display: grid;
+        place-items: center;
+        color: #163a5f;
+        flex: 0 0 auto;
+    }
+
+    .doc-title {
+        font-weight: 700;
+        color: #1f2d3d;
+        margin: 0;
+    }
+
+    .doc-tags {
+        color: #6c7a89;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 3px;
+    }
+
+    /* Badges */
+    .badge-approved {
+        background: #e8f7ee;
+        color: #1e7a3a;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+        line-height: 1;
+    }
+
+    .badge-pending {
+        background: #fff3df;
+        color: #b76a00;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+        line-height: 1;
+    }
+
+    .badge-draft {
+        background: #eef2f6;
+        color: #5a6b7f;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+        line-height: 1;
+    }
+
+    /* Actions button */
+    .btn-actions {
+        border: 0;
+        background: transparent;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+    }
+
+        .btn-actions:hover {
+            background: #f2f6fb;
+        }
+
+    /* Responsive hide columns like screenshot */
+    @@media (max-width: 991.98px) { /* lg down */
+        .col-uploadedby {
+            display: none;
+        }
+    }
+    @@media (max-width: 767.98px) { /* md down */
+        .col-category {
+            display: none;
+        }
+
+        .col-date {
+            display: none;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row align-items-md-start justify-content-between gap-3 mb-4">
+        <div>
+            <div class="page-title">
+                <i class="bi bi-folder2-open"></i>
+                Knowledge Repository
+            </div>
+            <div class="page-subtitle">Manage and access barangay documents securely</div>
+        </div>
+
+        @if (canUpload)
+        {
+            <button class="btn btn-primary btn-upload px-4">
+                <i class="bi bi-upload me-2"></i>
+                Upload Document
+            </button>
+        }
+    </div>
+
+    <!-- Filters Card -->
+    <div class="soft-card mb-4">
+        <div class="filter-wrap">
+            <div class="row g-3 align-items-center">
+                <div class="col-12 col-lg-9 position-relative">
+                    <i class="bi bi-search input-icon-left"></i>
+                    <input class="form-control input-soft input-with-icon"
+                           placeholder="Search by title, tags..." />
+                </div>
+
+                <div class="col-12 col-lg-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"
+                              style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
+                            <i class="bi bi-funnel"></i>
+                        </span>
+                        <select class="form-select select-soft border-start-0"
+                                style="border-radius:0 10px 10px 0;">
+                            <option selected>All Categories</option>
+                            <option>Resolutions</option>
+                            <option>Ordinances</option>
+                            <option>Memorandums</option>
+                            <option>Policies</option>
+                            <option>Reports</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents Table Card -->
+    <div class="soft-card">
+        <div class="p-4">
+            <h5 class="fw-bold mb-3">Documents (5)</h5>
+
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 360px;">Document</th>
+                            <th class="col-category">Category</th>
+                            <th class="col-uploadedby">Uploaded By</th>
+                            <th class="col-date">Date</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <!-- 1 -->
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="doc-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="doc-title">Resolution No. 2024-001</p>
+                                        <div class="doc-tags">
+                                            <i class="bi bi-tag"></i>
+                                            governance, budget
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="col-category text-muted">Resolutions</td>
+                            <td class="col-uploadedby text-muted">
+                                <i class="bi bi-person me-1"></i> Maria Santos
+                            </td>
+                            <td class="col-date text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> 2024-02-01
+                            </td>
+                            <td><span class="badge-approved">Approved</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn-actions" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 2 -->
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="doc-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="doc-title">Ordinance on Waste Management</p>
+                                        <div class="doc-tags">
+                                            <i class="bi bi-tag"></i>
+                                            environment, health
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="col-category text-muted">Ordinances</td>
+                            <td class="col-uploadedby text-muted">
+                                <i class="bi bi-person me-1"></i> Juan dela Cruz
+                            </td>
+                            <td class="col-date text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> 2024-01-28
+                            </td>
+                            <td><span class="badge-approved">Approved</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn-actions" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 3 -->
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="doc-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="doc-title">Memorandum Circular 2024-005</p>
+                                        <div class="doc-tags">
+                                            <i class="bi bi-tag"></i>
+                                            operations, staff
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="col-category text-muted">Memorandums</td>
+                            <td class="col-uploadedby text-muted">
+                                <i class="bi bi-person me-1"></i> Ana Reyes
+                            </td>
+                            <td class="col-date text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> 2024-01-25
+                            </td>
+                            <td><span class="badge-pending">Pending</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn-actions" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-success" href="#">Approve</a></li>
+                                        <li><a class="dropdown-item text-danger" href="#">Reject</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 4 -->
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="doc-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="doc-title">Budget Proposal FY 2024</p>
+                                        <div class="doc-tags">
+                                            <i class="bi bi-tag"></i>
+                                            budget, finance
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="col-category text-muted">Policies</td>
+                            <td class="col-uploadedby text-muted">
+                                <i class="bi bi-person me-1"></i> Pedro Garcia
+                            </td>
+                            <td class="col-date text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> 2024-01-20
+                            </td>
+                            <td><span class="badge-approved">Approved</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn-actions" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 5 -->
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="doc-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="doc-title">Community Health Program Guidelines</p>
+                                        <div class="doc-tags">
+                                            <i class="bi bi-tag"></i>
+                                            health, community
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="col-category text-muted">Policies</td>
+                            <td class="col-uploadedby text-muted">
+                                <i class="bi bi-person me-1"></i> Maria Santos
+                            </td>
+                            <td class="col-date text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> 2024-01-15
+                            </td>
+                            <td><span class="badge-draft">Draft</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn-actions" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
+                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>

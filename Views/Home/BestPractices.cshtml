@@ -1,0 +1,321 @@
+﻿@{
+    ViewData["Title"] = "Best Practices";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    /* ===== Page header ===== */
+    .page-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f2747;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .page-subtitle {
+        color: #6c7a89;
+        margin-top: 4px;
+    }
+
+    /* ===== Cards ===== */
+    .soft-card {
+        background: #fff;
+        border: 1px solid #e6edf5;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(16, 24, 40, .06);
+    }
+
+    /* Featured banner */
+    .featured-banner {
+        background: #eef8f0;
+        border: 1px solid rgba(30, 122, 58, .25);
+    }
+
+    /* Search/Filter inputs */
+    .input-soft, .select-soft {
+        height: 46px;
+        border-radius: 10px;
+        border: 1px solid #d9e3ef;
+    }
+
+        .input-soft:focus, .select-soft:focus {
+            box-shadow: none;
+            border-color: #9bb7d6;
+        }
+
+    .input-icon-left {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #72839a;
+        font-size: 16px;
+        pointer-events: none;
+    }
+
+    .input-with-icon {
+        padding-left: 42px;
+    }
+
+    /* Buttons */
+    .btn-outline-soft {
+        height: 44px;
+        border-radius: 10px;
+        font-weight: 600;
+        border: 1px solid #d9e3ef;
+        background: #fff;
+    }
+
+    .btn-primary-custom {
+        background: #163a5f;
+        border-color: #163a5f;
+        border-radius: 10px;
+        height: 42px;
+        font-weight: 700;
+    }
+
+        .btn-primary-custom:hover {
+            background: #102d49;
+            border-color: #102d49;
+        }
+
+    /* Category badges */
+    .cat-badge {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+        line-height: 1;
+    }
+
+    .cat-health {
+        background: rgba(25,135,84,.14);
+        color: #1e7a3a;
+    }
+
+    .cat-education {
+        background: rgba(13,202,240,.14);
+        color: #0b7285;
+    }
+
+    .cat-governance {
+        background: rgba(13,110,253,.14);
+        color: #0b3aa8;
+    }
+
+    .cat-environment {
+        background: rgba(25,135,84,.10);
+        color: #1e7a3a;
+    }
+
+    .cat-safety {
+        background: rgba(255,193,7,.18);
+        color: #b76a00;
+    }
+
+    .cat-finance {
+        background: rgba(111,66,193,.14);
+        color: #5a32a3;
+    }
+
+    .cat-default {
+        background: #eef2f6;
+        color: #5a6b7f;
+    }
+
+    /* Practice cards */
+    .practice-card {
+        border-radius: 12px;
+        border: 1px solid #e6edf5;
+        box-shadow: 0 4px 14px rgba(16, 24, 40, .06);
+        height: 100%;
+    }
+
+    .practice-title {
+        font-weight: 800;
+        color: #1f2d3d;
+        font-size: 16px;
+        margin-top: 10px;
+    }
+
+    .text-muted-sm {
+        color: #6c7a89;
+        font-size: 13px;
+    }
+
+    .meta-row {
+        color: #6c7a89;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .divider-top {
+        border-top: 1px solid #eef3f8;
+        padding-top: 12px;
+        margin-top: 10px;
+    }
+
+    /* Featured star */
+    .star-featured {
+        color: #f59f00;
+    }
+</style>
+
+@{
+    // ===== UI ONLY MOCK DATA =====
+    var bestPractices = new[]
+    {
+        new { Id=1, Title="Community-Based Health Monitoring System", Category="Health", Description="A volunteer-driven health monitoring program that tracks vital signs of elderly residents through regular home visits and mobile reporting.", Barangay="Brgy. San Antonio", DateAdded="2024-01-15", Rating=4.8, Implementations=12, Featured=true },
+        new { Id=2, Title="Youth Education Scholarship Program", Category="Education", Description="Sustainable scholarship fund management through community contributions and transparent selection process.", Barangay="Brgy. Malabon", DateAdded="2024-01-10", Rating=4.6, Implementations=8, Featured=true },
+        new { Id=3, Title="Digital Barangay Services Portal", Category="Governance", Description="Online portal for requesting certificates, permits, and tracking service requests with SMS notifications.", Barangay="Brgy. Poblacion", DateAdded="2024-01-05", Rating=4.9, Implementations=25, Featured=false },
+        new { Id=4, Title="Zero Waste Community Program", Category="Environment", Description="Comprehensive waste reduction initiative including composting centers, recycling hubs, and incentive programs.", Barangay="Brgy. Pinyahan", DateAdded="2023-12-20", Rating=4.7, Implementations=15, Featured=true },
+        new { Id=5, Title="Barangay Emergency Response System", Category="Safety", Description="Integrated emergency response system with trained volunteer responders, communication protocols, and equipment management.", Barangay="Brgy. Bagong Silang", DateAdded="2023-12-15", Rating=4.5, Implementations=10, Featured=false },
+    };
+
+    string CategoryClass(string cat) => cat switch
+    {
+        "Health" => "cat-badge cat-health",
+        "Education" => "cat-badge cat-education",
+        "Governance" => "cat-badge cat-governance",
+        "Environment" => "cat-badge cat-environment",
+        "Safety" => "cat-badge cat-safety",
+        "Finance" => "cat-badge cat-finance",
+        _ => "cat-badge cat-default"
+    };
+
+    // Featured item (best rated featured >= 4.8 like React logic)
+    var featured = bestPractices
+        .Where(p => p.Featured && p.Rating >= 4.8)
+        .OrderByDescending(p => p.Rating)
+        .FirstOrDefault();
+}
+
+<div class="container-fluid">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row align-items-md-start justify-content-between gap-3 mb-4">
+        <div>
+            <div class="page-title">
+                <i class="bi bi-award"></i>
+                Best Practices Database
+            </div>
+            <div class="page-subtitle">Discover and learn from proven solutions across barangays</div>
+        </div>
+
+        <button class="btn btn-outline-soft px-4">
+            <i class="bi bi-download me-2"></i>
+            Export to PDF
+        </button>
+    </div>
+
+    <!-- Featured Banner -->
+    <div class="soft-card featured-banner mb-4">
+        <div class="p-4 p-md-5">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-star-fill star-featured"></i>
+                <span class="fw-bold">Featured Practice</span>
+            </div>
+
+            <h3 class="fw-bold mb-2" style="color:#1f2d3d;">
+                @(featured?.Title ?? "Featured Practice")
+            </h3>
+
+            <p class="text-muted mb-3" style="max-width: 920px;">
+                @(featured?.Description ?? "No featured practice available.")
+            </p>
+
+            <button class="btn btn-primary-custom px-4">
+                Learn More
+                <i class="bi bi-box-arrow-up-right ms-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="soft-card mb-4">
+        <div class="p-3 p-md-4">
+            <div class="row g-3 align-items-center">
+                <div class="col-12 col-lg-9 position-relative">
+                    <i class="bi bi-search input-icon-left"></i>
+                    <input class="form-control input-soft input-with-icon"
+                           placeholder="Search best practices..." />
+                </div>
+
+                <div class="col-12 col-lg-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"
+                              style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
+                            <i class="bi bi-funnel"></i>
+                        </span>
+                        <select class="form-select select-soft border-start-0"
+                                style="border-radius:0 10px 10px 0;">
+                            <option selected>All Categories</option>
+                            <option>Health</option>
+                            <option>Education</option>
+                            <option>Governance</option>
+                            <option>Environment</option>
+                            <option>Safety</option>
+                            <option>Finance</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Practices Grid -->
+    <div class="row g-4">
+        @foreach (var p in bestPractices)
+        {
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card practice-card">
+                    <div class="card-body p-4 d-flex flex-column">
+
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="@CategoryClass(p.Category)">@p.Category</span>
+
+                            @if (p.Featured)
+                            {
+                                <i class="bi bi-star-fill star-featured"></i>
+                            }
+                        </div>
+
+                        <div class="practice-title">@p.Title</div>
+
+                        <p class="text-muted-sm mt-2 mb-3" style="min-height: 54px;">
+                            @p.Description
+                        </p>
+
+                        <div class="mt-auto">
+                            <div class="meta-row mb-2">
+                                <i class="bi bi-building"></i>
+                                <span>@p.Barangay</span>
+                            </div>
+
+                            <div class="meta-row">
+                                <i class="bi bi-calendar3"></i>
+                                <span>@p.DateAdded</span>
+                            </div>
+
+                            <div class="divider-top d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-star-fill star-featured"></i>
+                                    <span class="fw-bold">@p.Rating</span>
+                                </div>
+                                <span class="text-muted-sm">@p.Implementations implementations</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+</div>

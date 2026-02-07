@@ -1,0 +1,410 @@
+﻿@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = "Knowledge Sharing";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // UI-only user (no backend)
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var initials = string.Join("", userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(x => x[0])).ToUpper();
+    if (initials.Length > 2) { initials = initials[..2]; }
+
+    // ===== MOCK DATA (UI only) =====
+    var announcements = new[]
+    {
+        new { Id=1, Title="New Document Submission Guidelines", Content="All document submissions must now include the new metadata form. Please review the updated guidelines in the Knowledge Repository.", Author="Barangay Administrator", Date="2024-02-01", Pinned=true, Likes=45, Comments=12 },
+        new { Id=2, Title="System Maintenance Schedule", Content="JAS-MINE will undergo scheduled maintenance on February 15, 2024 from 10:00 PM to 12:00 AM. Please save your work beforehand.", Author="System Admin", Date="2024-01-30", Pinned=true, Likes=23, Comments=5 },
+    };
+
+    var discussions = new[]
+    {
+        new { Id=1, Title="Best approach for community health monitoring?", Content="Looking for suggestions on implementing a sustainable health monitoring program for our senior citizens...", Author="Maria Santos", Avatar="MS", Date="2024-02-02", Category="Health", Replies=8, Likes=15 },
+        new { Id=2, Title="Waste segregation enforcement strategies", Content="Our barangay is struggling with waste segregation compliance. What strategies have worked for others?", Author="Juan dela Cruz", Avatar="JD", Date="2024-02-01", Category="Environment", Replies=12, Likes=28 },
+        new { Id=3, Title="Youth engagement programs success stories", Content="Share your successful youth engagement programs! We want to replicate what works.", Author="Ana Reyes", Avatar="AR", Date="2024-01-30", Category="Youth", Replies=6, Likes=22 },
+    };
+
+    var sharedDocuments = new[]
+    {
+        new { Id=1, Title="Community Health Survey Template", SharedBy="Maria Santos", Date="2024-02-01", Downloads=34 },
+        new { Id=2, Title="Budget Planning Worksheet", SharedBy="Pedro Garcia", Date="2024-01-28", Downloads=56 },
+        new { Id=3, Title="Event Planning Checklist", SharedBy="Ana Reyes", Date="2024-01-25", Downloads=42 },
+    };
+
+    // UI-only permissions (no backend)
+    var canPost = true;
+    var canAnnounce = true;
+
+    string CatBadge(string cat) => cat switch
+    {
+        "Health" => "badge badge-soft bg-success-subtle text-success-emphasis border border-success-subtle",
+        "Environment" => "badge badge-soft bg-primary-subtle text-primary-emphasis border border-primary-subtle",
+        "Youth" => "badge badge-soft bg-info-subtle text-info-emphasis border border-info-subtle",
+        _ => "badge badge-soft bg-secondary-subtle text-secondary-emphasis border"
+    };
+}
+
+<style>
+    .page-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f2747;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .page-subtitle {
+        color: #6c7a89;
+        margin-top: 4px;
+    }
+
+    .soft-card {
+        background: #fff;
+        border: 1px solid #e6edf5;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px rgba(16,24,40,.06);
+    }
+
+    .avatar-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: #fff;
+        background: #163a5f;
+        flex: 0 0 auto;
+    }
+
+    .avatar-small {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: #fff;
+        background: #163a5f;
+        border: 2px solid #fff;
+    }
+
+    .btn-primary-custom {
+        background: #163a5f;
+        border-color: #163a5f;
+        border-radius: 10px;
+        height: 40px;
+        font-weight: 700;
+    }
+
+        .btn-primary-custom:hover {
+            background: #102d49;
+            border-color: #102d49;
+        }
+
+    .btn-ghost {
+        background: transparent;
+        border: 0;
+        padding: 6px 10px;
+        border-radius: 10px;
+        color: #6c7a89;
+        font-weight: 600;
+    }
+
+        .btn-ghost:hover {
+            background: #f1f5f9;
+            color: #163a5f;
+        }
+
+    .tab-pill {
+        border: 1px solid #e6edf5;
+        background: #f7f9fb;
+        border-radius: 10px;
+        padding: 6px;
+        display: inline-flex;
+        gap: 6px;
+    }
+
+        .tab-pill button {
+            border: 0;
+            background: transparent;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            color: #6c7a89;
+        }
+
+            .tab-pill button.active {
+                background: #ffffff;
+                color: #1f2d3d;
+                box-shadow: 0 2px 10px rgba(16,24,40,.06);
+            }
+
+    .post-textarea {
+        border: 1px solid #d9e3ef;
+        border-radius: 12px;
+        padding: 12px 14px;
+        resize: none;
+    }
+
+        .post-textarea:focus {
+            outline: none;
+            border-color: #9bb7d6;
+            box-shadow: none;
+        }
+
+    .discussion-card:hover {
+        border-color: rgba(22,58,95,.20) !important;
+    }
+
+    .muted-sm {
+        color: #6c7a89;
+        font-size: 13px;
+    }
+
+    .meta-sm {
+        color: #6c7a89;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .doc-pill {
+        background: #f6f8fb;
+        border-radius: 12px;
+        padding: 12px 12px;
+        cursor: pointer;
+    }
+
+        .doc-pill:hover {
+            background: #eef3f8;
+        }
+
+    .k-border-top {
+        border-top: 1px solid #eef3f8;
+    }
+</style>
+
+<div class="container-fluid">
+
+    <!-- Header -->
+    <div class="mb-4">
+        <div class="page-title">
+            <i class="bi bi-chat-left-text"></i>
+            Knowledge Sharing Portal
+        </div>
+        <div class="page-subtitle">Connect, share, and learn from the community</div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Main -->
+        <div class="col-12 col-lg-8">
+
+            <!-- New Post -->
+            @if (canPost)
+            {
+                <div class="soft-card mb-4">
+                    <div class="p-4">
+                        <div class="d-flex gap-3">
+                            <div class="avatar-circle">@initials</div>
+
+                            <div class="flex-grow-1">
+                                <textarea class="w-100 post-textarea" rows="3"
+                                      placeholder="Share knowledge, ask questions, or start a discussion..."></textarea>
+
+                                <div class="d-flex justify-content-end mt-3">
+                                    <button class="btn btn-primary-custom px-4" disabled>
+                                        <i class="bi bi-plus-lg me-2"></i>Post
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Tabs -->
+            <div class="mb-3">
+                <div class="tab-pill">
+                    <button id="tabDiscussions" class="active" type="button" onclick="showTab('discussions')">Discussions</button>
+                    <button id="tabAnnouncements" type="button" onclick="showTab('announcements')">Announcements</button>
+                </div>
+            </div>
+
+            <!-- Discussions -->
+            <div id="panelDiscussions" class="d-block">
+                @foreach (var d in discussions)
+                {
+                    <div class="soft-card discussion-card mb-3" style="border:1px solid #e6edf5;">
+                        <div class="p-4">
+                            <div class="d-flex gap-3">
+                                <div class="avatar-circle" style="background:#2f7d32;">@d.Avatar</div>
+
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex align-items-start justify-content-between gap-2">
+                                        <div>
+                                            <span class="@CatBadge(d.Category)">@d.Category</span>
+                                            <div class="fw-bold mt-2" style="color:#1f2d3d;">@d.Title</div>
+                                        </div>
+
+                                        <button class="btn-ghost" type="button" title="More">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="muted-sm mt-1" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+                                        @d.Content
+                                    </div>
+
+                                    <div class="d-flex gap-4 mt-3">
+                                        <div class="meta-sm">
+                                            <i class="bi bi-person"></i> @d.Author
+                                        </div>
+                                        <div class="meta-sm">
+                                            <i class="bi bi-calendar3"></i> @d.Date
+                                        </div>
+                                    </div>
+
+                                    <div class="k-border-top mt-3 pt-3 d-flex gap-2 flex-wrap">
+                                        <button class="btn-ghost" type="button">
+                                            <i class="bi bi-hand-thumbs-up me-2"></i>@d.Likes
+                                        </button>
+                                        <button class="btn-ghost" type="button">
+                                            <i class="bi bi-chat-dots me-2"></i>@d.Replies replies
+                                        </button>
+                                        <button class="btn-ghost" type="button">
+                                            <i class="bi bi-share me-2"></i>Share
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Announcements -->
+            <div id="panelAnnouncements" class="d-none">
+                @if (canAnnounce)
+                {
+                    <button class="btn btn-primary-custom w-100 mb-3">
+                        <i class="bi bi-bell me-2"></i>Create Announcement
+                    </button>
+                }
+
+                @foreach (var a in announcements)
+                {
+                    <div class="soft-card mb-3" style="border:1px solid rgba(22,58,95,.20);">
+                        <div class="p-4">
+                            <div class="d-flex align-items-start gap-3">
+                                @if (a.Pinned)
+                                {
+                                    <i class="bi bi-pin-angle-fill" style="color:#163a5f; margin-top:2px;"></i>
+                                }
+
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold" style="color:#1f2d3d;">@a.Title</div>
+                                    <div class="muted-sm mt-1">@a.Content</div>
+
+                                    <div class="mt-3 d-flex align-items-center gap-2" style="color:#6c7a89; font-size:12px;">
+                                        <span>@a.Author</span>
+                                        <span>•</span>
+                                        <span>@a.Date</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-12 col-lg-4">
+
+            <!-- Shared Documents -->
+            <div class="soft-card mb-4">
+                <div class="p-4 pb-2">
+                    <div class="fw-bold d-flex align-items-center gap-2" style="font-size:18px; color:#1f2d3d;">
+                        <i class="bi bi-file-earmark-text" style="color:#6c7a89;"></i>
+                        Shared Documents
+                    </div>
+                </div>
+
+                <div class="p-4 pt-2">
+                    <div class="d-grid gap-2">
+                        @foreach (var doc in sharedDocuments)
+                        {
+                            <div class="doc-pill">
+                                <div class="fw-semibold" style="color:#1f2d3d;">@doc.Title</div>
+                                <div class="muted-sm">@doc.SharedBy • @doc.Downloads downloads</div>
+                            </div>
+                        }
+                    </div>
+
+                    <button class="btn btn-outline-secondary w-100 mt-3" style="height:44px; border-radius:10px;">
+                        View All Documents
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Members -->
+            <div class="soft-card">
+                <div class="p-4 pb-2">
+                    <div class="fw-bold" style="font-size:18px; color:#1f2d3d;">
+                        Active Members
+                    </div>
+                </div>
+
+                <div class="p-4 pt-2">
+                    <div class="d-flex align-items-center" style="gap:0; margin-left: 2px;">
+                        @{
+                            var members = new[] { "MS", "JD", "AR", "PG", "LC" };
+                            foreach (var m in members)
+                            {
+                                <div class="avatar-small" style="margin-left:-6px;">@m</div>
+                            }
+                        }
+                        <div class="d-inline-flex align-items-center justify-content-center"
+                             style="width:34px;height:34px;border-radius:999px;background:#eef2f6;color:#6c7a89;font-weight:800;margin-left:-6px;border:2px solid #fff;font-size:12px;">
+                            +12
+                        </div>
+                    </div>
+
+                    <div class="muted-sm mt-3">17 members online</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function showTab(which) {
+        const discBtn = document.getElementById("tabDiscussions");
+        const annBtn = document.getElementById("tabAnnouncements");
+        const discPanel = document.getElementById("panelDiscussions");
+        const annPanel = document.getElementById("panelAnnouncements");
+
+        if (which === "announcements") { 
+            discBtn.classList.remove("active");
+            annBtn.classList.add("active");
+            discPanel.classList.add("d-none");
+            discPanel.classList.remove("d-block");
+            annPanel.classList.remove("d-none");
+            annPanel.classList.add("d-block");
+        } else {
+            annBtn.classList.remove("active");
+            discBtn.classList.add("active");
+            annPanel.classList.add("d-none");
+            annPanel.classList.remove("d-block");
+            discPanel.classList.remove("d-none");
+            discPanel.classList.add("d-block");
+        }
+    }
+</script>

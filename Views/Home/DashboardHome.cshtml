@@ -1,0 +1,289 @@
+﻿@using Microsoft.AspNetCore.Http
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // Display only (no backend)
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
+    var role = Context.Session.GetString("Role") ?? "super_admin";
+
+    var roleLabel = role switch
+    {
+        "super_admin" => "Super Admin",
+        "barangay_admin" => "Barangay Admin",
+        "barangay_secretary" => "Barangay Secretary",
+        "barangay_staff" => "Barangay Staff",
+        "council_member" => "Council Member",
+        _ => "User"
+    };
+
+
+    // ===== Mock Stats =====
+    var stats = new[]
+    {
+        new { Label = "Total Documents", Value = "1,248", Change = "+12%", Icon = "bi-folder2-open", IconBg = "bg-primary-subtle", IconColor = "text-primary" },
+        new { Label = "Active Policies", Value = "86",    Change = "+3%",  Icon = "bi-file-earmark-text", IconBg = "bg-success-subtle", IconColor = "text-success" },
+        new { Label = "Lessons Learned", Value = "342",   Change = "+8%",  Icon = "bi-lightbulb", IconBg = "bg-warning-subtle", IconColor = "text-warning" },
+        new { Label = "Best Practices",  Value = "127",   Change = "+5%",  Icon = "bi-award", IconBg = "bg-info-subtle", IconColor = "text-info" },
+    };
+
+    // ===== Mock Recent Activity =====
+    var recentActivity = new[]
+    {
+        new { Action = "Document uploaded", Item = "Resolution No. 2024-001", User = "Maria Santos", Time = "5 min ago",  Status = "pending" },
+        new { Action = "Policy approved",   Item = "Waste Management Guidelines", User = "Juan dela Cruz", Time = "1 hour ago", Status = "approved" },
+        new { Action = "Lesson submitted",  Item = "COVID-19 Response Insights", User = "Ana Reyes", Time = "2 hours ago", Status = "pending" },
+        new { Action = "Best practice added", Item = "Community Health Program", User = "Pedro Garcia", Time = "3 hours ago", Status = "approved" },
+        new { Action = "Document rejected", Item = "Budget Proposal Draft", User = "System", Time = "4 hours ago", Status = "rejected" },
+    };
+
+    // ===== Mock Quick Actions =====
+    var quickActions = new[]
+    {
+        new { Label = "Upload Document", Icon = "bi-upload", Url = Url.Action("KnowledgeRepository","Home") },
+        new { Label = "Create Policy", Icon = "bi-file-earmark-plus", Url = Url.Action("PoliciesManagement","Home") },
+        new { Label = "Submit Lesson", Icon = "bi-lightbulb", Url = Url.Action("LessonsLearned","Home") },
+        new { Label = "View Best Practices", Icon = "bi-award", Url = Url.Action("BestPractices","Home") }
+    };
+
+    // ===== Mock Announcements =====
+    var announcements = new[]
+    {
+        new { Title = "System Maintenance Notice", Content = "Scheduled maintenance on February 15, 2024 from 10PM-12AM.", Priority = "info" },
+        new { Title = "New Policy Guidelines Released", Content = "Updated guidelines for document submission now available.", Priority = "important" },
+    };
+
+    string StatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "approved" => "badge bg-success-subtle text-success border border-success-subtle",
+            "pending" => "badge bg-warning-subtle text-warning border border-warning-subtle",
+            "rejected" => "badge bg-danger-subtle text-danger border border-danger-subtle",
+            _ => "badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+        };
+    }
+
+    string StatusIcon(string status)
+    {
+        return status switch
+        {
+            "approved" => "bi-check-circle text-success",
+            "rejected" => "bi-exclamation-circle text-danger",
+            _ => "bi-clock text-warning"
+        };
+    }
+}
+
+<style>
+    /* Page spacing like screenshot */
+    .dash-wrap {
+        padding: 14px 6px;
+    }
+
+    .dash-title {
+        font-size: 34px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+
+    .dash-sub {
+        color: #6b778a;
+        margin-bottom: 18px;
+    }
+
+    /* Stat cards */
+    .stat-card {
+        border: 1px solid #e6ebf2;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(16,24,40,.06);
+        background: #fff;
+    }
+
+        .stat-card .stat-label {
+            color: #6b778a;
+            font-size: 14px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-top: 6px;
+        }
+
+    /* Panels */
+    .panel-card {
+        border: 1px solid #e6ebf2;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(16,24,40,.06);
+        background: #fff;
+    }
+
+    /* Recent activity items */
+    .activity-item {
+        padding: 14px 0;
+        border-bottom: 1px solid #edf1f7;
+    }
+
+        .activity-item:last-child {
+            border-bottom: 0;
+        }
+
+    .activity-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f2f5f9;
+    }
+
+    /* Quick action buttons */
+    .qa-btn {
+        border-radius: 10px;
+        border: 1px solid #e6ebf2;
+        background: #fff;
+        padding: 12px 14px;
+        text-align: left;
+        width: 100%;
+    }
+
+        .qa-btn:hover {
+            background: #f7f9fc;
+        }
+</style>
+
+<div class="dash-wrap">
+
+    <!-- Header -->
+    <div>
+        <div class="dash-title">Dashboard</div>
+        <div class="dash-sub">
+            Welcome to JAS-MINE Knowledge Management System • @roleLabel
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        @foreach (var s in stats)
+        {
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-card p-4 h-100">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <div class="stat-label">@s.Label</div>
+                            <div class="stat-value">@s.Value</div>
+                        </div>
+                        <div class="@s.IconBg @s.IconColor" style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi @s.Icon" style="font-size:20px;"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-3" style="font-size:12px;">
+                        <i class="bi bi-graph-up-arrow text-success"></i>
+                        <span class="text-success fw-semibold">@s.Change</span>
+                        <span class="text-muted">from last month</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Main Grid -->
+    <div class="row g-4">
+
+        <!-- Recent Activity (left) -->
+        <div class="col-12 col-lg-8">
+            <div class="panel-card">
+                <div class="p-4 pb-2 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-clock text-muted"></i>
+                        <div class="fw-bold" style="font-size:18px;">Recent Activity</div>
+                    </div>
+
+                    <a class="btn btn-link text-decoration-none fw-semibold" href="#" style="color:#163a5f;">
+                        View all <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
+                <div class="px-4 pb-4">
+                    @foreach (var a in recentActivity)
+                    {
+                        <div class="activity-item d-flex align-items-start gap-3">
+                            <div class="activity-icon">
+                                <i class="bi @StatusIcon(a.Status)"></i>
+                            </div>
+
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div class="fw-semibold">@a.Action</div>
+                                <div class="text-muted text-truncate">@a.Item</div>
+                                <div class="text-muted" style="font-size:12px;margin-top:4px;">
+                                    @a.User • @a.Time
+                                </div>
+                            </div>
+
+                            <span class="@StatusBadgeClass(a.Status) px-3 py-2 rounded-pill" style="font-weight:600;">
+                                @(a.Status == "approved" ? "Approved" : a.Status == "pending" ? "Pending" : "Rejected")
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-12 col-lg-4">
+            <div class="d-flex flex-column gap-4">
+
+                <!-- Quick Actions -->
+                <div class="panel-card">
+                    <div class="p-4 pb-2">
+                        <div class="fw-bold" style="font-size:18px;">Quick Actions</div>
+                    </div>
+
+                    <div class="p-4 pt-2 d-flex flex-column gap-2">
+
+                        @foreach (var q in quickActions)
+                        {
+                            <a class="qa-btn text-decoration-none text-dark" href="@q.Url">
+                                <i class="bi @q.Icon me-2 text-muted"></i>
+                                <span class="fw-semibold">@q.Label</span>
+                            </a>
+                        }
+
+                    </div>
+                </div>
+
+                <!-- Announcements -->
+                <div class="panel-card">
+                    <div class="p-4 pb-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-people text-muted"></i>
+                        <div class="fw-bold" style="font-size:18px;">Announcements</div>
+                    </div>
+
+                    <div class="p-4 pt-2 d-flex flex-column gap-3">
+                        @foreach (var an in announcements)
+                        {
+                            var boxClass = an.Priority == "important"
+                            ? "border border-success-subtle bg-success-subtle"
+                            : "border border-secondary-subtle bg-light";
+
+                            <div class="p-3 rounded-3 @boxClass">
+                                <div class="fw-semibold">@an.Title</div>
+                                <div class="text-muted" style="font-size:12px;margin-top:4px;">
+                                    @an.Content
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div> 
+</div>
