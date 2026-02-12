@@ -1,12 +1,13 @@
-﻿@using Microsoft.AspNetCore.Http
+﻿@model JAS_MINE_IT15.Models.KnowledgeRepositoryViewModel
+@using Microsoft.AspNetCore.Http
+
 @{
     ViewData["Title"] = "Knowledge Repository";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // Mock role (optional): if you want to hide Upload button based on role
-    // var role = Context.Session.GetString("Role") ?? "super_admin";
-    // var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
-    var canUpload = true; // UI only (no backend)
+    // Use permissions from controller (NOT hardcoded)
+    var canUpload = Model.CanUpload;
+    var canApprove = Model.CanApprove;
 }
 
 <style>
@@ -15,7 +16,7 @@
         font-size: 28px;
         font-weight: 800;
         color: #0f2747;
-        margin: 0;
+        margin: 0; 
         display: flex;
         align-items: center;
         gap: 10px;
@@ -155,6 +156,17 @@
         line-height: 1;
     }
 
+    .badge-rejected {
+        background: #fde8e8;
+        color: #dc3545;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 700;
+        font-size: 12px;
+        display: inline-block;
+        line-height: 1;
+    }
+
     /* Actions button */
     .btn-actions {
         border: 0;
@@ -174,6 +186,7 @@
             display: none;
         }
     }
+
     @@media (max-width: 767.98px) { /* md down */
         .col-category {
             display: none;
@@ -199,48 +212,60 @@
 
         @if (canUpload)
         {
-            <button class="btn btn-primary btn-upload px-4">
+            <button class="btn btn-primary btn-upload px-4" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="bi bi-upload me-2"></i>
                 Upload Document
             </button>
         }
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+    {
+        <div class="alert alert-success">@Model.SuccessMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
     <!-- Filters Card -->
     <div class="soft-card mb-4">
         <div class="filter-wrap">
-            <div class="row g-3 align-items-center">
-                <div class="col-12 col-lg-9 position-relative">
-                    <i class="bi bi-search input-icon-left"></i>
-                    <input class="form-control input-soft input-with-icon"
-                           placeholder="Search by title, tags..." />
-                </div>
+            <form method="get" action="@Url.Action("KnowledgeRepository","Home")">
+                <div class="row g-3 align-items-center">
+                    <div class="col-12 col-lg-9 position-relative">
+                        <i class="bi bi-search input-icon-left"></i>
+                        <input class="form-control input-soft input-with-icon"
+                               name="q"
+                               value="@Model.SearchQuery"
+                               placeholder="Search by title, tags..." />
+                    </div>
 
-                <div class="col-12 col-lg-3">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"
-                              style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
-                            <i class="bi bi-funnel"></i>
-                        </span>
-                        <select class="form-select select-soft border-start-0"
-                                style="border-radius:0 10px 10px 0;">
-                            <option selected>All Categories</option>
-                            <option>Resolutions</option>
-                            <option>Ordinances</option>
-                            <option>Memorandums</option>
-                            <option>Policies</option>
-                            <option>Reports</option>
-                        </select>
+                    <div class="col-12 col-lg-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"
+                                  style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
+                                <i class="bi bi-funnel"></i>
+                            </span>
+                            <select class="form-select select-soft border-start-0"
+                                    name="category"
+                                    style="border-radius:0 10px 10px 0;">
+                                @foreach (var c in Model.Categories)
+                                {
+                                    <option value="@c" selected="@(Model.SelectedCategory == c)">@c</option>
+                                }
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
     <!-- Documents Table Card -->
     <div class="soft-card">
         <div class="p-4">
-            <h5 class="fw-bold mb-3">Documents (5)</h5>
+            <h5 class="fw-bold mb-3">Documents (@Model.Documents.Count)</h5>
 
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
@@ -256,194 +281,118 @@
                     </thead>
 
                     <tbody>
-                        <!-- 1 -->
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="doc-icon">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </div>
-                                    <div>
-                                        <p class="doc-title">Resolution No. 2024-001</p>
-                                        <div class="doc-tags">
-                                            <i class="bi bi-tag"></i>
-                                            governance, budget
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="col-category text-muted">Resolutions</td>
-                            <td class="col-uploadedby text-muted">
-                                <i class="bi bi-person me-1"></i> Maria Santos
-                            </td>
-                            <td class="col-date text-muted">
-                                <i class="bi bi-calendar3 me-1"></i> 2024-02-01
-                            </td>
-                            <td><span class="badge-approved">Approved</span></td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button class="btn-actions" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
+                        @if (Model.Documents.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No documents found.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var doc in Model.Documents)
+                            {
+                                string badgeHtml = doc.Status switch
+                                {
+                                                "approved" => "<span class=\"badge-approved\">Approved</span>",
+                                                "pending" => "<span class=\"badge-pending\">Pending</span>",
+                                                "rejected" => "<span class=\"badge-rejected\">Rejected</span>",
+                                    _ => "<span class=\"badge-draft\">Draft</span>"
+                                };
 
-                        <!-- 2 -->
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="doc-icon">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </div>
-                                    <div>
-                                        <p class="doc-title">Ordinance on Waste Management</p>
-                                        <div class="doc-tags">
-                                            <i class="bi bi-tag"></i>
-                                            environment, health
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="doc-icon">
+                                                <i class="bi bi-file-earmark-text"></i>
+                                            </div>
+                                            <div>
+                                                <p class="doc-title">@doc.Title</p>
+                                                <div class="doc-tags">
+                                                    <i class="bi bi-tag"></i>
+                                                    @doc.TagsCsv
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="col-category text-muted">Ordinances</td>
-                            <td class="col-uploadedby text-muted">
-                                <i class="bi bi-person me-1"></i> Juan dela Cruz
-                            </td>
-                            <td class="col-date text-muted">
-                                <i class="bi bi-calendar3 me-1"></i> 2024-01-28
-                            </td>
-                            <td><span class="badge-approved">Approved</span></td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button class="btn-actions" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
+                                    </td>
+                                    <td class="col-category text-muted">@doc.Category</td>
+                                    <td class="col-uploadedby text-muted">
+                                        <i class="bi bi-person me-1"></i> @doc.UploadedBy
+                                    </td>
+                                    <td class="col-date text-muted">
+                                        <i class="bi bi-calendar3 me-1"></i> @doc.Date
+                                    </td>
+                                    <td>@Html.Raw(badgeHtml)</td>
+                                    <td class="text-end">
+                                        <div class="dropdown">
+                                            <button class="btn-actions" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                                <!-- VIEW -->
+                                                <li>
+                                                    <button type="button" class="dropdown-item"
+                                                            data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                            onclick="openView('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.UploadedBy)','@doc.Date','@doc.Status','@doc.Version')">
+                                                        <i class="bi bi-eye me-2"></i>View
+                                                    </button>
+                                                </li>
 
-                        <!-- 3 -->
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="doc-icon">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </div>
-                                    <div>
-                                        <p class="doc-title">Memorandum Circular 2024-005</p>
-                                        <div class="doc-tags">
-                                            <i class="bi bi-tag"></i>
-                                            operations, staff
+                                                <!-- EDIT (only if canUpload) -->
+                                                @if (canUpload)
+                                                {
+                                                    <li>
+                                                        <button type="button" class="dropdown-item"
+                                                                data-bs-toggle="modal" data-bs-target="#editModal"
+                                                                onclick="openEdit('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)')">
+                                                            <i class="bi bi-pencil me-2"></i>Edit
+                                                        </button>
+                                                    </li>
+                                                }
+
+                                                <li>
+                                                    <a class="dropdown-item" href="#">
+                                                        <i class="bi bi-download me-2"></i>Download
+                                                    </a>
+                                                </li>
+
+                                                <!-- APPROVE/REJECT (only if canApprove and pending) -->
+                                                @if (canApprove && doc.Status == "pending")
+                                                {
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <form method="post" action="@Url.Action("ApproveDoc","Home")" class="m-0">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@doc.Id" />
+                                                            <button class="dropdown-item text-success" type="submit">Approve</button>
+                                                        </form>
+                                                    </li>
+                                                    <li>
+                                                        <form method="post" action="@Url.Action("RejectDoc","Home")" class="m-0">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@doc.Id" />
+                                                            <button class="dropdown-item text-danger" type="submit">Reject</button>
+                                                        </form>
+                                                    </li>
+                                                }
+
+                                                <!-- DELETE (only if canUpload) -->
+                                                @if (canUpload)
+                                                {
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <button type="button" class="dropdown-item text-danger"
+                                                                data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                                                onclick="openDelete('@doc.Id','@js(doc.Title)')">
+                                                            <i class="bi bi-trash me-2"></i>Delete
+                                                        </button>
+                                                    </li>
+                                                }
+                                            </ul>
                                         </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="col-category text-muted">Memorandums</td>
-                            <td class="col-uploadedby text-muted">
-                                <i class="bi bi-person me-1"></i> Ana Reyes
-                            </td>
-                            <td class="col-date text-muted">
-                                <i class="bi bi-calendar3 me-1"></i> 2024-01-25
-                            </td>
-                            <td><span class="badge-pending">Pending</span></td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button class="btn-actions" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-success" href="#">Approve</a></li>
-                                        <li><a class="dropdown-item text-danger" href="#">Reject</a></li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-
-                        <!-- 4 -->
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="doc-icon">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </div>
-                                    <div>
-                                        <p class="doc-title">Budget Proposal FY 2024</p>
-                                        <div class="doc-tags">
-                                            <i class="bi bi-tag"></i>
-                                            budget, finance
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="col-category text-muted">Policies</td>
-                            <td class="col-uploadedby text-muted">
-                                <i class="bi bi-person me-1"></i> Pedro Garcia
-                            </td>
-                            <td class="col-date text-muted">
-                                <i class="bi bi-calendar3 me-1"></i> 2024-01-20
-                            </td>
-                            <td><span class="badge-approved">Approved</span></td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button class="btn-actions" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-
-                        <!-- 5 -->
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="doc-icon">
-                                        <i class="bi bi-file-earmark-text"></i>
-                                    </div>
-                                    <div>
-                                        <p class="doc-title">Community Health Program Guidelines</p>
-                                        <div class="doc-tags">
-                                            <i class="bi bi-tag"></i>
-                                            health, community
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="col-category text-muted">Policies</td>
-                            <td class="col-uploadedby text-muted">
-                                <i class="bi bi-person me-1"></i> Maria Santos
-                            </td>
-                            <td class="col-date text-muted">
-                                <i class="bi bi-calendar3 me-1"></i> 2024-01-15
-                            </td>
-                            <td><span class="badge-draft">Draft</span></td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button class="btn-actions" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="bi bi-download me-2"></i>Download</a></li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-
+                                    </td>
+                                </tr>
+                            }
+                        }
                     </tbody>
                 </table>
             </div>
@@ -452,3 +401,185 @@
     </div>
 
 </div>
+
+<!-- UPLOAD MODAL -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="@Url.Action("CreateDoc","Home")">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload New Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Document Title</label>
+                            <input class="form-control input-soft" name="title" required />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">Category</label>
+                            <select class="form-select select-soft" name="category">
+                                <option>Resolutions</option>
+                                <option>Ordinances</option>
+                                <option>Memorandums</option>
+                                <option selected>Policies</option>
+                                <option>Reports</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">Tags (comma-separated)</label>
+                            <input class="form-control input-soft" name="tags" placeholder="e.g. governance, budget" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" rows="4" name="description"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary btn-upload" type="submit">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="@Url.Action("EditDoc","Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="eId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Document Title</label>
+                            <input class="form-control input-soft" name="title" id="eTitle" required />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">Category</label>
+                            <select class="form-select select-soft" name="category" id="eCategory">
+                                <option>Resolutions</option>
+                                <option>Ordinances</option>
+                                <option>Memorandums</option>
+                                <option>Policies</option>
+                                <option>Reports</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">Tags (comma-separated)</label>
+                            <input class="form-control input-soft" name="tags" id="eTags" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" rows="4" name="description" id="eDesc"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary btn-upload" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vTitle">Document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-muted small mb-2" id="vMeta"></div>
+                <div class="mb-2" id="vStatus"></div>
+                <div class="text-muted" id="vDesc"></div>
+                <hr />
+                <div class="small text-muted">
+                    <div><b>Category:</b> <span id="vCategory"></span></div>
+                    <div><b>Tags:</b> <span id="vTags"></span></div>
+                    <div><b>Uploaded By:</b> <span id="vBy"></span></div>
+                    <div><b>Date:</b> <span id="vDate"></span></div>
+                    <div><b>Version:</b> <span id="vVersion"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="@Url.Action("DeleteDoc","Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="dId" />
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Delete Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete "<span id="dTitle"></span>"?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" type="submit">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@functions {
+    // Safe JS string helper (prevents breaking quotes)
+    public string js(string? s)
+    {
+        s ??= "";
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+    }
+}
+
+<script>
+    function openEdit(id, title, category, tags, desc) {
+        document.getElementById('eId').value = id;
+        document.getElementById('eTitle').value = title;
+        document.getElementById('eCategory').value = category;
+        document.getElementById('eTags').value = tags;
+        document.getElementById('eDesc').value = desc;
+    }
+
+    function openView(id, title, category, tags, desc, by, date, status, version) {
+        document.getElementById('vTitle').innerText = title;
+        document.getElementById('vCategory').innerText = category;
+        document.getElementById('vTags').innerText = tags;
+        document.getElementById('vDesc').innerText = desc;
+        document.getElementById('vBy').innerText = by;
+        document.getElementById('vDate').innerText = date;
+        document.getElementById('vVersion').innerText = version;
+
+        let badge = "";
+        if (status === "approved") badge = '<span class="badge-approved">Approved</span>';
+        else if (status === "pending") badge = '<span class="badge-pending">Pending</span>';
+        else if (status === "rejected") badge = '<span class="badge-rejected">Rejected</span>';
+        else badge = '<span class="badge-draft">Draft</span>';
+
+        document.getElementById('vStatus').innerHTML = badge;
+        document.getElementById('vMeta').innerText = "Status: " + status + " • v" + version;
+    }
+
+    function openDelete(id, title) {
+        document.getElementById('dId').value = id;
+        document.getElementById('dTitle').innerText = title;
+    }
+</script>

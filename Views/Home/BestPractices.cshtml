@@ -1,4 +1,7 @@
-﻿@{
+﻿@model JAS_MINE_IT15.Models.BestPracticesViewModel
+@using Microsoft.AspNetCore.Http
+
+@{
     ViewData["Title"] = "Best Practices";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -28,13 +31,11 @@
         box-shadow: 0 4px 14px rgba(16, 24, 40, .06);
     }
 
-    /* Featured banner */
     .featured-banner {
         background: #eef8f0;
         border: 1px solid rgba(30, 122, 58, .25);
     }
 
-    /* Search/Filter inputs */
     .input-soft, .select-soft {
         height: 46px;
         border-radius: 10px;
@@ -60,7 +61,6 @@
         padding-left: 42px;
     }
 
-    /* Buttons */
     .btn-outline-soft {
         height: 44px;
         border-radius: 10px;
@@ -82,7 +82,6 @@
             border-color: #102d49;
         }
 
-    /* Category badges */
     .cat-badge {
         padding: 6px 10px;
         border-radius: 999px;
@@ -127,7 +126,6 @@
         color: #5a6b7f;
     }
 
-    /* Practice cards */
     .practice-card {
         border-radius: 12px;
         border: 1px solid #e6edf5;
@@ -161,23 +159,25 @@
         margin-top: 10px;
     }
 
-    /* Featured star */
     .star-featured {
         color: #f59f00;
     }
+
+    /* small dropdown button */
+    .btn-kebab {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 0;
+        background: transparent;
+    }
+
+        .btn-kebab:hover {
+            background: #f2f6fb;
+        }
 </style>
 
 @{
-    // ===== UI ONLY MOCK DATA =====
-    var bestPractices = new[]
-    {
-        new { Id=1, Title="Community-Based Health Monitoring System", Category="Health", Description="A volunteer-driven health monitoring program that tracks vital signs of elderly residents through regular home visits and mobile reporting.", Barangay="Brgy. San Antonio", DateAdded="2024-01-15", Rating=4.8, Implementations=12, Featured=true },
-        new { Id=2, Title="Youth Education Scholarship Program", Category="Education", Description="Sustainable scholarship fund management through community contributions and transparent selection process.", Barangay="Brgy. Malabon", DateAdded="2024-01-10", Rating=4.6, Implementations=8, Featured=true },
-        new { Id=3, Title="Digital Barangay Services Portal", Category="Governance", Description="Online portal for requesting certificates, permits, and tracking service requests with SMS notifications.", Barangay="Brgy. Poblacion", DateAdded="2024-01-05", Rating=4.9, Implementations=25, Featured=false },
-        new { Id=4, Title="Zero Waste Community Program", Category="Environment", Description="Comprehensive waste reduction initiative including composting centers, recycling hubs, and incentive programs.", Barangay="Brgy. Pinyahan", DateAdded="2023-12-20", Rating=4.7, Implementations=15, Featured=true },
-        new { Id=5, Title="Barangay Emergency Response System", Category="Safety", Description="Integrated emergency response system with trained volunteer responders, communication protocols, and equipment management.", Barangay="Brgy. Bagong Silang", DateAdded="2023-12-15", Rating=4.5, Implementations=10, Featured=false },
-    };
-
     string CategoryClass(string cat) => cat switch
     {
         "Health" => "cat-badge cat-health",
@@ -189,11 +189,7 @@
         _ => "cat-badge cat-default"
     };
 
-    // Featured item (best rated featured >= 4.8 like React logic)
-    var featured = bestPractices
-        .Where(p => p.Featured && p.Rating >= 4.8)
-        .OrderByDescending(p => p.Rating)
-        .FirstOrDefault();
+    var featured = Model.FeaturedPractice;
 }
 
 <div class="container-fluid">
@@ -208,70 +204,86 @@
             <div class="page-subtitle">Discover and learn from proven solutions across barangays</div>
         </div>
 
-        <button class="btn btn-outline-soft px-4">
-            <i class="bi bi-download me-2"></i>
-            Export to PDF
-        </button>
-    </div>
-
-    <!-- Featured Banner -->
-    <div class="soft-card featured-banner mb-4">
-        <div class="p-4 p-md-5">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-star-fill star-featured"></i>
-                <span class="fw-bold">Featured Practice</span>
-            </div>
-
-            <h3 class="fw-bold mb-2" style="color:#1f2d3d;">
-                @(featured?.Title ?? "Featured Practice")
-            </h3>
-
-            <p class="text-muted mb-3" style="max-width: 920px;">
-                @(featured?.Description ?? "No featured practice available.")
-            </p>
-
-            <button class="btn btn-primary-custom px-4">
-                Learn More
-                <i class="bi bi-box-arrow-up-right ms-2"></i>
+        <div class="d-flex gap-2">
+            @if (Model.CanManage)
+            {
+                <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#bpCreateModal">
+                    <i class="bi bi-plus-lg me-2"></i>Add Practice
+                </button>
+            }
+            <button class="btn btn-outline-soft px-4">
+                <i class="bi bi-download me-2"></i>
+                Export to PDF
             </button>
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="soft-card mb-4">
-        <div class="p-3 p-md-4">
-            <div class="row g-3 align-items-center">
-                <div class="col-12 col-lg-9 position-relative">
-                    <i class="bi bi-search input-icon-left"></i>
-                    <input class="form-control input-soft input-with-icon"
-                           placeholder="Search best practices..." />
+    <!-- Featured Banner -->
+    @if (featured != null)
+    {
+        <div class="soft-card featured-banner mb-4">
+            <div class="p-4 p-md-5">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-star-fill star-featured"></i>
+                    <span class="fw-bold">Featured Practice</span>
                 </div>
 
-                <div class="col-12 col-lg-3">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"
-                              style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
-                            <i class="bi bi-funnel"></i>
-                        </span>
-                        <select class="form-select select-soft border-start-0"
-                                style="border-radius:0 10px 10px 0;">
-                            <option selected>All Categories</option>
-                            <option>Health</option>
-                            <option>Education</option>
-                            <option>Governance</option>
-                            <option>Environment</option>
-                            <option>Safety</option>
-                            <option>Finance</option>
-                        </select>
+                <h3 class="fw-bold mb-2" style="color:#1f2d3d;">@featured.Title</h3>
+                <p class="text-muted mb-3" style="max-width: 920px;">@featured.Description</p>
+
+                <button class="btn btn-primary-custom px-4"
+                        data-bs-toggle="modal"
+                        data-bs-target="#bpViewModal"
+                        data-id="@featured.Id"
+                        data-title="@featured.Title"
+                        data-category="@featured.Category"
+                        data-desc="@featured.Description"
+                        data-barangay="@featured.Barangay"
+                        data-date="@featured.DateAdded"
+                        data-rating="@featured.Rating"
+                        data-impl="@featured.Implementations"
+                        data-featured="@featured.Featured">
+                    Learn More <i class="bi bi-box-arrow-up-right ms-2"></i>
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- Filters -->
+    <form method="get" asp-action="BestPractices">
+        <div class="soft-card mb-4">
+            <div class="p-3 p-md-4">
+                <div class="row g-3 align-items-center">
+                    <div class="col-12 col-lg-9 position-relative">
+                        <i class="bi bi-search input-icon-left"></i>
+                        <input name="q"
+                               value="@Model.SearchQuery"
+                               class="form-control input-soft input-with-icon"
+                               placeholder="Search best practices..." />
+                    </div>
+
+                    <div class="col-12 col-lg-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"
+                                  style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
+                                <i class="bi bi-funnel"></i>
+                            </span>
+                            <select name="cat" class="form-select select-soft border-start-0" style="border-radius:0 10px 10px 0;" onchange="this.form.submit()">
+                                @foreach (var c in Model.Categories)
+                                {
+                                    <option value="@c" selected="@(c == Model.SelectedCategory)">@c</option>
+                                }
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 
     <!-- Practices Grid -->
     <div class="row g-4">
-        @foreach (var p in bestPractices)
+        @foreach (var p in Model.Practices)
         {
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card practice-card">
@@ -280,10 +292,63 @@
                         <div class="d-flex align-items-start justify-content-between gap-2">
                             <span class="@CategoryClass(p.Category)">@p.Category</span>
 
-                            @if (p.Featured)
-                            {
-                                <i class="bi bi-star-fill star-featured"></i>
-                            }
+                            <div class="d-flex align-items-center gap-2">
+                                @if (p.Featured)
+                                {
+                                    <i class="bi bi-star-fill star-featured"></i>
+                                }
+
+                                <div class="dropdown">
+                                    <button class="btn-kebab" data-bs-toggle="dropdown" type="button">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li>
+                                            <button type="button" class="dropdown-item"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#bpViewModal"
+                                                    data-id="@p.Id"
+                                                    data-title="@p.Title"
+                                                    data-category="@p.Category"
+                                                    data-desc="@p.Description"
+                                                    data-barangay="@p.Barangay"
+                                                    data-date="@p.DateAdded"
+                                                    data-rating="@p.Rating"
+                                                    data-impl="@p.Implementations"
+                                                    data-featured="@p.Featured">
+                                                <i class="bi bi-eye me-2"></i>View
+                                            </button>
+                                        </li>
+
+                                        @if (Model.CanManage)
+                                        {
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#bpEditModal"
+                                                        data-id="@p.Id"
+                                                        data-title="@p.Title"
+                                                        data-category="@p.Category"
+                                                        data-desc="@p.Description"
+                                                        data-barangay="@p.Barangay">
+                                                    <i class="bi bi-pencil me-2"></i>Edit
+                                                </button>
+                                            </li>
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item text-danger"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#bpDeleteModal"
+                                                        data-id="@p.Id"
+                                                        data-title="@p.Title">
+                                                    <i class="bi bi-trash me-2"></i>Delete
+                                                </button>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="practice-title">@p.Title</div>
@@ -319,3 +384,243 @@
     </div>
 
 </div>
+
+<!-- =========================
+     CREATE MODAL
+========================= -->
+@if (Model.CanManage)
+{
+    <div class="modal fade" id="bpCreateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:12px;">
+                <form method="post" asp-action="CreatePractice">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Add Best Practice</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Title</label>
+                            <input name="title" class="form-control input-soft" placeholder="Practice title" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select name="category" class="form-select select-soft" required>
+                                @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Barangay</label>
+                            <input name="barangay" class="form-control input-soft" placeholder="Barangay name" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea name="description" class="form-control" rows="4" placeholder="Describe the best practice..."></textarea>
+                        </div>
+
+                        <!-- keep filters after action -->
+                        <input type="hidden" name="q" value="@Model.SearchQuery" />
+                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-soft px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary-custom px-4">Add Practice</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- =========================
+     EDIT MODAL
+========================= -->
+@if (Model.CanManage)
+{
+    <div class="modal fade" id="bpEditModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:12px;">
+                <form method="post" asp-action="EditPractice">
+                    @Html.AntiForgeryToken()
+
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Edit Best Practice</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="id" id="bpEditId" />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Title</label>
+                            <input name="title" id="bpEditTitle" class="form-control input-soft" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select name="category" id="bpEditCategory" class="form-select select-soft" required>
+                                @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Barangay</label>
+                            <input name="barangay" id="bpEditBarangay" class="form-control input-soft" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea name="description" id="bpEditDesc" class="form-control" rows="4"></textarea>
+                        </div>
+
+                        <input type="hidden" name="q" value="@Model.SearchQuery" />
+                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-soft px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary-custom px-4">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- =========================
+     VIEW MODAL
+========================= -->
+<div class="modal fade" id="bpViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="bpViewTitle">Practice Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="mb-2">
+                    <span class="cat-badge cat-default" id="bpViewCat">Category</span>
+                </div>
+
+                <p class="text-muted" id="bpViewDesc"></p>
+
+                <div class="row g-2 text-sm">
+                    <div class="col-6"><span class="text-muted">Barangay:</span> <span id="bpViewBarangay"></span></div>
+                    <div class="col-6"><span class="text-muted">Date:</span> <span id="bpViewDate"></span></div>
+                    <div class="col-6"><span class="text-muted">Rating:</span> <span id="bpViewRating"></span></div>
+                    <div class="col-6"><span class="text-muted">Implementations:</span> <span id="bpViewImpl"></span></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-soft px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================
+     DELETE MODAL
+========================= -->
+@if (Model.CanManage)
+{
+    <div class="modal fade" id="bpDeleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:12px;">
+                <form method="post" asp-action="DeletePractice">
+                    @Html.AntiForgeryToken()
+
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Delete Practice</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" name="id" id="bpDeleteId" />
+                        Are you sure you want to delete "<span class="fw-bold" id="bpDeleteTitle"></span>"?
+                        <input type="hidden" name="q" value="@Model.SearchQuery" />
+                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-soft px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4">Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // Populate VIEW modal
+        const bpViewModal = document.getElementById('bpViewModal');
+        if (bpViewModal) {
+            bpViewModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                if (!btn) return;
+
+                document.getElementById('bpViewTitle').textContent = btn.getAttribute('data-title') || 'Practice Details';
+                document.getElementById('bpViewDesc').textContent = btn.getAttribute('data-desc') || '';
+                document.getElementById('bpViewBarangay').textContent = btn.getAttribute('data-barangay') || '';
+                document.getElementById('bpViewDate').textContent = btn.getAttribute('data-date') || '';
+                document.getElementById('bpViewRating').textContent = btn.getAttribute('data-rating') || '0';
+                document.getElementById('bpViewImpl').textContent = btn.getAttribute('data-impl') || '0';
+
+                const cat = btn.getAttribute('data-category') || '';
+                const badge = document.getElementById('bpViewCat');
+                badge.textContent = cat || 'Category';
+                badge.className = 'cat-badge ' + (cat === 'Health' ? 'cat-health'
+                    : cat === 'Education' ? 'cat-education'
+                    : cat === 'Governance' ? 'cat-governance'
+                    : cat === 'Environment' ? 'cat-environment'
+                    : cat === 'Safety' ? 'cat-safety'
+                    : cat === 'Finance' ? 'cat-finance'
+                    : 'cat-default');
+            });
+        }
+
+        // Populate EDIT modal
+        const bpEditModal = document.getElementById('bpEditModal');
+        if (bpEditModal) {
+            bpEditModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                if (!btn) return;
+
+                document.getElementById('bpEditId').value = btn.getAttribute('data-id') || '';
+                document.getElementById('bpEditTitle').value = btn.getAttribute('data-title') || '';
+                document.getElementById('bpEditDesc').value = btn.getAttribute('data-desc') || '';
+                document.getElementById('bpEditBarangay').value = btn.getAttribute('data-barangay') || '';
+
+                const cat = btn.getAttribute('data-category') || '';
+                document.getElementById('bpEditCategory').value = cat;
+            });
+        }
+
+        // Populate DELETE modal
+        const bpDeleteModal = document.getElementById('bpDeleteModal');
+        if (bpDeleteModal) {
+            bpDeleteModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                if (!btn) return;
+
+                document.getElementById('bpDeleteId').value = btn.getAttribute('data-id') || '';
+                document.getElementById('bpDeleteTitle').textContent = btn.getAttribute('data-title') || '';
+            });
+        }
+    </script>
+}

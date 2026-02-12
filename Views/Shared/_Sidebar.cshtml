@@ -1,68 +1,357 @@
-﻿<style>
-    .sidebar {
+﻿@using Microsoft.AspNetCore.Http
+@{
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var roleLabel = Context.Session.GetString("RoleLabel") ?? "Super Admin";
+    var role = Context.Session.GetString("Role") ?? "";
+
+    // current path for active link highlight
+    var path = (Context.Request.Path.Value ?? "").ToLowerInvariant();
+
+    bool IsActive(string action, string controller = "Home")
+    {
+        var url = Url.Action(action, controller)?.ToLowerInvariant() ?? "";
+        return !string.IsNullOrEmpty(url) && path.StartsWith(url);
+    }
+}
+
+<style>
+    /* ===== Sidebar shell ===== */
+    .jm-sidebar {
         width: 260px;
-        height: 100vh;
-        background: #0f2c49;
-        color: #fff;
+        min-height: 100vh;
+        background: #123252; /* deep blue */
+        color: #e8f0ff;
+        position: sticky;
+        top: 0;
         display: flex;
         flex-direction: column;
+        border-right: 1px solid rgba(255,255,255,.08);
     }
 
-        .sidebar a {
-            color: #fff;
-            text-decoration: none;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-radius: 10px;
-            margin: 4px 8px;
+        .jm-sidebar.collapsed {
+            width: 78px;
         }
 
-            .sidebar a:hover {
-                background: rgba(255,255,255,.1);
-            }
+    .jm-top {
+        padding: 18px 18px 14px 18px;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
 
-        .sidebar .active {
-            background: rgba(255,255,255,.15);
+    .jm-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .jm-logo {
+        width: 40px;
+        height: 40px;
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden; 
+    }
+
+        .jm-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
         }
 
-    .sidebar-header {
-        padding: 18px;
-        font-weight: bold;
-        border-bottom: 1px solid rgba(255,255,255,.1);
+
+
+    .jm-brand-text {
+        min-width: 0;
+        line-height: 1.05;
+    }
+
+    .jm-title {
+        font-weight: 800;
+        font-size: 18px;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jm-subtitle {
+        font-size: 12px;
+        opacity: .75;
+        margin: 2px 0 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jm-toggle {
+        border: 0;
+        background: rgba(255,255,255,.10);
+        color: #e8f0ff;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+    }
+
+        .jm-toggle:hover {
+            background: rgba(255,255,255,.16);
+        }
+
+    /* ===== Menu ===== */
+    .jm-menu {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+        overflow: auto;
+    }
+
+    .jm-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        color: #e8f0ff;
+        text-decoration: none;
+        opacity: .92;
+    }
+
+        .jm-item:hover {
+            background: rgba(255,255,255,.08);
+            opacity: 1;
+        }
+
+        .jm-item.active {
+            background: rgba(255,255,255,.12);
+            opacity: 1;
+        }
+
+    .jm-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(255,255,255,.08);
+        flex: 0 0 auto;
+    }
+
+    .jm-text {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jm-section {
+        margin-top: 8px;
+        padding: 6px 10px 4px;
+        font-size: 12px;
+        font-weight: 700;
+        opacity: .6;
+        letter-spacing: .6px;
+    }
+
+    /* ===== Bottom user ===== */
+    .jm-bottom {
+        border-top: 1px solid rgba(255,255,255,.08);
+        padding: 14px 12px;
+        margin-top: auto;
+    }
+
+    .jm-user {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        min-width: 0;
+    }
+
+    .jm-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: #1e8b3d;
+        display: grid;
+        place-items: center; 
+        font-weight: 800;
+        color: #fff;
+        flex: 0 0 auto;
+    }
+
+    .jm-user-meta {
+        min-width: 0;
+        line-height: 1.1;
+    }
+
+    .jm-user-name {
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jm-user-role {
+        font-size: 12px;
+        opacity: .75;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jm-signout {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 12px;
+        text-decoration: none;
+        color: #e8f0ff;
+        background: rgba(0,0,0,.10);
+    }
+
+        .jm-signout:hover {
+            background: rgba(0,0,0,.18);
+        }
+
+    /* ===== Collapsed behavior ===== */
+    .jm-sidebar.collapsed .jm-brand-text,
+    .jm-sidebar.collapsed .jm-text,
+    .jm-sidebar.collapsed .jm-section,
+    .jm-sidebar.collapsed .jm-user-meta,
+    .jm-sidebar.collapsed .jm-signout span {
+        display: none;
+    }
+
+    .jm-sidebar.collapsed .jm-item {
+        justify-content: center;
+    }
+
+    .jm-sidebar.collapsed .jm-signout {
+        justify-content: center;
     }
 </style>
 
-<aside class="sidebar">
+<aside id="jmSidebar" class="jm-sidebar">
+    <div class="jm-top">
+        <div class="jm-brand">
+            <div class="jm-logo">
+                <img src="~/images/jasmine-logo.png" alt="Logo" />
+            </div>
 
-    <div class="sidebar-header">
-        JAS-MINE<br />
-        <small>Knowledge Portal</small>
+            <div class="jm-brand-text">
+                <p class="jm-title">JAS-MINE</p>
+                <p class="jm-subtitle">Knowledge Portal</p>
+            </div>
+        </div>
+
+        <button type="button" class="jm-toggle" onclick="jmToggleSidebar()" title="Toggle sidebar">
+            <span aria-hidden="true">‹</span>
+        </button>
     </div>
 
-    <a asp-controller="Home" asp-action="DashboardHome">
-        <i class="bi bi-grid"></i> Dashboard
-    </a>
+    <nav class="jm-menu">
+        <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
+            <div class="jm-icon"><i class="bi bi-grid"></i></div>
+            <div class="jm-text">Dashboard</div>
+        </a>
 
-    <a asp-action="KnowledgeRepository">
-        <i class="bi bi-folder2-open"></i> Knowledge Repository
-    </a>
+        <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
+            <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
+            <div class="jm-text">Knowledge Repository</div>
+        </a>
 
-    <a asp-action="PoliciesManagement">
-        <i class="bi bi-file-earmark-text"></i> Policies & Procedures
-    </a>
+        <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
+            <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
+            <div class="jm-text">Policies &amp; Procedures</div>
+        </a>
 
-    <a asp-action="LessonsLearned">
-        <i class="bi bi-lightbulb"></i> Lessons Learned
-    </a>
+        <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
+            <div class="jm-icon"><i class="bi bi-lightbulb"></i></div>
+            <div class="jm-text">Lessons Learned</div>
+        </a>
 
-    <a asp-action="BestPractices">
-        <i class="bi bi-award"></i> Best Practices
-    </a>
+        <a class="jm-item @(IsActive("BestPractices") ? "active" : "")" href="@Url.Action("BestPractices", "Home")">
+            <div class="jm-icon"><i class="bi bi-award"></i></div>
+            <div class="jm-text">Best Practices</div>
+        </a>
 
-    <a asp-action="KnowledgeSharing">
-        <i class="bi bi-chat-left-text"></i> Knowledge Sharing
-    </a>
+        <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
+            <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
+            <div class="jm-text">Knowledge Sharing</div>
+        </a>
+        </nav>
+            
+        @if (role == "super_admin" || role == "barangay_admin")
+       {
 
+        <div class="jm-section">ADMINISTRATION</div>
+
+        <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
+            <div class="jm-icon"><i class="bi bi-people"></i></div>
+            <div class="jm-text">User Management</div>
+        </a>
+
+        <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
+            <div class="jm-icon"><i class="bi bi-bell"></i></div>
+            <div class="jm-text">Announcements</div>
+        </a>
+
+        <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
+            <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
+            <div class="jm-text">Audit Logs</div>
+        </a>
+
+        <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
+            <div class="jm-icon"><i class="bi bi-gear"></i></div>
+            <div class="jm-text">Settings</div>
+        </a>
+    }
+
+
+    <div class="jm-bottom">
+        <div class="jm-user">
+            <div class="jm-avatar">@userName.Substring(0, 1).ToUpper()</div>
+            <div class="jm-user-meta">
+                <div class="jm-user-name">@userName</div>
+                <div class="jm-user-role">@roleLabel</div>
+            </div>
+        </div>
+
+        <a class="jm-signout" href="@Url.Action("Logout", "Home")">
+            <i class="bi bi-box-arrow-right"></i>
+            <span>Sign Out</span>
+        </a>
+    </div>
 </aside>
+
+<script>
+    // remember collapsed state
+    (function () {
+        try {
+            var collapsed = localStorage.getItem("jm_sidebar_collapsed") === "1";
+            if (collapsed) document.getElementById("jmSidebar").classList.add("collapsed");
+        } catch (e) { }
+    })();
+
+    function jmToggleSidebar() {
+        var el = document.getElementById("jmSidebar");
+        el.classList.toggle("collapsed");
+        try {
+            localStorage.setItem("jm_sidebar_collapsed", el.classList.contains("collapsed") ? "1" : "0");
+        } catch (e) { }
+    }
+</script>

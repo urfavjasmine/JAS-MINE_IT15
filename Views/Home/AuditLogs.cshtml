@@ -1,0 +1,332 @@
+﻿@model JAS_MINE_IT15.Models.AuditLogsViewModel
+@using Microsoft.AspNetCore.Http
+
+@{
+    ViewData["Title"] = "Audit Logs";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
+
+    string ActionBadge(string a) => a switch
+    {
+        "Approved" => "badge rounded-pill bg-success bg-opacity-10 text-success border border-success-subtle",
+        "Rejected" => "badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger-subtle",
+        "Deleted" => "badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger-subtle",
+        "Uploaded" => "badge rounded-pill bg-info bg-opacity-10 text-info border border-info-subtle",
+        "Created" => "badge rounded-pill bg-info bg-opacity-10 text-info border border-info-subtle",
+        "Submitted" => "badge rounded-pill bg-info bg-opacity-10 text-info border border-info-subtle",
+        "Posted" => "badge rounded-pill bg-info bg-opacity-10 text-info border border-info-subtle",
+        "Updated" => "badge rounded-pill bg-warning bg-opacity-10 text-warning border border-warning-subtle",
+        _ => "badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle"
+    };
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+<style>
+    .page-wrap {
+        padding: 18px;
+    }
+
+    .stat-card {
+        border-radius: 12px;
+    }
+
+    .table-wrap {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .muted {
+        color: #6b7280;
+    }
+
+    .action-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+    }
+
+    .top-search {
+        min-width: 420px;
+        max-width: 520px;
+    }
+</style>
+
+<div class="page-wrap">
+
+    <!-- Header (same style as your other pages) -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <div class="fw-semibold">Welcome, @userName</div>
+            <div class="small muted">@barangay</div>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center top-search">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input class="form-control" placeholder="Search documents, policies, lessons..." />
+            </div>
+
+            <button class="btn btn-outline-secondary position-relative" type="button" title="Notifications">
+                <i class="bi bi-bell"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">2</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Title + buttons -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="mb-0">Audit Logs</h3>
+            <div class="muted">Track all system activities and changes.</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <form method="post" action="@Url.Action("ExportLogsCsv","Home")" class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+                <input type="hidden" name="module" value="@Model.ModuleFilter" />
+                <button class="btn btn-outline-secondary">
+                    <i class="bi bi-download me-2"></i>Export Logs
+                </button>
+            </form>
+
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearAllModal">
+                <i class="bi bi-trash me-2"></i>Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-primary">@Model.TotalEntries</div>
+                    <div class="small muted">Total Entries</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-success">@Model.Approvals</div>
+                    <div class="small muted">Approvals</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-info">@Model.Creations</div>
+                    <div class="small muted">Creations</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-danger">@Model.RejectDelete</div>
+                    <div class="small muted">Rejections/Deletions</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log card -->
+    <div class="card">
+        <div class="card-body">
+            <div class="fw-semibold mb-3">Activity Log</div>
+
+            <!-- Search + Module filter (GET form) -->
+            <form method="get" action="@Url.Action("AuditLogs","Home")" class="d-flex flex-column flex-md-row gap-2 mb-3">
+                <div class="input-group flex-grow-1">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input class="form-control" name="q" value="@Model.SearchQuery" placeholder="Search logs..." />
+                </div>
+
+                <select class="form-select" name="module" style="max-width: 220px;">
+                    <option value="all" selected="@(Model.ModuleFilter == "all")">All Modules</option>
+                    @foreach (var m in Model.Modules)
+                    {
+                        <option value="@m" selected="@(Model.ModuleFilter == m)">@m</option>
+                    }
+                </select>
+
+                <button class="btn btn-primary" type="submit">Filter</button>
+            </form>
+
+            <div class="table-wrap">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th class="d-none d-md-table-cell">Module</th>
+                            <th class="d-none d-lg-table-cell">Target</th>
+                            <th style="width:110px;" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Logs.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-center muted py-4">No logs found.</td></tr>
+                        }
+                        else
+                        {
+                            foreach (var log in Model.Logs)
+                            {
+                                <tr>
+                                    <td class="small muted text-nowrap">@log.Timestamp</td>
+                                    <td class="fw-semibold">@log.User</td>
+                                    <td><span class="@ActionBadge(log.Action)">@log.Action</span></td>
+                                    <td class="d-none d-md-table-cell">
+                                        <span class="badge rounded-pill border text-dark">@log.Module</span>
+                                    </td>
+                                    <td class="d-none d-lg-table-cell muted" style="max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                        @log.Target
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-light action-btn" title="View"
+                                                data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                onclick="openView('@Html.Raw(log.Timestamp.Replace("'", "\\'"))','@Html.Raw(log.User.Replace("'", "\\'"))','@Html.Raw(log.Action.Replace("'", "\\'"))','@Html.Raw(log.Module.Replace("'", "\\'"))','@Html.Raw(log.Target.Replace("'", "\\'"))','@Html.Raw(log.Ip.Replace("'", "\\'"))')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+
+                                        <button class="btn btn-light action-btn" title="Delete"
+                                                data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                                onclick="openDelete('@log.Id')">
+                                            <i class="bi bi-trash text-danger"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Entry Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body small">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="muted">Timestamp:</div>
+                        <div class="font-monospace" id="vTimestamp">-</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="muted">User:</div>
+                        <div id="vUser">-</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="muted">Action:</div>
+                        <div id="vAction">-</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="muted">Module:</div>
+                        <div id="vModule">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="muted">Target:</div>
+                        <div id="vTarget">-</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="muted">IP Address:</div>
+                        <div class="font-monospace" id="vIp">-</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <form method="post" action="@Url.Action("DeleteLog","Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="deleteId" name="id" />
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+                <input type="hidden" name="module" value="@Model.ModuleFilter" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Delete Log Entry</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Are you sure you want to delete this log entry?
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" type="submit">Delete</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- Clear All Modal -->
+<div class="modal fade" id="clearAllModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <form method="post" action="@Url.Action("ClearAllLogs","Home")">
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Clear All Logs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    This will remove all audit logs. Continue?
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" type="submit">Clear All</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function openView(ts, user, action, module, target, ip) {
+        document.getElementById('vTimestamp').innerText = ts;
+        document.getElementById('vUser').innerText = user;
+        document.getElementById('vAction').innerText = action;
+        document.getElementById('vModule').innerText = module;
+        document.getElementById('vTarget').innerText = target;
+        document.getElementById('vIp').innerText = ip;
+    }
+
+    function openDelete(id) {
+        document.getElementById('deleteId').value = id;
+    }
+</script>

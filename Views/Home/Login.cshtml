@@ -1,4 +1,6 @@
 ﻿@model JAS_MINE_IT15.Models.LoginViewModel
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
 @{
     Layout = null;
     ViewData["Title"] = "Login";
@@ -174,24 +176,6 @@
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label">Select Role</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-shield-lock"></i>
-                            </span>
-                            <select asp-for="Role" class="form-select">
-                                <option value="">-- Select Role --</option>
-                                <option value="barangay_staff">Barangay Staff</option>
-                                <option value="barangay_secretary">Barangay Secretary</option>
-                                <option value="barangay_admin">Barangay Admin</option>
-                                <option value="super_admin">Super Admin</option>
-                                <option value="council_member">Council Member</option>
-                            </select>
-                        </div>
-                        <span asp-validation-for="Role" class="text-danger small"></span>
-                    </div>
-
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
                     </button>
@@ -206,7 +190,7 @@
                         © 2026 JAS-MINE. All rights reserved.
                     </div>
                 </form>
-
+  
             </div>
         </div>
 

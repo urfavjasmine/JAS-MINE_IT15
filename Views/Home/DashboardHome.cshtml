@@ -1,5 +1,7 @@
-﻿@using Microsoft.AspNetCore.Http
+﻿@model JAS_MINE_IT15.Models.DashboardHomeViewModel
+@using Microsoft.AspNetCore.Http
 @using System.Linq
+@using System.Text.Json
 
 @{
     ViewData["Title"] = "Dashboard";
@@ -8,7 +10,7 @@
     // Display only (no backend)
     var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
     var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
-    var role = Context.Session.GetString("Role") ?? "super_admin";
+    var role = Context.Session.GetString("Role");
 
     var roleLabel = role switch
     {
@@ -18,16 +20,6 @@
         "barangay_staff" => "Barangay Staff",
         "council_member" => "Council Member",
         _ => "User"
-    };
-
-
-    // ===== Mock Stats =====
-    var stats = new[]
-    {
-        new { Label = "Total Documents", Value = "1,248", Change = "+12%", Icon = "bi-folder2-open", IconBg = "bg-primary-subtle", IconColor = "text-primary" },
-        new { Label = "Active Policies", Value = "86",    Change = "+3%",  Icon = "bi-file-earmark-text", IconBg = "bg-success-subtle", IconColor = "text-success" },
-        new { Label = "Lessons Learned", Value = "342",   Change = "+8%",  Icon = "bi-lightbulb", IconBg = "bg-warning-subtle", IconColor = "text-warning" },
-        new { Label = "Best Practices",  Value = "127",   Change = "+5%",  Icon = "bi-award", IconBg = "bg-info-subtle", IconColor = "text-info" },
     };
 
     // ===== Mock Recent Activity =====
@@ -40,21 +32,54 @@
         new { Action = "Document rejected", Item = "Budget Proposal Draft", User = "System", Time = "4 hours ago", Status = "rejected" },
     };
 
-    // ===== Mock Quick Actions =====
-    var quickActions = new[]
-    {
-        new { Label = "Upload Document", Icon = "bi-upload", Url = Url.Action("KnowledgeRepository","Home") },
-        new { Label = "Create Policy", Icon = "bi-file-earmark-plus", Url = Url.Action("PoliciesManagement","Home") },
-        new { Label = "Submit Lesson", Icon = "bi-lightbulb", Url = Url.Action("LessonsLearned","Home") },
-        new { Label = "View Best Practices", Icon = "bi-award", Url = Url.Action("BestPractices","Home") }
-    };
-
     // ===== Mock Announcements =====
     var announcements = new[]
     {
         new { Title = "System Maintenance Notice", Content = "Scheduled maintenance on February 15, 2024 from 10PM-12AM.", Priority = "info" },
         new { Title = "New Policy Guidelines Released", Content = "Updated guidelines for document submission now available.", Priority = "important" },
     };
+
+    // ===== Barangay Admin Analytics =====
+    var workflowStatus = new[]
+    {
+        new { Label = "Pending", Count = 12, Color = "bg-warning" },
+        new { Label = "Approved", Count = 86, Color = "bg-success" },
+        new { Label = "Rejected", Count = 7, Color = "bg-danger" }
+    };
+
+    var monthlyBarangayActivity = new[]
+    {
+        new { Month="Sep", Docs=20, Policies=5, Lessons=8, Practices=3 },
+        new { Month="Oct", Docs=28, Policies=6, Lessons=12, Practices=4 },
+        new { Month="Nov", Docs=24, Policies=7, Lessons=10, Practices=5 },
+        new { Month="Dec", Docs=18, Policies=4, Lessons=6, Practices=2 },
+        new { Month="Jan", Docs=30, Policies=8, Lessons=15, Practices=6 },
+        new { Month="Feb", Docs=36, Policies=9, Lessons=18, Practices=7 },
+    };
+
+    // ===== Super Admin Analytics (Mock) =====
+    var monthlyActivity = new[]
+    {
+        new { month = "Sep", documents = 85,  policies = 12, lessons = 28, practices = 15 },
+        new { month = "Oct", documents = 102, policies = 8,  lessons = 35, practices = 18 },
+        new { month = "Nov", documents = 95,  policies = 15, lessons = 42, practices = 22 },
+        new { month = "Dec", documents = 78,  policies = 10, lessons = 30, practices = 12 },
+        new { month = "Jan", documents = 120, policies = 14, lessons = 38, practices = 20 },
+        new { month = "Feb", documents = 134, policies = 18, lessons = 45, practices = 25 },
+    };
+
+    var moduleUsage = new[]
+    {
+        new { name = "Repository", value = 42 },
+        new { name = "Policies", value = 18 },
+        new { name = "Lessons", value = 25 },
+        new { name = "Best Practices", value = 15 },
+    };
+
+    var monthlyJson = JsonSerializer.Serialize(monthlyActivity);
+
+    // keep your original line (uses Model.ModuleUsage)
+    var usageJson = JsonSerializer.Serialize(Model?.ModuleUsage ?? new List<JAS_MINE_IT15.Models.ModuleUsageRow>());
 
     string StatusBadgeClass(string status)
     {
@@ -156,6 +181,91 @@
         .qa-btn:hover {
             background: #f7f9fc;
         }
+
+    /* ===== Analytics styles ===== */
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 22px 0 12px;
+        font-weight: 800;
+        font-size: 18px;
+    }
+
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    @@media (min-width: 992px) {
+        .analytics-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .panel-head {
+        padding: 16px 18px 10px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .panel-title {
+        font-weight: 800;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+    }
+
+    .panel-body {
+        padding: 0 18px 18px 18px;
+    }
+
+    .chart-wrap {
+        height: 280px;
+    }
+
+    .donut-wrap {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        align-items: center;
+    }
+
+    @@media (min-width: 576px) {
+        .donut-wrap {
+            grid-template-columns: 240px 1fr;
+        }
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        display: inline-block;
+    }
+
+    .legend-name {
+        color: #556371;
+        font-size: 14px;
+    }
+
+    .legend-val {
+        margin-left: auto;
+        font-weight: 800;
+    }
 </style>
 
 <div class="dash-wrap">
@@ -170,28 +280,161 @@
 
     <!-- Stats -->
     <div class="row g-3 mb-4">
-        @foreach (var s in stats)
-        {
-            <div class="col-12 col-sm-6 col-lg-3">
-                <div class="stat-card p-4 h-100">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <div class="stat-label">@s.Label</div>
-                            <div class="stat-value">@s.Value</div>
-                        </div>
-                        <div class="@s.IconBg @s.IconColor" style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;">
-                            <i class="bi @s.Icon" style="font-size:20px;"></i>
-                        </div>
+
+        <!-- Documents -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card p-4 h-100">
+                <div class="stat-label">Total Documents</div>
+                <div class="stat-value">@Model.TotalDocuments</div>
+            </div>
+        </div>
+
+        <!-- Policies -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card p-4 h-100">
+                <div class="stat-label">Active Policies</div>
+                <div class="stat-value">@Model.ActivePolicies</div>
+            </div>
+        </div>
+
+        <!-- Lessons -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card p-4 h-100">
+                <div class="stat-label">Lessons Learned</div>
+                <div class="stat-value">@Model.LessonsLearned</div>
+            </div>
+        </div>
+
+        <!-- Practices -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card p-4 h-100">
+                <div class="stat-label">Best Practices</div>
+                <div class="stat-value">@Model.BestPractices</div>
+            </div>
+        </div>
+
+    </div>
+
+    @* ===== Super Admin Analytics Section (Chart.js) ===== *@
+    @if (role == "super_admin")
+    {
+        <div class="section-head">
+            <i class="bi bi-bar-chart-line text-primary"></i>
+            <span>System Analytics</span>
+        </div>
+
+        <div class="analytics-grid">
+
+            <!-- Monthly Activity Trend -->
+            <div class="panel-card">
+                <div class="panel-head">
+                    <div class="panel-title">
+                        <i class="bi bi-activity text-muted"></i>
+                        Monthly Activity Trend
                     </div>
-                    <div class="d-flex align-items-center gap-2 mt-3" style="font-size:12px;">
-                        <i class="bi bi-graph-up-arrow text-success"></i>
-                        <span class="text-success fw-semibold">@s.Change</span>
-                        <span class="text-muted">from last month</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-wrap">
+                        <canvas id="monthlyActivityChart"></canvas>
                     </div>
                 </div>
             </div>
-        }
-    </div>
+
+            <!-- Module Usage Distribution -->
+            <div class="panel-card">
+                <div class="panel-head">
+                    <div class="panel-title">
+                        <i class="bi bi-pie-chart text-muted"></i>
+                        Module Usage Distribution
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="donut-wrap">
+                        <div style="height:220px;">
+                            <canvas id="moduleUsageChart"></canvas>
+                        </div>
+                        <div id="moduleUsageLegend"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    }
+
+    @* ===== UPDATED: Super Admin views only (table + progress bars) ===== *@
+    @if (role == "super_admin")
+    {
+        <div class="mb-4">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-bar-chart-line text-muted"></i>
+                <div class="fw-bold" style="font-size:18px;">
+                    System Analytics
+                </div>
+            </div>
+
+            <div class="row g-4">
+
+                <!-- Monthly Activity Trend (table) -->
+                <div class="col-12 col-lg-8">
+                    <div class="panel-card p-4">
+                        <div class="fw-semibold mb-3">Monthly Activity Trend</div>
+
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Documents</th>
+                                    <th>Policies</th>
+                                    <th>Lessons</th>
+                                    <th>Practices</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in Model.MonthlyActivity)
+                                {
+                                    <tr>
+                                        <td>@m.Month</td>
+                                        <td>@m.Documents</td>
+                                        <td>@m.Policies</td>
+                                        <td>@m.Lessons</td>
+                                        <td>@m.Practices</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Module Usage (progress bars) -->
+                <div class="col-12 col-lg-4">
+                    <div class="panel-card p-4">
+                        <div class="fw-semibold mb-3">Module Usage</div>
+
+                        @{
+                            var total = Model.ModuleUsage.Sum(x => x.Value);
+                            if (total == 0) total = 1;
+                        }
+
+                        @foreach (var u in Model.ModuleUsage)
+                        {
+                            var pct = (int)Math.Round((u.Value * 100.0) / total);
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>@u.Name</span>
+                                    <span class="fw-bold">@pct%</span>
+                                </div>
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar bg-primary" style="width:@pct%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    }
 
     <!-- Main Grid -->
     <div class="row g-4">
@@ -239,25 +482,6 @@
         <div class="col-12 col-lg-4">
             <div class="d-flex flex-column gap-4">
 
-                <!-- Quick Actions -->
-                <div class="panel-card">
-                    <div class="p-4 pb-2">
-                        <div class="fw-bold" style="font-size:18px;">Quick Actions</div>
-                    </div>
-
-                    <div class="p-4 pt-2 d-flex flex-column gap-2">
-
-                        @foreach (var q in quickActions)
-                        {
-                            <a class="qa-btn text-decoration-none text-dark" href="@q.Url">
-                                <i class="bi @q.Icon me-2 text-muted"></i>
-                                <span class="fw-semibold">@q.Label</span>
-                            </a>
-                        }
-
-                    </div>
-                </div>
-
                 <!-- Announcements -->
                 <div class="panel-card">
                     <div class="p-4 pb-2 d-flex align-items-center gap-2">
@@ -285,5 +509,87 @@
             </div>
         </div>
 
-    </div> 
+    </div>
 </div>
+
+<!-- Chart.js (only needed once) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+    (function () {
+        const monthlyEl = document.getElementById("monthlyActivityChart");
+        const usageEl = document.getElementById("moduleUsageChart");
+        if (!monthlyEl || !usageEl) return; // not super_admin
+
+        const monthlyData = @Html.Raw(monthlyJson);
+        const usageData = @Html.Raw(usageJson);
+
+        const labels = monthlyData.map(x => x.month);
+        const docs = monthlyData.map(x => x.documents);
+        const lessons = monthlyData.map(x => x.lessons);
+        const practices = monthlyData.map(x => x.practices);
+
+        // Monthly Activity Trend
+        new Chart(monthlyEl, {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    { label: "Documents", data: docs, fill: true, tension: 0.35, borderWidth: 2 },
+                    { label: "Lessons", data: lessons, fill: true, tension: 0.35, borderWidth: 2 },
+                    { label: "Best Practices", data: practices, fill: true, tension: 0.35, borderWidth: 2 },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: { legend: { display: false }, tooltip: { padding: 10 } },
+                scales: {
+                    x: { grid: { display: true } },
+                    y: { beginAtZero: true, grid: { display: true } }
+                },
+                elements: { point: { radius: 0 } }
+            }
+        });
+
+        // Module Usage Distribution (donut)
+        const moduleLabels = usageData.map(x => x.name);
+        const moduleValues = usageData.map(x => x.value);
+
+        const fixedColors = ["#2b6cb0", "#38a169", "#eab308", "#0ea5e9"];
+
+        new Chart(usageEl, {
+            type: "doughnut",
+            data: {
+                labels: moduleLabels,
+                datasets: [{
+                    data: moduleValues,
+                    backgroundColor: fixedColors,
+                    borderWidth: 4,
+                    hoverOffset: 6,
+                    cutout: "65%"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { padding: 10 } }
+            }
+        });
+
+        // Legend list
+        const legend = document.getElementById("moduleUsageLegend");
+        legend.innerHTML = moduleLabels.map((name, i) => {
+            const val = moduleValues[i];
+            const c = fixedColors[i] || "#999";
+            return `
+              <div class="legend-item">
+                <span class="legend-dot" style="background:${c}"></span>
+                <span class="legend-name">${name}</span>
+                <span class="legend-val">${val}%</span>
+              </div>
+            `;
+        }).join("");
+    })();
+</script>

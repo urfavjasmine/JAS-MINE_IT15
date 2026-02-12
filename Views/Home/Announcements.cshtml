@@ -1,0 +1,325 @@
+﻿@model JAS_MINE_IT15.Models.AnnouncementsViewModel
+@using Microsoft.AspNetCore.Http
+
+@{
+    ViewData["Title"] = "Announcements";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
+    var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
+
+    string PriorityClass(string p) => p switch
+    {
+        "high" => "badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger-subtle",
+        "medium" => "badge rounded-pill bg-warning bg-opacity-10 text-warning border border-warning-subtle",
+        _ => "badge rounded-pill bg-info bg-opacity-10 text-info border border-info-subtle"
+    };
+
+    string StatusClass(string s) => s == "published"
+        ? "badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary-subtle"
+        : "badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle";
+
+    string CardPinnedClass(bool pinned) => pinned ? "border-primary-subtle bg-primary bg-opacity-10" : "";
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+<style>
+    .page-wrap {
+        padding: 18px;
+    }
+
+    .stat-card {
+        border-radius: 12px;
+    }
+
+    .pill-btn {
+        border-radius: 10px;
+    }
+
+    .ann-card {
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .muted {
+        color: #6b7280;
+    }
+
+    .top-search {
+        min-width: 420px;
+        max-width: 520px;
+    }
+
+    .action-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+    }
+</style>
+
+<div class="page-wrap">
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <div class="fw-semibold">Welcome, @userName</div>
+            <div class="small muted">@barangay</div>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center top-search">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input class="form-control" placeholder="Search documents, policies, lessons..." />
+            </div>
+
+            <button class="btn btn-outline-secondary position-relative" type="button" title="Notifications">
+                <i class="bi bi-bell"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">2</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="mb-0">Announcements</h3>
+            <div class="muted">Manage and publish announcements across barangays.</div>
+        </div>
+
+        <button class="btn btn-primary d-flex align-items-center gap-2"
+                data-bs-toggle="modal" data-bs-target="#createEditModal"
+                onclick="openCreate()">
+            <i class="bi bi-plus-lg"></i>
+            New Announcement
+        </button>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-primary">@Model.Total</div><div class="small muted">Total</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-success">@Model.Published</div><div class="small muted">Published</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-warning">@Model.Drafts</div><div class="small muted">Drafts</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-info">@Model.Pinned</div><div class="small muted">Pinned</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <a class="btn pill-btn @(Model.Filter == "all" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+           href="@Url.Action("Announcements", "Home", new { filter = "all" })">All</a>
+
+        <a class="btn pill-btn @(Model.Filter == "published" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+           href="@Url.Action("Announcements", "Home", new { filter = "published" })">Published</a>
+
+        <a class="btn pill-btn @(Model.Filter == "draft" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+           href="@Url.Action("Announcements", "Home", new { filter = "draft" })">Draft</a>
+    </div>
+
+    <div class="d-flex flex-column gap-3">
+        @foreach (var a in Model.Announcements)
+        {
+            <div class="ann-card p-4 @CardPinnedClass(a.Pinned)">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                            @if (a.Pinned)
+                            {
+                                <i class="bi bi-pin-angle-fill text-primary"></i>
+                            }
+                            <div class="fw-semibold fs-6">@a.Title</div>
+                            <span class="@PriorityClass(a.Priority)">@a.Priority</span>
+                            <span class="@StatusClass(a.Status)">@a.Status</span>
+                        </div>
+
+                        <div class="text-sm muted mb-2">@a.Content</div>
+
+                        <div class="d-flex align-items-center flex-wrap gap-4 small muted">
+                            <span class="d-flex align-items-center gap-1"><i class="bi bi-calendar3"></i> @a.Date</span>
+                            <span>By @a.Author</span>
+                            <span class="d-flex align-items-center gap-1"><i class="bi bi-eye"></i> @a.Views views</span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <!-- VIEW: increments views -->
+                        <form method="post" action="@Url.Action("IncrementAnnouncementViews","Home")" class="m-0">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@a.Id" />
+                            <input type="hidden" name="filter" value="@Model.Filter" />
+                            <button class="btn btn-light action-btn" title="View" type="submit">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </form>
+
+                        <!-- EDIT: opens modal with JS -->
+                        <button class="btn btn-light action-btn" title="Edit"
+                                data-bs-toggle="modal" data-bs-target="#createEditModal"
+                                onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))','@Html.Raw(a.Content.Replace("'", "\\'"))','@a.Priority','@a.Status')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+
+                        <!-- PIN -->
+                        <form method="post" action="@Url.Action("TogglePinAnnouncement","Home")" class="m-0">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@a.Id" />
+                            <input type="hidden" name="filter" value="@Model.Filter" />
+                            <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
+                                <i class="bi bi-pin"></i>
+                            </button>
+                        </form>
+
+                        <!-- DELETE -->
+                        <button class="btn btn-light action-btn" title="Delete"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                onclick="openDelete('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
+                            <i class="bi bi-trash text-danger"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- CREATE/EDIT MODAL -->
+<div class="modal fade" id="createEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+
+            <form id="createEditForm" method="post" action="@Url.Action("CreateAnnouncement","Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="filter" value="@Model.Filter" />
+                <input type="hidden" id="formId" name="id" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createEditTitle">Create Announcement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input class="form-control" id="formTitle" name="title" placeholder="Announcement title" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" id="formContent" name="content" rows="4" placeholder="Write your announcement..."></textarea>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Priority</label>
+                            <select class="form-select" id="formPriority" name="priority">
+                                <option value="high">High</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="formStatus" name="status">
+                                <option value="draft" selected>Draft</option>
+                                <option value="published">Publish Now</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit" id="saveBtn">Create</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <form method="post" action="@Url.Action("DeleteAnnouncement","Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="filter" value="@Model.Filter" />
+                <input type="hidden" id="deleteId" name="id" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">Delete Announcement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Are you sure you want to delete "<span class="fw-semibold" id="deleteName"></span>"?
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" type="submit">Delete</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    function openCreate() {
+        document.getElementById('createEditTitle').innerText = 'Create Announcement';
+        document.getElementById('saveBtn').innerText = 'Create';
+
+        const form = document.getElementById('createEditForm');
+        form.action = '@Url.Action("CreateAnnouncement", "Home")';
+
+        document.getElementById('formId').value = '';
+        document.getElementById('formTitle').value = '';
+        document.getElementById('formContent').value = '';
+        document.getElementById('formPriority').value = 'medium';
+        document.getElementById('formStatus').value = 'draft';
+    }
+
+    function openEdit(id, title, content, priority, status) {
+        document.getElementById('createEditTitle').innerText = 'Edit Announcement';
+        document.getElementById('saveBtn').innerText = 'Save Changes';
+
+        const form = document.getElementById('createEditForm');
+        form.action = '@Url.Action("EditAnnouncement", "Home")';
+
+        document.getElementById('formId').value = id;
+        document.getElementById('formTitle').value = title;
+        document.getElementById('formContent').value = content;
+        document.getElementById('formPriority').value = priority;
+        document.getElementById('formStatus').value = status;
+    }
+
+    function openDelete(id, title) {
+        document.getElementById('deleteId').value = id;
+        document.getElementById('deleteName').innerText = title;
+    }
+</script>
