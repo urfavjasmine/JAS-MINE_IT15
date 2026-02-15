@@ -37,7 +37,6 @@
             padding: 20px;
         }
 
-
         /* Mobile sidebar */
         .sidebar-overlay {
             position: fixed;
@@ -75,21 +74,21 @@
 
         <!-- Desktop Sidebar -->
         <div class="d-none d-lg-block">
-            <partial name="_Sidebar" />   
+            <partial name="_Sidebar" />
         </div>
 
         <!-- Mobile Sidebar -->
         <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
         <div id="mobileSidebar" class="sidebar-mobile d-lg-none">
-            <partial name="_Sidebar" />   
+            <partial name="_Sidebar" />
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
 
             <!-- Header -->
-            <partial name="_DashboardHeader" />  
+            <partial name="_DashboardHeader" />
 
             <main class="page-content">
                 @RenderBody()
@@ -97,7 +96,7 @@
 
         </div>
     </div>
-    
+
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -122,5 +121,7 @@
             }
         });
     </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

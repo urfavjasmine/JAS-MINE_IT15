@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace JAS_MINE_IT15.Controllers
+namespace JAS_MINE_IT15.Controllers99
 {
     public class HomeController : Controller
     {
@@ -111,6 +111,40 @@ namespace JAS_MINE_IT15.Controllers
                 new LogItem { Id="7", Timestamp="2026-02-07 08:30:00", User="Juan Dela Cruz", Action="Updated", Module="Policies", Target="Ordinance No. 2025-045", Ip="192.168.1.11" },
                 new LogItem { Id="8", Timestamp="2026-02-06 15:45:12", User="Ana Reyes", Action="Deleted", Module="Repository", Target="Draft memo (duplicate)", Ip="192.168.1.12" },
             };
+
+        // ✅ KNOWLEDGE SHARING (TEMP DATA IN MEMORY)
+        private static readonly List<KnowledgeDiscussionItem> _ksDiscussions = new()
+        {
+            new KnowledgeDiscussionItem { Id="1", Title="Best approach for community health monitoring?",
+                Content="Looking for suggestions on implementing a sustainable health monitoring program for our senior citizens...",
+                Author="Maria Santos", Avatar="MS", Date="2024-02-02", Category="Health", Replies=8, Likes=15 },
+
+            new KnowledgeDiscussionItem { Id="2", Title="Waste segregation enforcement strategies",
+                Content="Our barangay is struggling with waste segregation compliance. What strategies have worked for others?",
+                Author="Juan dela Cruz", Avatar="JD", Date="2024-02-01", Category="Environment", Replies=12, Likes=28 },
+
+            new KnowledgeDiscussionItem { Id="3", Title="Youth engagement programs success stories",
+                Content="Share your successful youth engagement programs! We want to replicate what works.",
+                Author="Ana Reyes", Avatar="AR", Date="2024-01-30", Category="Youth", Replies=6, Likes=22 },
+        };
+
+        private static readonly List<KnowledgeAnnouncementItem> _ksAnnouncements = new()
+        {
+            new KnowledgeAnnouncementItem { Id="1", Title="New Document Submission Guidelines",
+                Content="All document submissions must now include the new metadata form. Please review the updated guidelines in the Knowledge Repository.",
+                Author="Barangay Administrator", Date="2024-02-01", Pinned=true, Likes=45, Comments=12 },
+
+            new KnowledgeAnnouncementItem { Id="2", Title="System Maintenance Schedule",
+                Content="JAS-MINE will undergo scheduled maintenance on February 15, 2024 from 10:00 PM to 12:00 AM.",
+                Author="System Admin", Date="2024-01-30", Pinned=true, Likes=23, Comments=5 },
+        };
+
+        private static readonly List<KnowledgeSharedDocItem> _ksSharedDocs = new()
+        {
+            new KnowledgeSharedDocItem { Id="1", Title="Community Health Survey Template", SharedBy="Maria Santos", Date="2024-02-01", Downloads=34 },
+            new KnowledgeSharedDocItem { Id="2", Title="Budget Planning Worksheet", SharedBy="Pedro Garcia", Date="2024-01-28", Downloads=56 },
+            new KnowledgeSharedDocItem { Id="3", Title="Event Planning Checklist", SharedBy="Ana Reyes", Date="2024-01-25", Downloads=42 },
+        };
 
         private bool IsLoggedIn() =>
             !string.IsNullOrEmpty(HttpContext.Session.GetString("UserName"));
@@ -592,6 +626,67 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(BestPractices));
         }
 
+        // ✅ GET: /Home/KnowledgeSharing
+        [HttpGet]
+        public IActionResult KnowledgeSharing()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            bool canAnnounce = role == "barangay_admin" || role == "super_admin";
+
+            var vm = new KnowledgeSharingViewModel
+            {
+                CanPost = canPost,
+                CanAnnounce = canAnnounce,
+                Discussions = _ksDiscussions.OrderByDescending(x => x.Date).ToList(),
+                Announcements = _ksAnnouncements.OrderByDescending(x => x.Pinned).ThenByDescending(x => x.Date).ToList(),
+                SharedDocuments = _ksSharedDocs.ToList(),
+                ActiveMembers = new List<string> { "MS", "JD", "AR", "PG", "LC" },
+                MembersOnline = 17
+            };
+
+            return View(vm);
+        }
+
+        // ✅ POST: Quick Post
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult QuickPostKnowledge(string content)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
+
+            content = (content ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(content))
+                return RedirectToAction(nameof(KnowledgeSharing));
+
+            var name = HttpContext.Session.GetString("UserName") ?? "Unknown";
+            var initials = string.Join("", name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(x => x[0])).ToUpper();
+            if (initials.Length > 2) initials = initials.Substring(0, 2);
+            if (string.IsNullOrWhiteSpace(initials)) initials = "U";
+
+            _ksDiscussions.Insert(0, new KnowledgeDiscussionItem
+            {
+                Id = DateTime.Now.Ticks.ToString(),
+                Title = content.Length > 60 ? content.Substring(0, 60) + "..." : content,
+                Content = content,
+                Author = name,
+                Avatar = initials,
+                Date = DateTime.Now.ToString("yyyy-MM-dd"),
+                Category = "General",
+                Replies = 0,
+                Likes = 0
+            });
+
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
         public IActionResult UserManagement()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -962,6 +1057,34 @@ namespace JAS_MINE_IT15.Controllers
             TempData["Success"] = "System settings saved. System preferences have been updated.";
             return RedirectToAction(nameof(Settings), new { tab = "system" });
         }
+
+        // GET: /Home/ForgotPassword
+        [HttpGet]
+        public IActionResult ForgotPassword()
+        {
+            // This page is public (no login required)
+            return View(new ForgotPasswordViewModel());
+        }
+
+        // POST: /Home/ForgotPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ForgotPassword(ForgotPasswordViewModel model)
+        {
+            // Public page validation
+            if (!ModelState.IsValid)
+            {
+                model.Submitted = false;
+                return View(model);
+            }
+
+            // TEMP: simulate sending reset link (no database / no email service yet)
+            model.Submitted = true;
+            model.SuccessMessage = "If your email is registered, you will receive reset instructions.";
+
+            return View(model);
+        }
+
 
         // GET: /Home/Logout
         [HttpGet]

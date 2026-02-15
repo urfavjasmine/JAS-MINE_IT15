@@ -5,8 +5,7 @@
     ViewData["Title"] = "Audit Logs";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
-    var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
+  
 
     string ActionBadge(string a) => a switch
     {
@@ -49,34 +48,9 @@
         height: 38px;
         border-radius: 10px;
     }
-
-    .top-search {
-        min-width: 420px;
-        max-width: 520px;
-    }
 </style>
 
 <div class="page-wrap">
-
-    <!-- Header (same style as your other pages) -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-            <div class="fw-semibold">Welcome, @userName</div>
-            <div class="small muted">@barangay</div>
-        </div>
-
-        <div class="d-flex gap-2 align-items-center top-search">
-            <div class="input-group">
-                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input class="form-control" placeholder="Search documents, policies, lessons..." />
-            </div>
-
-            <button class="btn btn-outline-secondary position-relative" type="button" title="Notifications">
-                <i class="bi bi-bell"></i>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">2</span>
-            </button>
-        </div>
-    </div>
 
     <!-- Title + buttons -->
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -142,7 +116,7 @@
         <div class="card-body">
             <div class="fw-semibold mb-3">Activity Log</div>
 
-            <!-- Search + Module filter (GET form) -->
+            <!-- Search + Module filter (KEEP this one, this is for AuditLogs filtering) -->
             <form method="get" action="@Url.Action("AuditLogs","Home")" class="d-flex flex-column flex-md-row gap-2 mb-3">
                 <div class="input-group flex-grow-1">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
