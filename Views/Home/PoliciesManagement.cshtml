@@ -1,22 +1,16 @@
-﻿@using Microsoft.AspNetCore.Http
+﻿@model JAS_MINE_IT15.Models.PoliciesManagementViewModel
+@using Microsoft.AspNetCore.Http
+
 @{
     ViewData["Title"] = "Policies & Procedures";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // UI-only (no backend)
-    var canCreate = true;   // set true/false if you want to hide/show Create button
-    var canApprove = true;  // set true/false if you want to hide/show Approve/Reject
+    // Permissions from controller
+    var canCreate = Model?.CanCreate ?? false;
+    var canApprove = Model?.CanApprove ?? false;
 
-    var policies = new[]
-    {
-        new { Id=1, Title="Waste Management Policy", Description="Guidelines for proper waste segregation and disposal in the barangay.", Status="approved", LastUpdated="2024-02-01", Author="Maria Santos", Version="2.1" },
-        new { Id=2, Title="Community Health Guidelines", Description="Health protocols and emergency response procedures for residents.", Status="pending",  LastUpdated="2024-01-28", Author="Juan dela Cruz", Version="1.0" },
-        new { Id=3, Title="Budget Allocation Policy", Description="Standard operating procedures for budget allocation and disbursement.", Status="draft",    LastUpdated="2024-01-25", Author="Ana Reyes", Version="0.9" },
-        new { Id=4, Title="Business Permit Guidelines", Description="Requirements and procedures for obtaining business permits.", Status="approved", LastUpdated="2024-01-20", Author="Pedro Garcia", Version="3.0" },
-        new { Id=5, Title="Peace and Order Procedures", Description="Protocols for maintaining peace and order in the community.", Status="approved", LastUpdated="2024-01-15", Author="Maria Santos", Version="1.5" },
-    };
-
-    int CountStatus(string s) => policies.Count(p => p.Status == s);
+    // TODO: Load from database via controller
+    var policies = Model?.Policies ?? new List<JAS_MINE_IT15.Models.PolicyItem>();
 
     string StatusBadge(string status) => status switch
     {
@@ -257,16 +251,16 @@
     <div class="mb-3">
         <div class="status-tabs" role="tablist" aria-label="Policy Status Tabs">
             <button class="tab-btn active" type="button" data-tab="all">
-                All (@policies.Length)
+                All (@(Model?.CountAll ?? 0))
             </button>
             <button class="tab-btn" type="button" data-tab="approved">
-                Approved (@CountStatus("approved"))
+                Approved (@(Model?.CountApproved ?? 0))
             </button>
             <button class="tab-btn" type="button" data-tab="pending">
-                Pending (@CountStatus("pending"))
+                Pending (@(Model?.CountPending ?? 0))
             </button>
             <button class="tab-btn" type="button" data-tab="draft">
-                Drafts (@CountStatus("draft"))
+                Drafts (@(Model?.CountDraft ?? 0))
             </button>
         </div>
     </div>
@@ -296,66 +290,75 @@
 
     <!-- Policies Grid -->
     <div id="policiesGrid" class="row g-4">
-        @foreach (var p in policies)
+        @if (policies.Count == 0)
         {
-            <div class="col-12 col-md-6 policy-item"
-                 data-status="@p.Status"
-                 data-title="@p.Title.ToLower()"
-                 data-desc="@p.Description.ToLower()">
-                <div class="soft-card policy-card">
-                    <div class="d-flex align-items-start justify-content-between gap-2">
-                        <div class="d-flex align-items-start gap-2">
-                            @Html.Raw(StatusIcon(p.Status))
-                            <div>
-                                <h3 class="policy-title">@p.Title</h3>
+            <div class="col-12">
+                <div class="soft-card p-4 text-center text-muted">No policies found.</div>
+            </div>
+        }
+        else
+        {
+            foreach (var p in policies)
+            {
+                <div class="col-12 col-md-6 policy-item"
+                     data-status="@p.Status"
+                     data-title="@p.Title.ToLower()"
+                     data-desc="@p.Description.ToLower()">
+                    <div class="soft-card policy-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <div class="d-flex align-items-start gap-2">
+                                @Html.Raw(StatusIcon(p.Status))
+                                <div>
+                                    <h3 class="policy-title">@p.Title</h3>
+                                </div>
+                            </div>
+
+                            <!-- 3 dots dropdown -->
+                            <div class="dropdown">
+                                <button class="btn btn-light kebab-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow">
+                                    <li>
+                                        <a class="dropdown-item" href="javascript:void(0)">
+                                            <i class="bi bi-eye me-2"></i>View
+                                        </a>
+                                    </li>
+                                    @if (canCreate)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item" href="javascript:void(0)">
+                                                <i class="bi bi-pencil-square me-2"></i>Edit
+                                            </a>
+                                        </li>
+                                    }
+                                    @if (canApprove && p.Status == "pending")
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li>
+                                            <a class="dropdown-item text-success" href="javascript:void(0)">Approve</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="javascript:void(0)">Reject</a>
+                                        </li>
+                                    }
+                                </ul>
                             </div>
                         </div>
 
-                        <!-- 3 dots dropdown -->
-                        <div class="dropdown">
-                            <button class="btn btn-light kebab-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow">
-                                <li>
-                                    <a class="dropdown-item" href="javascript:void(0)">
-                                        <i class="bi bi-eye me-2"></i>View
-                                    </a>
-                                </li>
-                                @if (canCreate)
-                                {
-                                    <li>
-                                        <a class="dropdown-item" href="javascript:void(0)">
-                                            <i class="bi bi-pencil-square me-2"></i>Edit
-                                        </a>
-                                    </li>
-                                }
-                                @if (canApprove && p.Status == "pending")
-                                {
-                                    <li><hr class="dropdown-divider" /></li>
-                                    <li>
-                                        <a class="dropdown-item text-success" href="javascript:void(0)">Approve</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item text-danger" href="javascript:void(0)">Reject</a>
-                                    </li>
-                                }
-                            </ul>
-                        </div>
-                    </div>
+                        <div class="policy-desc">@p.Description</div>
 
-                    <div class="policy-desc">@p.Description</div>
-
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="meta">
-                            <span>v@p.Version</span>
-                            <span class="dot">•</span>
-                            <span>@p.LastUpdated</span>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="meta">
+                                <span>v@p.Version</span>
+                                <span class="dot">•</span>
+                                <span>@p.LastUpdated</span>
+                            </div>
+                            @Html.Raw(StatusBadge(p.Status))
                         </div>
-                        @Html.Raw(StatusBadge(p.Status))
                     </div>
                 </div>
-            </div>
+            }
         }
     </div>
 </div>

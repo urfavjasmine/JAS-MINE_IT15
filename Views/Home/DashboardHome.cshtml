@@ -22,61 +22,14 @@
         _ => "User"
     };
 
-    // ===== Mock Recent Activity =====
-    var recentActivity = new[]
-    {
-        new { Action = "Document uploaded", Item = "Resolution No. 2024-001", User = "Maria Santos", Time = "5 min ago",  Status = "pending" },
-        new { Action = "Policy approved",   Item = "Waste Management Guidelines", User = "Juan dela Cruz", Time = "1 hour ago", Status = "approved" },
-        new { Action = "Lesson submitted",  Item = "COVID-19 Response Insights", User = "Ana Reyes", Time = "2 hours ago", Status = "pending" },
-        new { Action = "Best practice added", Item = "Community Health Program", User = "Pedro Garcia", Time = "3 hours ago", Status = "approved" },
-        new { Action = "Document rejected", Item = "Budget Proposal Draft", User = "System", Time = "4 hours ago", Status = "rejected" },
-    };
+    // TODO: Load recent activity from database
+    var recentActivity = Model?.RecentActivity ?? new List<JAS_MINE_IT15.Models.RecentActivityRow>();
 
-    // ===== Mock Announcements =====
-    var announcements = new[]
-    {
-        new { Title = "System Maintenance Notice", Content = "Scheduled maintenance on February 15, 2024 from 10PM-12AM.", Priority = "info" },
-        new { Title = "New Policy Guidelines Released", Content = "Updated guidelines for document submission now available.", Priority = "important" },
-    };
+    // TODO: Load dashboard announcements from database
+    var announcements = Model?.Announcements ?? new List<JAS_MINE_IT15.Models.DashboardAnnouncementRow>();
 
-    // ===== Barangay Admin Analytics =====
-    var workflowStatus = new[]
-    {
-        new { Label = "Pending", Count = 12, Color = "bg-warning" },
-        new { Label = "Approved", Count = 86, Color = "bg-success" },
-        new { Label = "Rejected", Count = 7, Color = "bg-danger" }
-    };
-
-    var monthlyBarangayActivity = new[]
-    {
-        new { Month="Sep", Docs=20, Policies=5, Lessons=8, Practices=3 },
-        new { Month="Oct", Docs=28, Policies=6, Lessons=12, Practices=4 },
-        new { Month="Nov", Docs=24, Policies=7, Lessons=10, Practices=5 },
-        new { Month="Dec", Docs=18, Policies=4, Lessons=6, Practices=2 },
-        new { Month="Jan", Docs=30, Policies=8, Lessons=15, Practices=6 },
-        new { Month="Feb", Docs=36, Policies=9, Lessons=18, Practices=7 },
-    };
-
-    // ===== Super Admin Analytics (Mock) =====
-    var monthlyActivity = new[]
-    {
-        new { month = "Sep", documents = 85,  policies = 12, lessons = 28, practices = 15 },
-        new { month = "Oct", documents = 102, policies = 8,  lessons = 35, practices = 18 },
-        new { month = "Nov", documents = 95,  policies = 15, lessons = 42, practices = 22 },
-        new { month = "Dec", documents = 78,  policies = 10, lessons = 30, practices = 12 },
-        new { month = "Jan", documents = 120, policies = 14, lessons = 38, practices = 20 },
-        new { month = "Feb", documents = 134, policies = 18, lessons = 45, practices = 25 },
-    };
-
-    var moduleUsage = new[]
-    {
-        new { name = "Repository", value = 42 },
-        new { name = "Policies", value = 18 },
-        new { name = "Lessons", value = 25 },
-        new { name = "Best Practices", value = 15 },
-    };
-
-    var monthlyJson = JsonSerializer.Serialize(monthlyActivity);
+    // Serialize monthly activity for Chart.js (from Model)
+    var monthlyJson = JsonSerializer.Serialize(Model?.MonthlyActivity ?? new List<JAS_MINE_IT15.Models.MonthlyActivityRow>());
 
     // keep your original line (uses Model.ModuleUsage)
     var usageJson = JsonSerializer.Serialize(Model?.ModuleUsage ?? new List<JAS_MINE_IT15.Models.ModuleUsageRow>());
@@ -454,25 +407,32 @@
                 </div>
 
                 <div class="px-4 pb-4">
-                    @foreach (var a in recentActivity)
+                    @if (recentActivity.Count == 0)
                     {
-                        <div class="activity-item d-flex align-items-start gap-3">
-                            <div class="activity-icon">
-                                <i class="bi @StatusIcon(a.Status)"></i>
-                            </div>
-
-                            <div class="flex-grow-1" style="min-width:0;">
-                                <div class="fw-semibold">@a.Action</div>
-                                <div class="text-muted text-truncate">@a.Item</div>
-                                <div class="text-muted" style="font-size:12px;margin-top:4px;">
-                                    @a.User • @a.Time
+                        <div class="text-center text-muted py-4">No recent activity.</div>
+                    }
+                    else
+                    {
+                        foreach (var a in recentActivity)
+                        {
+                            <div class="activity-item d-flex align-items-start gap-3">
+                                <div class="activity-icon">
+                                    <i class="bi @StatusIcon(a.Status)"></i>
                                 </div>
-                            </div>
 
-                            <span class="@StatusBadgeClass(a.Status) px-3 py-2 rounded-pill" style="font-weight:600;">
-                                @(a.Status == "approved" ? "Approved" : a.Status == "pending" ? "Pending" : "Rejected")
-                            </span>
-                        </div>
+                                <div class="flex-grow-1" style="min-width:0;">
+                                    <div class="fw-semibold">@a.Action</div>
+                                    <div class="text-muted text-truncate">@a.Item</div>
+                                    <div class="text-muted" style="font-size:12px;margin-top:4px;">
+                                        @a.User • @a.Time
+                                    </div>
+                                </div>
+
+                                <span class="@StatusBadgeClass(a.Status) px-3 py-2 rounded-pill" style="font-weight:600;">
+                                    @(a.Status == "approved" ? "Approved" : a.Status == "pending" ? "Pending" : "Rejected")
+                                </span>
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -490,18 +450,25 @@
                     </div>
 
                     <div class="p-4 pt-2 d-flex flex-column gap-3">
-                        @foreach (var an in announcements)
+                        @if (announcements.Count == 0)
                         {
-                            var boxClass = an.Priority == "important"
-                            ? "border border-success-subtle bg-success-subtle"
-                            : "border border-secondary-subtle bg-light";
+                            <div class="text-center text-muted py-3">No announcements.</div>
+                        }
+                        else
+                        {
+                            foreach (var an in announcements)
+                            {
+                                var boxClass = an.Priority == "important"
+                                ? "border border-success-subtle bg-success-subtle"
+                                : "border border-secondary-subtle bg-light";
 
-                            <div class="p-3 rounded-3 @boxClass">
-                                <div class="fw-semibold">@an.Title</div>
-                                <div class="text-muted" style="font-size:12px;margin-top:4px;">
-                                    @an.Content
+                                <div class="p-3 rounded-3 @boxClass">
+                                    <div class="fw-semibold">@an.Title</div>
+                                    <div class="text-muted" style="font-size:12px;margin-top:4px;">
+                                        @an.Content
+                                    </div>
                                 </div>
-                            </div>
+                            }
                         }
                     </div>
                 </div>

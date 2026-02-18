@@ -10,141 +10,9 @@ namespace JAS_MINE_IT15.Controllers
 {
     public class HomeController : Controller
     {
-        // TEMP DEFAULT ACCOUNTS (NO DATABASE)
-        private static readonly Dictionary<string, (string Email, string Password, string Name)> DefaultAccounts
-            = new()
-            {
-                ["super_admin"] = ("superadmin@gmail.com", "1234", "Jasmine T. Elederos"),
-                ["barangay_admin"] = ("admin@gmail.com", "1234", "Barangay Admin"),
-                ["barangay_secretary"] = ("secretary@gmail.com", "1234", "Barangay Secretary"),
-                ["barangay_staff"] = ("staff@gmail.com", "1234", "Barangay Staff"),
-                ["council_member"] = ("council@gmail.com", "1234", "Council Member"),
-            };
-
-        // ✅ KNOWLEDGE REPOSITORY (TEMP DATA IN MEMORY)
-        private static readonly List<RepoDocument> _repoDocs = new()
-            {
-                new RepoDocument { Id="1", Title="Resolution No. 2024-001", Category="Resolutions", TagsCsv="governance, budget", UploadedBy="Maria Santos", Date="2024-02-01", Status="approved", Version="1.2", Description="Annual budget resolution for fiscal year 2024." },
-                new RepoDocument { Id="2", Title="Ordinance on Waste Management", Category="Ordinances", TagsCsv="environment, health", UploadedBy="Juan dela Cruz", Date="2024-01-28", Status="approved", Version="2.0", Description="Comprehensive waste management ordinance." },
-                new RepoDocument { Id="3", Title="Memorandum Circular 2024-005", Category="Memorandums", TagsCsv="operations, staff", UploadedBy="Ana Reyes", Date="2024-01-25", Status="pending", Version="1.0", Description="Staff operational guidelines update." },
-                new RepoDocument { Id="4", Title="Budget Proposal FY 2024", Category="Policies", TagsCsv="budget, finance", UploadedBy="Pedro Garcia", Date="2024-01-20", Status="approved", Version="3.1", Description="Proposed budget for FY 2024." },
-                new RepoDocument { Id="5", Title="Community Health Program Guidelines", Category="Policies", TagsCsv="health, community", UploadedBy="Maria Santos", Date="2024-01-15", Status="draft", Version="1.0", Description="Guidelines for community health programs." },
-            };
-
-        // ✅ POLICIES (TEMP DATA IN MEMORY)
-        private static readonly List<PolicyItem> _policies = new()
-            {
-                new PolicyItem { Id="1", Title="Waste Management Policy",
-                    Description="Guidelines for proper waste segregation and disposal in the barangay.",
-                    Status="approved", LastUpdated="2024-02-01", Author="Maria Santos", Version="2.1" },
-
-                new PolicyItem { Id="2", Title="Community Health Guidelines",
-                    Description="Health protocols and emergency response procedures for residents.",
-                    Status="pending", LastUpdated="2024-01-28", Author="Juan dela Cruz", Version="1.0" },
-
-                new PolicyItem { Id="3", Title="Budget Allocation Policy",
-                    Description="Standard operating procedures for budget allocation and disbursement.",
-                    Status="draft", LastUpdated="2024-01-25", Author="Ana Reyes", Version="0.9" },
-
-                new PolicyItem { Id="4", Title="Business Permit Guidelines",
-                    Description="Requirements and procedures for obtaining business permits.",
-                    Status="approved", LastUpdated="2024-01-20", Author="Pedro Garcia", Version="3.0" },
-
-                new PolicyItem { Id="5", Title="Peace and Order Procedures",
-                    Description="Protocols for maintaining peace and order in the community.",
-                    Status="approved", LastUpdated="2024-01-15", Author="Maria Santos", Version="1.5" },
-            };
-
-        // ✅ BEST PRACTICES (TEMP DATA IN MEMORY)
-        private static readonly List<PracticeItem> _practices = new()
-            {
-                new PracticeItem { Id="1", Title="Community-Based Health Monitoring System", Category="Health",
-                    Description="A volunteer-driven health monitoring program that tracks vital signs of elderly residents through regular home visits and mobile reporting.",
-                    Barangay="Brgy. San Antonio", DateAdded="2024-01-15", Rating=4.8m, Implementations=12, Featured=true },
-
-                new PracticeItem { Id="2", Title="Youth Education Scholarship Program", Category="Education",
-                    Description="Sustainable scholarship fund management through community contributions and transparent selection process.",
-                    Barangay="Brgy. Malabon", DateAdded="2024-01-10", Rating=4.6m, Implementations=8, Featured=true },
-
-                new PracticeItem { Id="3", Title="Digital Barangay Services Portal", Category="Governance",
-                    Description="Online portal for requesting certificates, permits, and tracking service requests with SMS notifications.",
-                    Barangay="Brgy. Poblacion", DateAdded="2024-01-05", Rating=4.9m, Implementations=25, Featured=false },
-
-                new PracticeItem { Id="4", Title="Zero Waste Community Program", Category="Environment",
-                    Description="Comprehensive waste reduction initiative including composting centers, recycling hubs, and incentive programs.",
-                    Barangay="Brgy. Pinyahan", DateAdded="2023-12-20", Rating=4.7m, Implementations=15, Featured=true },
-
-                new PracticeItem { Id="5", Title="Barangay Emergency Response System", Category="Safety",
-                    Description="Integrated emergency response system with trained volunteer responders, communication protocols, and equipment management.",
-                    Barangay="Brgy. Bagong Silang", DateAdded="2023-12-15", Rating=4.5m, Implementations=10, Featured=false },
-            };
-
-        // ✅ ANNOUNCEMENTS (TEMP DATA IN MEMORY)
-        private static readonly List<AnnouncementItem> _announcements = new()
-            {
-                new AnnouncementItem { Id="1", Title="System Maintenance Notice",
-                    Content="The system will undergo scheduled maintenance on February 15, 2026 from 10:00 PM to 2:00 AM.",
-                    Priority="high", Status="published", Date="2026-02-08", Author="Maria Santos", Views=45, Pinned=true },
-
-                new AnnouncementItem { Id="2", Title="New Policy Upload Guidelines",
-                    Content="All barangay secretaries are reminded to follow the updated document upload guidelines effective immediately.",
-                    Priority="medium", Status="published", Date="2026-02-07", Author="Juan Dela Cruz", Views=32, Pinned=false },
-
-                new AnnouncementItem { Id="3", Title="Training Session: Knowledge Management",
-                    Content="A training session on using the Knowledge Repository module will be held on February 20, 2026.",
-                    Priority="low", Status="draft", Date="2026-02-06", Author="Maria Santos", Views=0, Pinned=false },
-
-                new AnnouncementItem { Id="4", Title="Annual Barangay Reports Due",
-                    Content="All barangays are reminded to submit their annual reports by March 31, 2026.",
-                    Priority="high", Status="published", Date="2026-02-05", Author="Maria Santos", Views=67, Pinned=true },
-            };
-
-        // ✅ AUDIT LOGS (TEMP DATA IN MEMORY)
-        private static readonly List<LogItem> _auditLogs = new()
-            {
-                new LogItem { Id="1", Timestamp="2026-02-09 14:32:10", User="Maria Santos", Action="Approved", Module="Policies", Target="Resolution No. 2026-001", Ip="192.168.1.10" },
-                new LogItem { Id="2", Timestamp="2026-02-09 13:15:44", User="Juan Dela Cruz", Action="Uploaded", Module="Repository", Target="Annual Budget Report 2026.pdf", Ip="192.168.1.11" },
-                new LogItem { Id="3", Timestamp="2026-02-09 11:45:22", User="Ana Reyes", Action="Submitted", Module="Lessons Learned", Target="Community Health Program Review", Ip="192.168.1.12" },
-                new LogItem { Id="4", Timestamp="2026-02-08 16:20:05", User="Maria Santos", Action="Rejected", Module="Best Practices", Target="Waste Management Initiative", Ip="192.168.1.10" },
-                new LogItem { Id="5", Timestamp="2026-02-08 10:05:30", User="Rosa Mendoza", Action="Posted", Module="Knowledge Sharing", Target="Discussion: Budget Allocation Tips", Ip="192.168.1.15" },
-                new LogItem { Id="6", Timestamp="2026-02-07 09:12:18", User="Maria Santos", Action="Created", Module="User Management", Target="New user: Pedro Garcia", Ip="192.168.1.10" },
-                new LogItem { Id="7", Timestamp="2026-02-07 08:30:00", User="Juan Dela Cruz", Action="Updated", Module="Policies", Target="Ordinance No. 2025-045", Ip="192.168.1.11" },
-                new LogItem { Id="8", Timestamp="2026-02-06 15:45:12", User="Ana Reyes", Action="Deleted", Module="Repository", Target="Draft memo (duplicate)", Ip="192.168.1.12" },
-            };
-
-        // ✅ KNOWLEDGE SHARING (TEMP DATA IN MEMORY)
-        private static readonly List<KnowledgeDiscussionItem> _ksDiscussions = new()
-        {
-            new KnowledgeDiscussionItem { Id="1", Title="Best approach for community health monitoring?",
-                Content="Looking for suggestions on implementing a sustainable health monitoring program for our senior citizens...",
-                Author="Maria Santos", Avatar="MS", Date="2024-02-02", Category="Health", Replies=8, Likes=15 },
-
-            new KnowledgeDiscussionItem { Id="2", Title="Waste segregation enforcement strategies",
-                Content="Our barangay is struggling with waste segregation compliance. What strategies have worked for others?",
-                Author="Juan dela Cruz", Avatar="JD", Date="2024-02-01", Category="Environment", Replies=12, Likes=28 },
-
-            new KnowledgeDiscussionItem { Id="3", Title="Youth engagement programs success stories",
-                Content="Share your successful youth engagement programs! We want to replicate what works.",
-                Author="Ana Reyes", Avatar="AR", Date="2024-01-30", Category="Youth", Replies=6, Likes=22 },
-        };
-
-        private static readonly List<KnowledgeAnnouncementItem> _ksAnnouncements = new()
-        {
-            new KnowledgeAnnouncementItem { Id="1", Title="New Document Submission Guidelines",
-                Content="All document submissions must now include the new metadata form. Please review the updated guidelines in the Knowledge Repository.",
-                Author="Barangay Administrator", Date="2024-02-01", Pinned=true, Likes=45, Comments=12 },
-
-            new KnowledgeAnnouncementItem { Id="2", Title="System Maintenance Schedule",
-                Content="JAS-MINE will undergo scheduled maintenance on February 15, 2024 from 10:00 PM to 12:00 AM.",
-                Author="System Admin", Date="2024-01-30", Pinned=true, Likes=23, Comments=5 },
-        };
-
-        private static readonly List<KnowledgeSharedDocItem> _ksSharedDocs = new()
-        {
-            new KnowledgeSharedDocItem { Id="1", Title="Community Health Survey Template", SharedBy="Maria Santos", Date="2024-02-01", Downloads=34 },
-            new KnowledgeSharedDocItem { Id="2", Title="Budget Planning Worksheet", SharedBy="Pedro Garcia", Date="2024-01-28", Downloads=56 },
-            new KnowledgeSharedDocItem { Id="3", Title="Event Planning Checklist", SharedBy="Ana Reyes", Date="2024-01-25", Downloads=42 },
-        };
+        // TODO: Inject DbContext via constructor for database integration
+        // private readonly ApplicationDbContext _context;
+        // public HomeController(ApplicationDbContext context) { _context = context; }
 
         private bool IsLoggedIn() =>
             !string.IsNullOrEmpty(HttpContext.Session.GetString("UserName"));
@@ -153,6 +21,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             var role = HttpContext.Session.GetString("Role");
             return role == "super_admin" || role == "barangay_admin";
+        }
+
+        private static string ComputeStatus(string endDate)
+        {
+            if (DateTime.TryParse(endDate, out var end))
+                return end.Date >= DateTime.Today ? "Active" : "Expired";
+            return "Expired";
         }
 
         // GET: Home Index
@@ -175,34 +50,7 @@ namespace JAS_MINE_IT15.Controllers
             return View();
         }
 
-        // ✅ SUBSCRIPTIONS (TEMP DATA IN MEMORY)
-        private static readonly List<SubscriptionItem> _subscriptions = new()
-            {
-                new SubscriptionItem { Id="1", BarangayName="Barangay San Antonio", PlanName="Standard Plan", StartDate="2026-01-01", EndDate="2026-12-31", Status="Active" },
-                new SubscriptionItem { Id="2", BarangayName="Barangay Del Pilar",   PlanName="Basic Plan",    StartDate="2026-01-15", EndDate="2026-02-15", Status="Active" },
-                new SubscriptionItem { Id="3", BarangayName="Barangay Rizal",       PlanName="Premium Plan",  StartDate="2025-01-01", EndDate="2025-12-31", Status="Expired" },
-                new SubscriptionItem { Id="4", BarangayName="Barangay Mabini",      PlanName="Basic Plan",    StartDate="2025-06-01", EndDate="2025-07-01", Status="Cancelled" },
-            };
-
-                    private static readonly List<string> _barangays = new()
-            {
-                "Barangay San Antonio", "Barangay Del Pilar", "Barangay Rizal",
-                "Barangay Mabini", "Barangay Bonifacio", "Barangay Luna"
-            };
-
-                    private static readonly List<string> _plans = new()
-            {
-                "Basic Plan", "Standard Plan", "Premium Plan", "Trial Plan"
-            };
-
-        private static string ComputeStatus(string endDate)
-        {
-            if (DateTime.TryParse(endDate, out var end))
-                return end.Date >= DateTime.Today ? "Active" : "Expired";
-            return "Expired";
-        }
-
-        // ✅ GET: /Home/BarangaySubscriptions
+        // GET: /Home/BarangaySubscriptions
         [HttpGet]
         public IActionResult BarangaySubscriptions(string q = "", string status = "all")
         {
@@ -212,7 +60,11 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim();
             status = (status ?? "all").Trim();
 
-            var filtered = _subscriptions.AsEnumerable();
+            // TODO: Fetch subscriptions from database
+            // var allSubscriptions = _context.Subscriptions.ToList();
+            var allSubscriptions = new List<SubscriptionItem>();
+
+            var filtered = allSubscriptions.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -228,19 +80,25 @@ namespace JAS_MINE_IT15.Controllers
 
             var list = filtered.ToList();
 
+            // TODO: Fetch barangays and plans from database
+            // var barangays = _context.Barangays.Select(b => b.Name).ToList();
+            // var plans = _context.Plans.Select(p => p.Name).ToList();
+            var barangays = new List<string>();
+            var plans = new List<string>();
+
             var vm = new BarangaySubscriptionsViewModel
             {
                 SearchQuery = q,
                 StatusFilter = status,
                 Subscriptions = list,
 
-                TotalCount = _subscriptions.Count,
-                ActiveCount = _subscriptions.Count(x => x.Status == "Active"),
-                ExpiredCount = _subscriptions.Count(x => x.Status == "Expired"),
-                CancelledCount = _subscriptions.Count(x => x.Status == "Cancelled"),
+                TotalCount = allSubscriptions.Count,
+                ActiveCount = allSubscriptions.Count(x => x.Status == "Active"),
+                ExpiredCount = allSubscriptions.Count(x => x.Status == "Expired"),
+                CancelledCount = allSubscriptions.Count(x => x.Status == "Cancelled"),
 
-                Barangays = _barangays,
-                Plans = _plans,
+                Barangays = barangays,
+                Plans = plans,
 
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
@@ -249,7 +107,7 @@ namespace JAS_MINE_IT15.Controllers
             return View(vm);
         }
 
-        // ✅ POST: Create (Assign Plan)
+        // POST: Create (Assign Plan)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult CreateSubscription(string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
@@ -269,21 +127,16 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
             }
 
-            _subscriptions.Insert(0, new SubscriptionItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                BarangayName = barangayName,
-                PlanName = planName,
-                StartDate = startDate,
-                EndDate = endDate,
-                Status = ComputeStatus(endDate)
-            });
+            // TODO: Add subscription to database
+            // var subscription = new SubscriptionItem { ... };
+            // _context.Subscriptions.Add(subscription);
+            // _context.SaveChanges();
 
             TempData["Success"] = $"{planName} assigned to {barangayName}.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
         }
 
-        // ✅ POST: Edit
+        // POST: Edit
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult EditSubscription(string id, string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
@@ -291,7 +144,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var item = _subscriptions.FirstOrDefault(x => x.Id == id);
+            // TODO: Fetch subscription from database
+            // var item = _context.Subscriptions.FirstOrDefault(x => x.Id == id);
+            SubscriptionItem? item = null;
+
             if (item == null)
             {
                 TempData["Error"] = "Subscription not found.";
@@ -306,11 +162,14 @@ namespace JAS_MINE_IT15.Controllers
             if (item.Status != "Cancelled")
                 item.Status = ComputeStatus(item.EndDate);
 
+            // TODO: Save changes to database
+            // _context.SaveChanges();
+
             TempData["Success"] = $"Subscription for {item.BarangayName} updated.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
         }
 
-        // ✅ POST: Cancel
+        // POST: Cancel
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult CancelSubscription(string id, string q = "", string status = "all")
@@ -318,9 +177,9 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var item = _subscriptions.FirstOrDefault(x => x.Id == id);
-            if (item != null)
-                item.Status = "Cancelled";
+            // TODO: Fetch and update subscription in database
+            // var item = _context.Subscriptions.FirstOrDefault(x => x.Id == id);
+            // if (item != null) { item.Status = "Cancelled"; _context.SaveChanges(); }
 
             TempData["Success"] = "Subscription cancelled.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
@@ -334,43 +193,19 @@ namespace JAS_MINE_IT15.Controllers
 
             var barangay = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
 
+            // TODO: Fetch subscription and payments from database based on current user's barangay
+            // var subscription = _context.Subscriptions.FirstOrDefault(s => s.BarangayName == barangay);
+            // var payments = _context.Payments.Where(p => p.BarangayName == barangay).ToList();
+
             var vm = new MySubscriptionViewModel
             {
                 BarangayName = barangay,
-                Subscription = new MySubscriptionViewModel.SubscriptionSummary
-                {
-                    PlanName = "Standard Plan",
-                    Price = 5000m,
-                    Status = "Active",
-                    StartDate = "2026-01-01",
-                    EndDate = "2026-12-31",
-                },
-                Payments = new List<MySubscriptionViewModel.PaymentRow>
-        {
-            new() { Id="1", Amount=5000m, Date="2026-01-05", Method="Bank Transfer", Status="Paid" },
-            new() { Id="2", Amount=5000m, Date="2025-01-03", Method="GCash", Status="Paid" },
-            new() { Id="3", Amount=5000m, Date="2024-01-08", Method="Bank Transfer", Status="Paid" },
-        }
+                Subscription = null, // No subscription data available - will be populated from database
+                Payments = new List<MySubscriptionViewModel.PaymentRow>()
             };
 
             return View(vm);
         }
-
-        // ✅ PAYMENTS (TEMP DATA IN MEMORY)
-        private static readonly List<PaymentItem> _payments = new()
-{
-    new PaymentItem { Id="1", BarangayName="Barangay San Antonio", PlanName="Standard Plan", Amount=5000m, PaymentDate="2026-01-05", PaymentMethod="Bank Transfer", Status="Paid" },
-    new PaymentItem { Id="2", BarangayName="Barangay Del Pilar",   PlanName="Basic Plan",    Amount=500m,  PaymentDate="2026-01-15", PaymentMethod="GCash",         Status="Paid" },
-    new PaymentItem { Id="3", BarangayName="Barangay Rizal",       PlanName="Premium Plan",  Amount=8000m, PaymentDate="2025-12-28", PaymentMethod="Check",         Status="Pending" },
-    new PaymentItem { Id="4", BarangayName="Barangay Mabini",      PlanName="Basic Plan",    Amount=500m,  PaymentDate="2025-11-01", PaymentMethod="Cash",          Status="Failed" },
-};
-
-        private static readonly List<string> _payBarangays = new()
-{
-    "Barangay San Antonio", "Barangay Del Pilar", "Barangay Rizal", "Barangay Mabini", "Barangay Bonifacio"
-};
-        private static readonly List<string> _payPlans = new() { "Basic Plan", "Standard Plan", "Premium Plan" };
-        private static readonly List<string> _payMethods = new() { "Cash", "Bank Transfer", "GCash", "Maya", "Check" };
 
         // GET: /Home/SubscriptionPayments
         [HttpGet]
@@ -381,7 +216,11 @@ namespace JAS_MINE_IT15.Controllers
 
             q = (q ?? "").Trim();
 
-            var list = _payments.AsEnumerable();
+            // TODO: Fetch payments from database
+            // var allPayments = _context.Payments.ToList();
+            var allPayments = new List<PaymentItem>();
+
+            var list = allPayments.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -394,21 +233,28 @@ namespace JAS_MINE_IT15.Controllers
 
             var filtered = list.ToList();
 
-            var totalPaid = _payments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
+            var totalPaid = allPayments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
+
+            // TODO: Fetch dropdown lists from database
+            // var barangays = _context.Barangays.Select(b => b.Name).ToList();
+            // var plans = _context.Plans.Select(p => p.Name).ToList();
+            var barangays = new List<string>();
+            var plans = new List<string>();
+            var methods = new List<string> { "Cash", "Bank Transfer", "GCash", "Maya", "Check" };
 
             var vm = new SubscriptionPaymentsViewModel
             {
                 SearchQuery = q,
                 Payments = filtered,
 
-                TotalPayments = _payments.Count,
+                TotalPayments = allPayments.Count,
                 TotalCollected = totalPaid,
-                PendingCount = _payments.Count(p => p.Status == "Pending"),
-                FailedCount = _payments.Count(p => p.Status == "Failed"),
+                PendingCount = allPayments.Count(p => p.Status == "Pending"),
+                FailedCount = allPayments.Count(p => p.Status == "Failed"),
 
-                Barangays = _payBarangays,
-                Plans = _payPlans,
-                Methods = _payMethods,
+                Barangays = barangays,
+                Plans = plans,
+                Methods = methods,
 
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
@@ -437,16 +283,10 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(SubscriptionPayments), new { q });
             }
 
-            _payments.Insert(0, new PaymentItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                BarangayName = barangayName,
-                PlanName = planName,
-                Amount = amount,
-                PaymentDate = paymentDate,
-                PaymentMethod = paymentMethod,
-                Status = status
-            });
+            // TODO: Add payment to database
+            // var payment = new PaymentItem { ... };
+            // _context.Payments.Add(payment);
+            // _context.SaveChanges();
 
             TempData["Success"] = $"Payment of ₱{amount:N0} recorded.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
@@ -460,7 +300,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var p = _payments.FirstOrDefault(x => x.Id == id);
+            // TODO: Fetch payment from database
+            // var p = _context.Payments.FirstOrDefault(x => x.Id == id);
+            PaymentItem? p = null;
+
             if (p == null)
             {
                 TempData["Error"] = "Payment record not found.";
@@ -474,6 +317,9 @@ namespace JAS_MINE_IT15.Controllers
             p.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? p.PaymentMethod : paymentMethod.Trim();
             p.Status = string.IsNullOrWhiteSpace(status) ? p.Status : status.Trim();
 
+            // TODO: Save changes to database
+            // _context.SaveChanges();
+
             TempData["Success"] = "Payment record has been updated.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
         }
@@ -486,19 +332,13 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            _payments.RemoveAll(x => x.Id == id);
+            // TODO: Delete payment from database
+            // var payment = _context.Payments.FirstOrDefault(x => x.Id == id);
+            // if (payment != null) { _context.Payments.Remove(payment); _context.SaveChanges(); }
+
             TempData["Success"] = "Payment deleted.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
         }
-
-        // ✅ PLANS (TEMP DATA IN MEMORY)
-        private static readonly List<PlanItem> _plansList = new()
-{
-    new PlanItem { Id="1", Name="Basic Plan",    Price=500m,  DurationMonths=1,  Description="Basic access to all modules for one month.", IsActive=true },
-    new PlanItem { Id="2", Name="Standard Plan", Price=5000m, DurationMonths=12, Description="Full access for one year with priority support.", IsActive=true },
-    new PlanItem { Id="3", Name="Premium Plan",  Price=8000m, DurationMonths=12, Description="Enterprise-level access with dedicated support and training.", IsActive=true },
-    new PlanItem { Id="4", Name="Trial Plan",    Price=0m,    DurationMonths=1,  Description="Free 30-day trial with limited features.", IsActive=false },
-};
 
         // GET: /Home/SubscriptionPlans
         [HttpGet]
@@ -509,7 +349,11 @@ namespace JAS_MINE_IT15.Controllers
 
             q = (q ?? "").Trim();
 
-            var list = _plansList.AsEnumerable();
+            // TODO: Fetch plans from database
+            // var allPlans = _context.Plans.ToList();
+            var allPlans = new List<PlanItem>();
+
+            var list = allPlans.AsEnumerable();
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var qq = q.ToLower();
@@ -523,10 +367,10 @@ namespace JAS_MINE_IT15.Controllers
                 SearchQuery = q,
                 Plans = filtered,
 
-                TotalPlans = _plansList.Count,
-                ActivePlans = _plansList.Count(p => p.IsActive),
-                InactivePlans = _plansList.Count(p => !p.IsActive),
-                YearlyPlans = _plansList.Count(p => p.DurationMonths >= 12),
+                TotalPlans = allPlans.Count,
+                ActivePlans = allPlans.Count(p => p.IsActive),
+                InactivePlans = allPlans.Count(p => !p.IsActive),
+                YearlyPlans = allPlans.Count(p => p.DurationMonths >= 12),
 
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
@@ -554,15 +398,10 @@ namespace JAS_MINE_IT15.Controllers
             if (durationMonths <= 0) durationMonths = 1;
             if (price < 0) price = 0;
 
-            _plansList.Insert(0, new PlanItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Name = name,
-                Price = price,
-                DurationMonths = durationMonths,
-                Description = description,
-                IsActive = isActive
-            });
+            // TODO: Add plan to database
+            // var plan = new PlanItem { ... };
+            // _context.Plans.Add(plan);
+            // _context.SaveChanges();
 
             TempData["Success"] = $"\"{name}\" has been added.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
@@ -576,7 +415,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var p = _plansList.FirstOrDefault(x => x.Id == id);
+            // TODO: Fetch plan from database
+            // var p = _context.Plans.FirstOrDefault(x => x.Id == id);
+            PlanItem? p = null;
+
             if (p == null)
             {
                 TempData["Error"] = "Plan not found.";
@@ -592,6 +434,9 @@ namespace JAS_MINE_IT15.Controllers
             p.Description = description;
             p.IsActive = isActive;
 
+            // TODO: Save changes to database
+            // _context.SaveChanges();
+
             TempData["Success"] = $"\"{p.Name}\" has been updated.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
         }
@@ -604,17 +449,12 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var plan = _plansList.FirstOrDefault(x => x.Id == id);
-            if (plan != null)
-            {
-                _plansList.RemoveAll(x => x.Id == id);
-                TempData["Success"] = $"\"{plan.Name}\" removed.";
-            }
-            else
-            {
-                TempData["Error"] = "Plan not found.";
-            }
+            // TODO: Fetch and delete plan from database
+            // var plan = _context.Plans.FirstOrDefault(x => x.Id == id);
+            // if (plan != null) { _context.Plans.Remove(plan); _context.SaveChanges(); TempData["Success"] = $"\"{plan.Name}\" removed."; }
+            // else { TempData["Error"] = "Plan not found."; }
 
+            TempData["Success"] = "Plan removed.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
         }
 
@@ -629,12 +469,11 @@ namespace JAS_MINE_IT15.Controllers
             return View(new LoginViewModel());
         }
 
-        // ✅ UPDATED POST: /Home/Login 
+        // POST: /Home/Login 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult Login(LoginViewModel model)
         {
-            // ✅ show model validation errors
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill up all required fields.";
@@ -644,30 +483,26 @@ namespace JAS_MINE_IT15.Controllers
             model.Email = (model.Email ?? "").Trim();
             model.Password = (model.Password ?? "").Trim();
 
-            // Find matching account by email + password 
-            var match = DefaultAccounts.FirstOrDefault(kvp =>
-                string.Equals(kvp.Value.Email, model.Email, StringComparison.OrdinalIgnoreCase) &&
-                kvp.Value.Password == model.Password
-            );
+            // TODO: Authenticate user against database
+            // var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
+            // if (user == null || !VerifyPassword(model.Password, user.PasswordHash))
+            // {
+            //     model.ErrorMessage = "Invalid email/password.";
+            //     return View(model);
+            // }
+            // var role = user.Role;
+            // var name = user.Name;
+            // var barangay = user.Barangay ?? "Unknown Barangay";
+            //
+            // HttpContext.Session.SetString("UserName", name);
+            // HttpContext.Session.SetString("Role", role);
+            // HttpContext.Session.SetString("RoleLabel", GetRoleLabel(role));
+            // HttpContext.Session.SetString("Barangay", barangay);
+            // return RedirectToAction(nameof(DashboardHome));
 
-            // If no match
-            if (string.IsNullOrEmpty(match.Key))
-            {
-                model.ErrorMessage = "Invalid email/password.";
-                return View(model);
-            }
-
-            var role = match.Key;
-            var acc = match.Value;
-
-            // set session (this is what Dashboard checks)
-            HttpContext.Session.SetString("UserName", acc.Name);
-            HttpContext.Session.SetString("Role", role);
-            HttpContext.Session.SetString("RoleLabel", GetRoleLabel(role));
-            HttpContext.Session.SetString("Barangay", "Barangay San Antonio");
-
-            // redirect to dashboard
-            return RedirectToAction(nameof(DashboardHome));
+            // For now, authentication is disabled without database
+            model.ErrorMessage = "Authentication requires database integration.";
+            return View(model);
         }
 
         // GET: /Home/DashboardHome
@@ -682,19 +517,18 @@ namespace JAS_MINE_IT15.Controllers
             vm.Role = HttpContext.Session.GetString("Role") ?? "";
             vm.RoleLabel = HttpContext.Session.GetString("RoleLabel") ?? "";
 
-            // example DB counts (replace with your DB context)
-            vm.TotalDocuments = 10;
-            vm.ActivePolicies = 5;
-            vm.LessonsLearned = 3;
-            vm.BestPractices = 2;
+            // TODO: Fetch counts from database
+            // vm.TotalDocuments = _context.Documents.Count();
+            // vm.ActivePolicies = _context.Policies.Count(p => p.Status == "approved");
+            // vm.LessonsLearned = _context.Lessons.Count();
+            // vm.BestPractices = _context.Practices.Count();
+            vm.TotalDocuments = 0;
+            vm.ActivePolicies = 0;
+            vm.LessonsLearned = 0;
+            vm.BestPractices = 0;
 
-            vm.ModuleUsage = new List<ModuleUsageRow>
-            {
-                new() { Name = "Repository", Value = 40 },
-                new() { Name = "Policies", Value = 25 },
-                new() { Name = "Lessons", Value = 20 },
-                new() { Name = "Practices", Value = 15 }
-            };
+            // TODO: Fetch module usage statistics from database
+            vm.ModuleUsage = new List<ModuleUsageRow>();
 
             return View(vm);
         }
@@ -712,7 +546,11 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
 
-            var list = _repoDocs.OrderByDescending(d => d.Date).ToList();
+            // TODO: Fetch documents from database
+            // var allDocs = _context.Documents.OrderByDescending(d => d.Date).ToList();
+            var allDocs = new List<RepoDocument>();
+
+            var list = allDocs;
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -729,6 +567,8 @@ namespace JAS_MINE_IT15.Controllers
             {
                 SearchQuery = q,
                 SelectedCategory = category,
+                // TODO: Fetch categories from database
+                Categories = new List<string> { "All Categories", "Resolutions", "Ordinances", "Memorandums", "Policies", "Reports" },
                 Documents = list,
                 CanUpload = canUpload,
                 CanApprove = canApprove,
@@ -758,18 +598,10 @@ namespace JAS_MINE_IT15.Controllers
 
             var uploader = HttpContext.Session.GetString("UserName") ?? "Unknown";
 
-            _repoDocs.Insert(0, new RepoDocument
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Title = title,
-                Category = string.IsNullOrWhiteSpace(category) ? "Policies" : category.Trim(),
-                TagsCsv = (tags ?? "").Trim(),
-                Description = (description ?? "").Trim(),
-                UploadedBy = uploader,
-                Date = DateTime.Now.ToString("yyyy-MM-dd"),
-                Status = "draft",
-                Version = "1.0"
-            });
+            // TODO: Add document to database
+            // var doc = new RepoDocument { ... };
+            // _context.Documents.Add(doc);
+            // _context.SaveChanges();
 
             TempData["Success"] = $"Document uploaded: \"{title}\"";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -785,17 +617,9 @@ namespace JAS_MINE_IT15.Controllers
             var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
-            var doc = _repoDocs.FirstOrDefault(d => d.Id == id);
-            if (doc != null)
-            {
-                if (!string.IsNullOrWhiteSpace(title)) doc.Title = title.Trim();
-                if (!string.IsNullOrWhiteSpace(category)) doc.Category = category.Trim();
-                doc.TagsCsv = (tags ?? "").Trim();
-                doc.Description = (description ?? "").Trim();
-
-                // bump version a bit (simple)
-                doc.Version = doc.Version == "1.0" ? "1.1" : doc.Version;
-            }
+            // TODO: Fetch and update document in database
+            // var doc = _context.Documents.FirstOrDefault(d => d.Id == id);
+            // if (doc != null) { ... _context.SaveChanges(); }
 
             TempData["Success"] = "Document updated.";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -811,7 +635,10 @@ namespace JAS_MINE_IT15.Controllers
             var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
-            _repoDocs.RemoveAll(d => d.Id == id);
+            // TODO: Delete document from database
+            // var doc = _context.Documents.FirstOrDefault(d => d.Id == id);
+            // if (doc != null) { _context.Documents.Remove(doc); _context.SaveChanges(); }
+
             TempData["Success"] = "Document deleted.";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
@@ -826,8 +653,9 @@ namespace JAS_MINE_IT15.Controllers
             var canApprove = role == "barangay_admin" || role == "super_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
 
-            var doc = _repoDocs.FirstOrDefault(d => d.Id == id);
-            if (doc != null) doc.Status = "approved";
+            // TODO: Update document status in database
+            // var doc = _context.Documents.FirstOrDefault(d => d.Id == id);
+            // if (doc != null) { doc.Status = "approved"; _context.SaveChanges(); }
 
             TempData["Success"] = "Document approved.";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -843,8 +671,9 @@ namespace JAS_MINE_IT15.Controllers
             var canApprove = role == "barangay_admin" || role == "super_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
 
-            var doc = _repoDocs.FirstOrDefault(d => d.Id == id);
-            if (doc != null) doc.Status = "rejected";
+            // TODO: Update document status in database
+            // var doc = _context.Documents.FirstOrDefault(d => d.Id == id);
+            // if (doc != null) { doc.Status = "rejected"; _context.SaveChanges(); }
 
             TempData["Success"] = "Document rejected.";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -863,9 +692,11 @@ namespace JAS_MINE_IT15.Controllers
             status = (status ?? "all").Trim().ToLower();
             q = (q ?? "").Trim();
 
-            var list = _policies
-                .OrderByDescending(x => x.LastUpdated)
-                .ToList();
+            // TODO: Fetch policies from database
+            // var allPolicies = _context.Policies.OrderByDescending(x => x.LastUpdated).ToList();
+            var allPolicies = new List<PolicyItem>();
+
+            var list = allPolicies;
 
             if (status != "all")
                 list = list.Where(x => (x.Status ?? "").ToLower() == status).ToList();
@@ -886,10 +717,10 @@ namespace JAS_MINE_IT15.Controllers
                 CanCreate = canCreate,
                 CanApprove = canApprove,
 
-                CountAll = _policies.Count,
-                CountApproved = _policies.Count(x => x.Status == "approved"),
-                CountPending = _policies.Count(x => x.Status == "pending"),
-                CountDraft = _policies.Count(x => x.Status == "draft"),
+                CountAll = allPolicies.Count,
+                CountApproved = allPolicies.Count(x => x.Status == "approved"),
+                CountPending = allPolicies.Count(x => x.Status == "pending"),
+                CountDraft = allPolicies.Count(x => x.Status == "draft"),
 
                 Policies = list
             };
@@ -910,16 +741,10 @@ namespace JAS_MINE_IT15.Controllers
             if (string.IsNullOrWhiteSpace(title))
                 return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
-            _policies.Insert(0, new PolicyItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Title = title,
-                Description = description,
-                Status = "draft",
-                LastUpdated = DateTime.Now.ToString("yyyy-MM-dd"),
-                Author = HttpContext.Session.GetString("UserName") ?? "Unknown",
-                Version = "1.0"
-            });
+            // TODO: Add policy to database
+            // var policy = new PolicyItem { ... };
+            // _context.Policies.Add(policy);
+            // _context.SaveChanges();
 
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -931,13 +756,9 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            var p = _policies.FirstOrDefault(x => x.Id == id);
-            if (p != null)
-            {
-                p.Title = string.IsNullOrWhiteSpace(title) ? p.Title : title.Trim();
-                p.Description = (description ?? "").Trim();
-                p.LastUpdated = DateTime.Now.ToString("yyyy-MM-dd");
-            }
+            // TODO: Fetch and update policy in database
+            // var p = _context.Policies.FirstOrDefault(x => x.Id == id);
+            // if (p != null) { p.Title = ...; p.Description = ...; p.LastUpdated = ...; _context.SaveChanges(); }
 
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -949,7 +770,9 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            _policies.RemoveAll(x => x.Id == id);
+            // TODO: Delete policy from database
+            // var p = _context.Policies.FirstOrDefault(x => x.Id == id);
+            // if (p != null) { _context.Policies.Remove(p); _context.SaveChanges(); }
 
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -965,12 +788,9 @@ namespace JAS_MINE_IT15.Controllers
             if (newStatus != "approved" && newStatus != "rejected" && newStatus != "pending" && newStatus != "draft")
                 newStatus = "draft";
 
-            var p = _policies.FirstOrDefault(x => x.Id == id);
-            if (p != null)
-            {
-                p.Status = newStatus;
-                p.LastUpdated = DateTime.Now.ToString("yyyy-MM-dd");
-            }
+            // TODO: Update policy status in database
+            // var p = _context.Policies.FirstOrDefault(x => x.Id == id);
+            // if (p != null) { p.Status = newStatus; p.LastUpdated = DateTime.Now.ToString("yyyy-MM-dd"); _context.SaveChanges(); }
 
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -979,7 +799,34 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult LessonsLearned()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            return View();
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+
+            // TODO: Fetch lessons from database
+            // var lessons = _context.Lessons.OrderByDescending(l => l.Date).ToList();
+            var lessons = new List<LessonRow>();
+
+            // TODO: Fetch project types from database or use static list
+            var projectTypes = new List<string>
+            {
+                "All Projects",
+                "Health Program",
+                "Finance Modernization",
+                "Youth Development",
+                "Disaster Risk Reduction",
+                "Education",
+                "Environment"
+            };
+
+            var vm = new LessonsLearnedViewModel
+            {
+                CanSubmit = canSubmit,
+                Lessons = lessons,
+                ProjectTypes = projectTypes
+            };
+
+            return View(vm);
         }
 
         // GET: /Home/BestPractices
@@ -993,7 +840,11 @@ namespace JAS_MINE_IT15.Controllers
 
             bool canManage = (HttpContext.Session.GetString("Role") ?? "") is "barangay_admin" or "super_admin" or "barangay_secretary";
 
-            var list = _practices.ToList();
+            // TODO: Fetch practices from database
+            // var allPractices = _context.Practices.ToList();
+            var allPractices = new List<PracticeItem>();
+
+            var list = allPractices;
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -1006,13 +857,16 @@ namespace JAS_MINE_IT15.Controllers
             if (category != "All Categories")
                 list = list.Where(p => p.Category == category).ToList();
 
-            var featured = _practices.FirstOrDefault(p => p.Featured && p.Rating >= 4.8m);
+            // TODO: Fetch featured practice from database
+            // var featured = allPractices.FirstOrDefault(p => p.Featured && p.Rating >= 4.8m);
+            PracticeItem? featured = null;
 
             var vm = new BestPracticesViewModel
             {
                 SearchQuery = q,
                 SelectedCategory = category,
                 CanManage = canManage,
+                // TODO: Fetch categories from database
                 Categories = new List<string> { "All Categories", "Health", "Education", "Governance", "Environment", "Safety", "Finance" },
                 Practices = list,
                 FeaturedPractice = featured
@@ -1038,18 +892,10 @@ namespace JAS_MINE_IT15.Controllers
             if (string.IsNullOrWhiteSpace(title))
                 return RedirectToAction(nameof(BestPractices));
 
-            _practices.Insert(0, new PracticeItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Title = title,
-                Category = category,
-                Description = description,
-                Barangay = barangay,
-                DateAdded = DateTime.Now.ToString("yyyy-MM-dd"),
-                Rating = 0m,
-                Implementations = 0,
-                Featured = false
-            });
+            // TODO: Add practice to database
+            // var practice = new PracticeItem { ... };
+            // _context.Practices.Add(practice);
+            // _context.SaveChanges();
 
             return RedirectToAction(nameof(BestPractices));
         }
@@ -1063,14 +909,9 @@ namespace JAS_MINE_IT15.Controllers
             if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
                 return RedirectToAction(nameof(BestPractices));
 
-            var p = _practices.FirstOrDefault(x => x.Id == id);
-            if (p != null)
-            {
-                p.Title = string.IsNullOrWhiteSpace(title) ? p.Title : title.Trim();
-                p.Category = string.IsNullOrWhiteSpace(category) ? p.Category : category.Trim();
-                p.Description = (description ?? "").Trim();
-                p.Barangay = string.IsNullOrWhiteSpace(barangay) ? p.Barangay : barangay.Trim();
-            }
+            // TODO: Fetch and update practice in database
+            // var p = _context.Practices.FirstOrDefault(x => x.Id == id);
+            // if (p != null) { ... _context.SaveChanges(); }
 
             return RedirectToAction(nameof(BestPractices));
         }
@@ -1084,11 +925,14 @@ namespace JAS_MINE_IT15.Controllers
             if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
                 return RedirectToAction(nameof(BestPractices));
 
-            _practices.RemoveAll(x => x.Id == id);
+            // TODO: Delete practice from database
+            // var p = _context.Practices.FirstOrDefault(x => x.Id == id);
+            // if (p != null) { _context.Practices.Remove(p); _context.SaveChanges(); }
+
             return RedirectToAction(nameof(BestPractices));
         }
 
-        // ✅ GET: /Home/KnowledgeSharing
+        // GET: /Home/KnowledgeSharing
         [HttpGet]
         public IActionResult KnowledgeSharing()
         {
@@ -1099,21 +943,27 @@ namespace JAS_MINE_IT15.Controllers
             bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             bool canAnnounce = role == "barangay_admin" || role == "super_admin";
 
+            // TODO: Fetch knowledge sharing data from database
+            // var discussions = _context.KnowledgeDiscussions.OrderByDescending(x => x.Date).ToList();
+            // var announcements = _context.KnowledgeAnnouncements.OrderByDescending(x => x.Pinned).ThenByDescending(x => x.Date).ToList();
+            // var sharedDocs = _context.SharedDocuments.ToList();
+            // var membersOnline = _context.Users.Count(u => u.IsOnline);
+
             var vm = new KnowledgeSharingViewModel
             {
                 CanPost = canPost,
                 CanAnnounce = canAnnounce,
-                Discussions = _ksDiscussions.OrderByDescending(x => x.Date).ToList(),
-                Announcements = _ksAnnouncements.OrderByDescending(x => x.Pinned).ThenByDescending(x => x.Date).ToList(),
-                SharedDocuments = _ksSharedDocs.ToList(),
-                ActiveMembers = new List<string> { "MS", "JD", "AR", "PG", "LC" },
-                MembersOnline = 17
+                Discussions = new List<KnowledgeDiscussionItem>(),
+                Announcements = new List<KnowledgeAnnouncementItem>(),
+                SharedDocuments = new List<KnowledgeSharedDocItem>(),
+                ActiveMembers = new List<string>(),
+                MembersOnline = 0
             };
 
             return View(vm);
         }
 
-        // ✅ POST: Quick Post
+        // POST: Quick Post
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult QuickPostKnowledge(string content)
@@ -1133,18 +983,10 @@ namespace JAS_MINE_IT15.Controllers
             if (initials.Length > 2) initials = initials.Substring(0, 2);
             if (string.IsNullOrWhiteSpace(initials)) initials = "U";
 
-            _ksDiscussions.Insert(0, new KnowledgeDiscussionItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Title = content.Length > 60 ? content.Substring(0, 60) + "..." : content,
-                Content = content,
-                Author = name,
-                Avatar = initials,
-                Date = DateTime.Now.ToString("yyyy-MM-dd"),
-                Category = "General",
-                Replies = 0,
-                Likes = 0
-            });
+            // TODO: Add discussion post to database
+            // var discussion = new KnowledgeDiscussionItem { ... };
+            // _context.KnowledgeDiscussions.Add(discussion);
+            // _context.SaveChanges();
 
             return RedirectToAction(nameof(KnowledgeSharing));
         }
@@ -1154,16 +996,11 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
+            // TODO: Fetch users from database
+            // var users = _context.Users.ToList();
             var vm = new UserManagementViewModel
             {
-                Users = new List<UserItem>
-                {
-                    new UserItem { Id="1", Name="Maria Santos", Email="maria@brgy.gov.ph", Role=UserRole.barangay_admin, Status="active", Barangay="Barangay 1" },
-                    new UserItem { Id="2", Name="Juan Dela Cruz", Email="juan@brgy.gov.ph", Role=UserRole.barangay_secretary, Status="active", Barangay="Barangay 1" },
-                    new UserItem { Id="3", Name="Ana Reyes", Email="ana@brgy.gov.ph", Role=UserRole.barangay_staff, Status="active", Barangay="Barangay 1" },
-                    new UserItem { Id="4", Name="Pedro Garcia", Email="pedro@brgy.gov.ph", Role=UserRole.council_member, Status="inactive", Barangay="Barangay 1" },
-                    new UserItem { Id="5", Name="Rosa Mendoza", Email="rosa@brgy.gov.ph", Role=UserRole.barangay_staff, Status="active", Barangay="Barangay 2" },
-                }
+                Users = new List<UserItem>()
             };
 
             return View(vm);
@@ -1178,10 +1015,11 @@ namespace JAS_MINE_IT15.Controllers
 
             filter = (filter ?? "all").Trim().ToLower();
 
-            var list = _announcements
-                .OrderByDescending(a => a.Pinned)
-                .ThenByDescending(a => a.Date)
-                .ToList();
+            // TODO: Fetch announcements from database
+            // var allAnnouncements = _context.Announcements.OrderByDescending(a => a.Pinned).ThenByDescending(a => a.Date).ToList();
+            var allAnnouncements = new List<AnnouncementItem>();
+
+            var list = allAnnouncements;
 
             if (filter != "all")
                 list = list.Where(a => a.Status == filter).ToList();
@@ -1210,18 +1048,10 @@ namespace JAS_MINE_IT15.Controllers
             if (string.IsNullOrWhiteSpace(title))
                 return RedirectToAction(nameof(Announcements), new { filter });
 
-            _announcements.Insert(0, new AnnouncementItem
-            {
-                Id = DateTime.Now.Ticks.ToString(),
-                Title = title,
-                Content = content,
-                Priority = priority,
-                Status = status,
-                Date = DateTime.Now.ToString("yyyy-MM-dd"),
-                Author = HttpContext.Session.GetString("UserName") ?? "Admin",
-                Views = 0,
-                Pinned = false
-            });
+            // TODO: Add announcement to database
+            // var announcement = new AnnouncementItem { ... };
+            // _context.Announcements.Add(announcement);
+            // _context.SaveChanges();
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1233,14 +1063,9 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var a = _announcements.FirstOrDefault(x => x.Id == id);
-            if (a != null)
-            {
-                a.Title = (title ?? a.Title).Trim();
-                a.Content = (content ?? a.Content).Trim();
-                a.Priority = string.IsNullOrWhiteSpace(priority) ? a.Priority : priority.Trim().ToLower();
-                a.Status = string.IsNullOrWhiteSpace(status) ? a.Status : status.Trim().ToLower();
-            }
+            // TODO: Fetch and update announcement in database
+            // var a = _context.Announcements.FirstOrDefault(x => x.Id == id);
+            // if (a != null) { ... _context.SaveChanges(); }
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1252,7 +1077,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            _announcements.RemoveAll(x => x.Id == id);
+            // TODO: Delete announcement from database
+            // var a = _context.Announcements.FirstOrDefault(x => x.Id == id);
+            // if (a != null) { _context.Announcements.Remove(a); _context.SaveChanges(); }
+
             return RedirectToAction(nameof(Announcements), new { filter });
         }
 
@@ -1263,8 +1091,9 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var a = _announcements.FirstOrDefault(x => x.Id == id);
-            if (a != null) a.Pinned = !a.Pinned;
+            // TODO: Toggle pin status in database
+            // var a = _context.Announcements.FirstOrDefault(x => x.Id == id);
+            // if (a != null) { a.Pinned = !a.Pinned; _context.SaveChanges(); }
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1276,8 +1105,9 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            var a = _announcements.FirstOrDefault(x => x.Id == id);
-            if (a != null) a.Views += 1;
+            // TODO: Increment views in database
+            // var a = _context.Announcements.FirstOrDefault(x => x.Id == id);
+            // if (a != null) { a.Views += 1; _context.SaveChanges(); }
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1292,9 +1122,11 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var list = _auditLogs
-                .OrderByDescending(l => l.Timestamp)
-                .ToList();
+            // TODO: Fetch audit logs from database
+            // var allLogs = _context.AuditLogs.OrderByDescending(l => l.Timestamp).ToList();
+            var allLogs = new List<LogItem>();
+
+            var list = allLogs;
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -1327,7 +1159,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            _auditLogs.RemoveAll(x => x.Id == id);
+            // TODO: Delete audit log from database
+            // var log = _context.AuditLogs.FirstOrDefault(x => x.Id == id);
+            // if (log != null) { _context.AuditLogs.Remove(log); _context.SaveChanges(); }
+
             return RedirectToAction(nameof(AuditLogs), new { q, module });
         }
 
@@ -1338,7 +1173,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            _auditLogs.Clear();
+            // TODO: Clear all audit logs from database
+            // _context.AuditLogs.RemoveRange(_context.AuditLogs);
+            // _context.SaveChanges();
+
             return RedirectToAction(nameof(AuditLogs));
         }
 
@@ -1353,7 +1191,11 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var list = _auditLogs.AsEnumerable();
+            // TODO: Fetch audit logs from database
+            // var allLogs = _context.AuditLogs.ToList();
+            var allLogs = new List<LogItem>();
+
+            var list = allLogs.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -1398,14 +1240,16 @@ namespace JAS_MINE_IT15.Controllers
 
             tab = (tab ?? "general").Trim().ToLower();
 
+            // TODO: Load user settings from database
+            // var userSettings = _context.UserSettings.FirstOrDefault(s => s.UserId == currentUserId);
             var vm = new SettingsViewModel
             {
                 Tab = tab,
 
-                // Load from Session (fallbacks)
-                FullName = HttpContext.Session.GetString("Settings_FullName") ?? (HttpContext.Session.GetString("UserName") ?? "Jasminetampus30"),
-                Email = HttpContext.Session.GetString("Settings_Email") ?? "jasminetampus30@gmail.com",
-                Barangay = HttpContext.Session.GetString("Settings_Barangay") ?? (HttpContext.Session.GetString("Barangay") ?? "Barangay San Antonio"),
+                // Load from Session (empty defaults until database integration)
+                FullName = HttpContext.Session.GetString("Settings_FullName") ?? (HttpContext.Session.GetString("UserName") ?? ""),
+                Email = HttpContext.Session.GetString("Settings_Email") ?? "",
+                Barangay = HttpContext.Session.GetString("Settings_Barangay") ?? (HttpContext.Session.GetString("Barangay") ?? ""),
                 Language = HttpContext.Session.GetString("Settings_Language") ?? "en",
 
                 NotifApprovals = (HttpContext.Session.GetString("Settings_NotifApprovals") ?? "true") == "true",
@@ -1476,7 +1320,6 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            // TEMP only: validation like React (no real password change without DB)
             if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
             {
                 TempData["Error"] = "Please enter current and new password.";
@@ -1489,6 +1332,16 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Settings), new { tab = "security" });
             }
 
+            // TODO: Verify current password and update in database
+            // var user = _context.Users.FirstOrDefault(u => u.Id == currentUserId);
+            // if (user == null || !VerifyPassword(currentPassword, user.PasswordHash))
+            // {
+            //     TempData["Error"] = "Current password is incorrect.";
+            //     return RedirectToAction(nameof(Settings), new { tab = "security" });
+            // }
+            // user.PasswordHash = HashPassword(newPassword);
+            // _context.SaveChanges();
+
             TempData["Success"] = "Password updated. Your password has been changed.";
             return RedirectToAction(nameof(Settings), new { tab = "security" });
         }
@@ -1499,6 +1352,10 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            // TODO: Update 2FA setting in database
+            // var user = _context.Users.FirstOrDefault(u => u.Id == currentUserId);
+            // if (user != null) { user.TwoFaEnabled = twoFaEnabled; _context.SaveChanges(); }
 
             HttpContext.Session.SetString("Settings_TwoFa", twoFaEnabled ? "true" : "false");
             TempData["Success"] = twoFaEnabled ? "2FA Enabled." : "2FA Disabled.";
@@ -1512,6 +1369,13 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
+            // TODO: Save system settings to database
+            // var settings = _context.SystemSettings.FirstOrDefault() ?? new SystemSettings();
+            // settings.MaintenanceMode = model.MaintenanceMode;
+            // settings.SessionTimeout = model.SessionTimeout;
+            // settings.DocFormat = model.DocFormat;
+            // _context.SaveChanges();
+
             HttpContext.Session.SetString("Settings_Maintenance", model.MaintenanceMode ? "true" : "false");
             HttpContext.Session.SetString("Settings_SessionTimeout", model.SessionTimeout ?? "30");
             HttpContext.Session.SetString("Settings_DocFormat", model.DocFormat ?? "pdf");
@@ -1522,6 +1386,8 @@ namespace JAS_MINE_IT15.Controllers
 
         public IActionResult PasswordRequests()
         {
+            // TODO: Fetch password reset requests from database
+            // var requests = _context.PasswordResetRequests.ToList();
             return View();
         }
 
@@ -1545,7 +1411,17 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            // TEMP: simulate sending reset link (no database / no email service yet)
+            // TODO: Create password reset request in database and send email
+            // var user = _context.Users.FirstOrDefault(u => u.Email == model.Email);
+            // if (user != null)
+            // {
+            //     var resetToken = GenerateResetToken();
+            //     var request = new PasswordResetRequest { UserId = user.Id, Token = resetToken, ExpiresAt = DateTime.UtcNow.AddHours(24) };
+            //     _context.PasswordResetRequests.Add(request);
+            //     _context.SaveChanges();
+            //     SendResetEmail(user.Email, resetToken);
+            // }
+
             model.Submitted = true;
             model.SuccessMessage = "If your email is registered, you will receive reset instructions.";
 

@@ -20,12 +20,10 @@ namespace JAS_MINE_IT15.Models
     public class KnowledgeRepositoryViewModel
     {
         public string SearchQuery { get; set; } = "";
-        public string SelectedCategory { get; set; } = "All Categories";
+        public string SelectedCategory { get; set; } = "";
 
-        public List<string> Categories { get; set; } = new()
-        {
-            "All Categories", "Resolutions", "Ordinances", "Memorandums", "Policies", "Reports"
-        };
+        // TODO: Load categories from database
+        public List<string> Categories { get; set; } = new();
 
         public List<RepoDocument> Documents { get; set; } = new();
 

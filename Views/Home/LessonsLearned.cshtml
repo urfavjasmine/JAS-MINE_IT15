@@ -1,64 +1,17 @@
-﻿@using Microsoft.AspNetCore.Http
+﻿@model JAS_MINE_IT15.Models.LessonsLearnedViewModel
+@using Microsoft.AspNetCore.Http
+
 @{
     ViewData["Title"] = "Lessons Learned";
     Layout = "~/Views/Shared/_Layout.cshtml";
-    // UI-only (no backend)
-    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
-    var canSubmit = true;
 
-    var lessons = new[]
-    {
-        new {
-            Id=1,
-            Title="COVID-19 Vaccination Drive Success",
-            Project="Health Program",
-            Summary="Successfully implemented community-wide vaccination drive reaching 95% of target population through mobile vaccination units and community partnerships.",
-            SubmittedBy="Ana Reyes",
-            Date="2024-02-01",
-            Status="approved",
-            Tags=new[]{"health","community","vaccination"},
-            Likes=24,
-            Comments=8
-        },
-        new {
-            Id=2,
-            Title="Digital Payment Implementation Challenges",
-            Project="Finance Modernization",
-            Summary="Key learnings from rolling out digital payment systems including training requirements and connectivity issues in remote areas.",
-            SubmittedBy="Pedro Garcia",
-            Date="2024-01-28",
-            Status="pending",
-            Tags=new[]{"finance","technology","digital"},
-            Likes=12,
-            Comments=5
-        },
-        new {
-            Id=3,
-            Title="Youth Sports Program Engagement",
-            Project="Youth Development",
-            Summary="Strategies that worked for engaging at-risk youth through sports programs and mentorship initiatives.",
-            SubmittedBy="Juan dela Cruz",
-            Date="2024-01-20",
-            Status="approved",
-            Tags=new[]{"youth","sports","community"},
-            Likes=45,
-            Comments=15
-        },
-        new {
-            Id=4,
-            Title="Disaster Preparedness Training Results",
-            Project="Disaster Risk Reduction",
-            Summary="Evaluation of community disaster preparedness training showing improved response times and awareness levels.",
-            SubmittedBy="Maria Santos",
-            Date="2024-01-15",
-            Status="approved",
-            Tags=new[]{"disaster","training","safety"},
-            Likes=33,
-            Comments=11
-        },
-    };
+    // UI-only (from controller)
+    var userName = Context.Session.GetString("UserName") ?? "User";
+    var canSubmit = Model?.CanSubmit ?? false;
 
-    var projectTypes = new[] { "All Projects", "Health Program", "Finance Modernization", "Youth Development", "Disaster Risk Reduction", "Education", "Environment" };
+    // TODO: Load from database via controller
+    var lessons = Model?.Lessons ?? new List<JAS_MINE_IT15.Models.LessonRow>();
+    var projectTypes = Model?.ProjectTypes ?? new List<string> { "All Projects" };
 
     string StatusBadge(string status) => status switch
     {
@@ -310,58 +263,67 @@
 
     <!-- Lessons Grid -->
     <div id="lessonsGrid" class="row g-4">
-        @foreach (var lesson in lessons)
+        @if (lessons.Count == 0)
         {
-            <div class="col-12 col-lg-6 lesson-item"
-                 data-title="@lesson.Title.ToLower()"
-                 data-summary="@lesson.Summary.ToLower()"
-                 data-tags="@string.Join(" ", lesson.Tags).ToLower()"
-                 data-project="@lesson.Project">
-                <div class="soft-card">
-                    <div class="lesson-card">
-                        <div class="d-flex align-items-start justify-content-between gap-3">
-                            <div>
-                                <div class="lesson-project">@lesson.Project</div>
-                                <h3 class="lesson-title">@lesson.Title</h3>
+            <div class="col-12">
+                <div class="soft-card p-4 text-center text-muted">No lessons found. Submit a new lesson!</div>
+            </div>
+        }
+        else
+        {
+            foreach (var lesson in lessons)
+            {
+                <div class="col-12 col-lg-6 lesson-item"
+                     data-title="@lesson.Title.ToLower()"
+                     data-summary="@lesson.Summary.ToLower()"
+                     data-tags="@string.Join(" ", lesson.Tags).ToLower()"
+                     data-project="@lesson.Project">
+                    <div class="soft-card">
+                        <div class="lesson-card">
+                            <div class="d-flex align-items-start justify-content-between gap-3">
+                                <div>
+                                    <div class="lesson-project">@lesson.Project</div>
+                                    <h3 class="lesson-title">@lesson.Title</h3>
+                                </div>
+                                @Html.Raw(StatusBadge(lesson.Status))
                             </div>
-                            @Html.Raw(StatusBadge(lesson.Status))
+
+                            <div class="lesson-summary">@lesson.Summary</div>
+
+                            <!-- Tags -->
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                @foreach (var t in lesson.Tags)
+                                {
+                                    <span class="tag-pill">
+                                        <i class="bi bi-tag ico"></i> @t
+                                    </span>
+                                }
+                            </div>
                         </div>
 
-                        <div class="lesson-summary">@lesson.Summary</div>
-
-                        <!-- Tags -->
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            @foreach (var t in lesson.Tags)
-                            {
-                                <span class="tag-pill">
-                                    <i class="bi bi-tag ico"></i> @t
+                        <!-- Footer -->
+                        <div class="card-footer-row">
+                            <div class="d-flex flex-wrap">
+                                <span class="meta">
+                                    <i class="bi bi-person ico"></i> @lesson.SubmittedBy
                                 </span>
-                            }
-                        </div>
-                    </div>
+                                <span class="meta">
+                                    <i class="bi bi-calendar3 ico"></i> @lesson.Date
+                                </span>
+                            </div>
 
-                    <!-- Footer -->
-                    <div class="card-footer-row">
-                        <div class="d-flex flex-wrap">
-                            <span class="meta">
-                                <i class="bi bi-person ico"></i> @lesson.SubmittedBy
-                            </span>
-                            <span class="meta">
-                                <i class="bi bi-calendar3 ico"></i> @lesson.Date
-                            </span>
-                        </div>
-
-                        <div class="stats">
-                            <span class="d-inline-flex align-items-center gap-1">
-                                <i class="bi bi-hand-thumbs-up ico"></i> @lesson.Likes
-                            </span>
-                            <span class="d-inline-flex align-items-center gap-1">
-                                <i class="bi bi-chat-left-text ico"></i> @lesson.Comments
-                            </span>
+                            <div class="stats">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <i class="bi bi-hand-thumbs-up ico"></i> @lesson.Likes
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <i class="bi bi-chat-left-text ico"></i> @lesson.Comments
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            }
         }
     </div>
 </div>

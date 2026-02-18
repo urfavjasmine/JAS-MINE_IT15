@@ -35,13 +35,25 @@ namespace JAS_MINE_IT15.Models
         public int InactiveUsers => Users.Count(u => u.Status == "inactive");
         public int BarangayCount => Users.Select(u => u.Barangay).Distinct().Count();
 
-        public Dictionary<string, string> RoleLabels { get; set; } = new()
+        // Role labels for dropdowns
+        public Dictionary<string, string> RoleLabels { get; } = new()
         {
-            ["super_admin"] = "Super Admin",
-            ["barangay_admin"] = "Barangay Administrator",
-            ["barangay_secretary"] = "Barangay Secretary",
-            ["barangay_staff"] = "Barangay Staff",
-            ["council_member"] = "Council Member"
+            { "super_admin", "Super Admin" },
+            { "barangay_admin", "Barangay Administrator" },
+            { "barangay_secretary", "Barangay Secretary" },
+            { "barangay_staff", "Barangay Staff" },
+            { "council_member", "Council Member" }
+        };
+
+        // Helper method to get role display label
+        public static string GetRoleLabel(UserRole role) => role switch
+        {
+            UserRole.super_admin => "Super Admin",
+            UserRole.barangay_admin => "Barangay Administrator",
+            UserRole.barangay_secretary => "Barangay Secretary",
+            UserRole.barangay_staff => "Barangay Staff",
+            UserRole.council_member => "Council Member",
+            _ => "User"
         };
     }
 }
