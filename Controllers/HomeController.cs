@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace JAS_MINE_IT15.Controllers99
+namespace JAS_MINE_IT15.Controllers
 {
     public class HomeController : Controller
     {
@@ -155,6 +155,469 @@ namespace JAS_MINE_IT15.Controllers99
             return role == "super_admin" || role == "barangay_admin";
         }
 
+        // GET: Home Index
+        [HttpGet]
+        public IActionResult Index()
+        {
+            // If already logged in, go dashboard
+            if (IsLoggedIn())
+                return RedirectToAction(nameof(DashboardHome));
+
+            // If not logged in, show landing page
+            return View("LandingPage");
+        }
+
+        // GET: /Home/LandingPage
+        [HttpGet]
+        public IActionResult LandingPage()
+        {
+            // Public page (no login required)
+            return View();
+        }
+
+        // ✅ SUBSCRIPTIONS (TEMP DATA IN MEMORY)
+        private static readonly List<SubscriptionItem> _subscriptions = new()
+            {
+                new SubscriptionItem { Id="1", BarangayName="Barangay San Antonio", PlanName="Standard Plan", StartDate="2026-01-01", EndDate="2026-12-31", Status="Active" },
+                new SubscriptionItem { Id="2", BarangayName="Barangay Del Pilar",   PlanName="Basic Plan",    StartDate="2026-01-15", EndDate="2026-02-15", Status="Active" },
+                new SubscriptionItem { Id="3", BarangayName="Barangay Rizal",       PlanName="Premium Plan",  StartDate="2025-01-01", EndDate="2025-12-31", Status="Expired" },
+                new SubscriptionItem { Id="4", BarangayName="Barangay Mabini",      PlanName="Basic Plan",    StartDate="2025-06-01", EndDate="2025-07-01", Status="Cancelled" },
+            };
+
+                    private static readonly List<string> _barangays = new()
+            {
+                "Barangay San Antonio", "Barangay Del Pilar", "Barangay Rizal",
+                "Barangay Mabini", "Barangay Bonifacio", "Barangay Luna"
+            };
+
+                    private static readonly List<string> _plans = new()
+            {
+                "Basic Plan", "Standard Plan", "Premium Plan", "Trial Plan"
+            };
+
+        private static string ComputeStatus(string endDate)
+        {
+            if (DateTime.TryParse(endDate, out var end))
+                return end.Date >= DateTime.Today ? "Active" : "Expired";
+            return "Expired";
+        }
+
+        // ✅ GET: /Home/BarangaySubscriptions
+        [HttpGet]
+        public IActionResult BarangaySubscriptions(string q = "", string status = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            q = (q ?? "").Trim();
+            status = (status ?? "all").Trim();
+
+            var filtered = _subscriptions.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var qq = q.ToLower();
+                filtered = filtered.Where(s =>
+                    (s.BarangayName ?? "").ToLower().Contains(qq) ||
+                    (s.PlanName ?? "").ToLower().Contains(qq)
+                );
+            }
+
+            if (status != "all")
+                filtered = filtered.Where(s => s.Status == status);
+
+            var list = filtered.ToList();
+
+            var vm = new BarangaySubscriptionsViewModel
+            {
+                SearchQuery = q,
+                StatusFilter = status,
+                Subscriptions = list,
+
+                TotalCount = _subscriptions.Count,
+                ActiveCount = _subscriptions.Count(x => x.Status == "Active"),
+                ExpiredCount = _subscriptions.Count(x => x.Status == "Expired"),
+                CancelledCount = _subscriptions.Count(x => x.Status == "Cancelled"),
+
+                Barangays = _barangays,
+                Plans = _plans,
+
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        // ✅ POST: Create (Assign Plan)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CreateSubscription(string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            barangayName = (barangayName ?? "").Trim();
+            planName = (planName ?? "").Trim();
+            startDate = (startDate ?? "").Trim();
+            endDate = (endDate ?? "").Trim();
+
+            if (string.IsNullOrWhiteSpace(barangayName) || string.IsNullOrWhiteSpace(planName) ||
+                string.IsNullOrWhiteSpace(startDate) || string.IsNullOrWhiteSpace(endDate))
+            {
+                TempData["Error"] = "Please complete all fields.";
+                return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+            }
+
+            _subscriptions.Insert(0, new SubscriptionItem
+            {
+                Id = DateTime.Now.Ticks.ToString(),
+                BarangayName = barangayName,
+                PlanName = planName,
+                StartDate = startDate,
+                EndDate = endDate,
+                Status = ComputeStatus(endDate)
+            });
+
+            TempData["Success"] = $"{planName} assigned to {barangayName}.";
+            return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+        }
+
+        // ✅ POST: Edit
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult EditSubscription(string id, string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            var item = _subscriptions.FirstOrDefault(x => x.Id == id);
+            if (item == null)
+            {
+                TempData["Error"] = "Subscription not found.";
+                return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+            }
+
+            item.BarangayName = (barangayName ?? item.BarangayName).Trim();
+            item.PlanName = (planName ?? item.PlanName).Trim();
+            item.StartDate = (startDate ?? item.StartDate).Trim();
+            item.EndDate = (endDate ?? item.EndDate).Trim();
+
+            if (item.Status != "Cancelled")
+                item.Status = ComputeStatus(item.EndDate);
+
+            TempData["Success"] = $"Subscription for {item.BarangayName} updated.";
+            return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+        }
+
+        // ✅ POST: Cancel
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CancelSubscription(string id, string q = "", string status = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            var item = _subscriptions.FirstOrDefault(x => x.Id == id);
+            if (item != null)
+                item.Status = "Cancelled";
+
+            TempData["Success"] = "Subscription cancelled.";
+            return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+        }
+
+        // GET: /Home/MySubscription
+        [HttpGet]
+        public IActionResult MySubscription()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var barangay = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
+
+            var vm = new MySubscriptionViewModel
+            {
+                BarangayName = barangay,
+                Subscription = new MySubscriptionViewModel.SubscriptionSummary
+                {
+                    PlanName = "Standard Plan",
+                    Price = 5000m,
+                    Status = "Active",
+                    StartDate = "2026-01-01",
+                    EndDate = "2026-12-31",
+                },
+                Payments = new List<MySubscriptionViewModel.PaymentRow>
+        {
+            new() { Id="1", Amount=5000m, Date="2026-01-05", Method="Bank Transfer", Status="Paid" },
+            new() { Id="2", Amount=5000m, Date="2025-01-03", Method="GCash", Status="Paid" },
+            new() { Id="3", Amount=5000m, Date="2024-01-08", Method="Bank Transfer", Status="Paid" },
+        }
+            };
+
+            return View(vm);
+        }
+
+        // ✅ PAYMENTS (TEMP DATA IN MEMORY)
+        private static readonly List<PaymentItem> _payments = new()
+{
+    new PaymentItem { Id="1", BarangayName="Barangay San Antonio", PlanName="Standard Plan", Amount=5000m, PaymentDate="2026-01-05", PaymentMethod="Bank Transfer", Status="Paid" },
+    new PaymentItem { Id="2", BarangayName="Barangay Del Pilar",   PlanName="Basic Plan",    Amount=500m,  PaymentDate="2026-01-15", PaymentMethod="GCash",         Status="Paid" },
+    new PaymentItem { Id="3", BarangayName="Barangay Rizal",       PlanName="Premium Plan",  Amount=8000m, PaymentDate="2025-12-28", PaymentMethod="Check",         Status="Pending" },
+    new PaymentItem { Id="4", BarangayName="Barangay Mabini",      PlanName="Basic Plan",    Amount=500m,  PaymentDate="2025-11-01", PaymentMethod="Cash",          Status="Failed" },
+};
+
+        private static readonly List<string> _payBarangays = new()
+{
+    "Barangay San Antonio", "Barangay Del Pilar", "Barangay Rizal", "Barangay Mabini", "Barangay Bonifacio"
+};
+        private static readonly List<string> _payPlans = new() { "Basic Plan", "Standard Plan", "Premium Plan" };
+        private static readonly List<string> _payMethods = new() { "Cash", "Bank Transfer", "GCash", "Maya", "Check" };
+
+        // GET: /Home/SubscriptionPayments
+        [HttpGet]
+        public IActionResult SubscriptionPayments(string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            q = (q ?? "").Trim();
+
+            var list = _payments.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var qq = q.ToLower();
+                list = list.Where(p =>
+                    (p.BarangayName ?? "").ToLower().Contains(qq) ||
+                    (p.PlanName ?? "").ToLower().Contains(qq)
+                );
+            }
+
+            var filtered = list.ToList();
+
+            var totalPaid = _payments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
+
+            var vm = new SubscriptionPaymentsViewModel
+            {
+                SearchQuery = q,
+                Payments = filtered,
+
+                TotalPayments = _payments.Count,
+                TotalCollected = totalPaid,
+                PendingCount = _payments.Count(p => p.Status == "Pending"),
+                FailedCount = _payments.Count(p => p.Status == "Failed"),
+
+                Barangays = _payBarangays,
+                Plans = _payPlans,
+                Methods = _payMethods,
+
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        // POST: Create (Record Payment)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CreatePayment(string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            barangayName = (barangayName ?? "").Trim();
+            planName = (planName ?? "").Trim();
+            paymentDate = string.IsNullOrWhiteSpace(paymentDate) ? DateTime.Now.ToString("yyyy-MM-dd") : paymentDate.Trim();
+            paymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "Cash" : paymentMethod.Trim();
+            status = string.IsNullOrWhiteSpace(status) ? "Paid" : status.Trim();
+
+            if (string.IsNullOrWhiteSpace(barangayName) || string.IsNullOrWhiteSpace(planName) || amount <= 0)
+            {
+                TempData["Error"] = "Please complete required fields (Barangay, Plan, Amount).";
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
+            }
+
+            _payments.Insert(0, new PaymentItem
+            {
+                Id = DateTime.Now.Ticks.ToString(),
+                BarangayName = barangayName,
+                PlanName = planName,
+                Amount = amount,
+                PaymentDate = paymentDate,
+                PaymentMethod = paymentMethod,
+                Status = status
+            });
+
+            TempData["Success"] = $"Payment of ₱{amount:N0} recorded.";
+            return RedirectToAction(nameof(SubscriptionPayments), new { q });
+        }
+
+        // POST: Edit
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult EditPayment(string id, string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            var p = _payments.FirstOrDefault(x => x.Id == id);
+            if (p == null)
+            {
+                TempData["Error"] = "Payment record not found.";
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
+            }
+
+            p.BarangayName = (barangayName ?? p.BarangayName).Trim();
+            p.PlanName = (planName ?? p.PlanName).Trim();
+            p.Amount = amount <= 0 ? p.Amount : amount;
+            p.PaymentDate = string.IsNullOrWhiteSpace(paymentDate) ? p.PaymentDate : paymentDate.Trim();
+            p.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? p.PaymentMethod : paymentMethod.Trim();
+            p.Status = string.IsNullOrWhiteSpace(status) ? p.Status : status.Trim();
+
+            TempData["Success"] = "Payment record has been updated.";
+            return RedirectToAction(nameof(SubscriptionPayments), new { q });
+        }
+
+        // POST: Delete
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeletePayment(string id, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            _payments.RemoveAll(x => x.Id == id);
+            TempData["Success"] = "Payment deleted.";
+            return RedirectToAction(nameof(SubscriptionPayments), new { q });
+        }
+
+        // ✅ PLANS (TEMP DATA IN MEMORY)
+        private static readonly List<PlanItem> _plansList = new()
+{
+    new PlanItem { Id="1", Name="Basic Plan",    Price=500m,  DurationMonths=1,  Description="Basic access to all modules for one month.", IsActive=true },
+    new PlanItem { Id="2", Name="Standard Plan", Price=5000m, DurationMonths=12, Description="Full access for one year with priority support.", IsActive=true },
+    new PlanItem { Id="3", Name="Premium Plan",  Price=8000m, DurationMonths=12, Description="Enterprise-level access with dedicated support and training.", IsActive=true },
+    new PlanItem { Id="4", Name="Trial Plan",    Price=0m,    DurationMonths=1,  Description="Free 30-day trial with limited features.", IsActive=false },
+};
+
+        // GET: /Home/SubscriptionPlans
+        [HttpGet]
+        public IActionResult SubscriptionPlans(string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            q = (q ?? "").Trim();
+
+            var list = _plansList.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var qq = q.ToLower();
+                list = list.Where(p => (p.Name ?? "").ToLower().Contains(qq));
+            }
+
+            var filtered = list.ToList();
+
+            var vm = new SubscriptionPlansViewModel
+            {
+                SearchQuery = q,
+                Plans = filtered,
+
+                TotalPlans = _plansList.Count,
+                ActivePlans = _plansList.Count(p => p.IsActive),
+                InactivePlans = _plansList.Count(p => !p.IsActive),
+                YearlyPlans = _plansList.Count(p => p.DurationMonths >= 12),
+
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        // POST: Create Plan
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult CreatePlan(string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            name = (name ?? "").Trim();
+            description = (description ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                TempData["Error"] = "Plan name is required.";
+                return RedirectToAction(nameof(SubscriptionPlans), new { q });
+            }
+
+            if (durationMonths <= 0) durationMonths = 1;
+            if (price < 0) price = 0;
+
+            _plansList.Insert(0, new PlanItem
+            {
+                Id = DateTime.Now.Ticks.ToString(),
+                Name = name,
+                Price = price,
+                DurationMonths = durationMonths,
+                Description = description,
+                IsActive = isActive
+            });
+
+            TempData["Success"] = $"\"{name}\" has been added.";
+            return RedirectToAction(nameof(SubscriptionPlans), new { q });
+        }
+
+        // POST: Edit Plan
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult EditPlan(string id, string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            var p = _plansList.FirstOrDefault(x => x.Id == id);
+            if (p == null)
+            {
+                TempData["Error"] = "Plan not found.";
+                return RedirectToAction(nameof(SubscriptionPlans), new { q });
+            }
+
+            name = (name ?? "").Trim();
+            description = (description ?? "").Trim();
+
+            if (!string.IsNullOrWhiteSpace(name)) p.Name = name;
+            if (price >= 0) p.Price = price;
+            if (durationMonths > 0) p.DurationMonths = durationMonths;
+            p.Description = description;
+            p.IsActive = isActive;
+
+            TempData["Success"] = $"\"{p.Name}\" has been updated.";
+            return RedirectToAction(nameof(SubscriptionPlans), new { q });
+        }
+
+        // POST: Delete Plan
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeletePlan(string id, string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            var plan = _plansList.FirstOrDefault(x => x.Id == id);
+            if (plan != null)
+            {
+                _plansList.RemoveAll(x => x.Id == id);
+                TempData["Success"] = $"\"{plan.Name}\" removed.";
+            }
+            else
+            {
+                TempData["Error"] = "Plan not found.";
+            }
+
+            return RedirectToAction(nameof(SubscriptionPlans), new { q });
+        }
+
         // GET: /Home/Login
         [HttpGet]
         public IActionResult Login()
@@ -166,7 +629,7 @@ namespace JAS_MINE_IT15.Controllers99
             return View(new LoginViewModel());
         }
 
-        // ✅ UPDATED POST: /Home/Login (NO ROLE DROPDOWN / NO CHOOSE ROLE)
+        // ✅ UPDATED POST: /Home/Login 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult Login(LoginViewModel model)
@@ -178,11 +641,10 @@ namespace JAS_MINE_IT15.Controllers99
                 return View(model);
             }
 
-            // sanitize inputs (role removed)
             model.Email = (model.Email ?? "").Trim();
             model.Password = (model.Password ?? "").Trim();
 
-            // Find matching account by email + password (role is determined automatically)
+            // Find matching account by email + password 
             var match = DefaultAccounts.FirstOrDefault(kvp =>
                 string.Equals(kvp.Value.Email, model.Email, StringComparison.OrdinalIgnoreCase) &&
                 kvp.Value.Password == model.Password
@@ -1058,6 +1520,11 @@ namespace JAS_MINE_IT15.Controllers99
             return RedirectToAction(nameof(Settings), new { tab = "system" });
         }
 
+        public IActionResult PasswordRequests()
+        {
+            return View();
+        }
+
         // GET: /Home/ForgotPassword
         [HttpGet]
         public IActionResult ForgotPassword()
@@ -1091,7 +1558,7 @@ namespace JAS_MINE_IT15.Controllers99
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction(nameof(Index));
         }
 
         private static string GetRoleLabel(string role)

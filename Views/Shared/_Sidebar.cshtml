@@ -19,7 +19,7 @@
     .jm-sidebar {
         width: 260px;
         min-height: 100vh;
-        background: #123252; /* deep blue */
+        background: #123252;
         color: #e8f0ff;
         position: sticky;
         top: 0;
@@ -57,16 +57,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: hidden; 
+        overflow: hidden;
     }
 
         .jm-logo img {
             width: 100%;
             height: 100%;
-            object-fit: cover; 
+            object-fit: cover;
         }
-
-
 
     .jm-brand-text {
         min-width: 0;
@@ -107,25 +105,41 @@
             background: rgba(255,255,255,.16);
         }
 
-    /* ===== Menu ===== */
+    /* ===== Menu (scrollable) ===== */
     .jm-menu {
         padding: 10px;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         flex: 1;
-        overflow: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
+
+        .jm-menu::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .jm-menu::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,.18);
+            border-radius: 10px;
+        }
+
+            .jm-menu::-webkit-scrollbar-thumb:hover {
+                background: rgba(255,255,255,.28);
+            }
 
     .jm-item {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 8px 10px;
-        border-radius: 12px;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 10px;
         color: #e8f0ff;
         text-decoration: none;
         opacity: .92;
+        font-size: 14px;
+        line-height: 1.1;
     }
 
         .jm-item:hover {
@@ -134,18 +148,23 @@
         }
 
         .jm-item.active {
-            background: rgba(255,255,255,.12);
+            background: rgba(255,255,255,.10);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
             opacity: 1;
         }
 
     .jm-icon {
-        width: 30px;
-        height: 30px;
-        border-radius: 12px;
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
         display: grid;
         place-items: center;
-        background: rgba(255,255,255,.08);
+        background: rgba(255,255,255,.06);
         flex: 0 0 auto;
+    }
+
+    .jm-item.active .jm-icon {
+        background: rgba(255,255,255,.12);
     }
 
     .jm-text {
@@ -153,18 +172,26 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        min-width: 0;
+        flex: 1;
     }
 
     .jm-section {
-        margin-top: 8px;
+        margin-top: 10px;
         padding: 6px 10px 4px;
-        font-size: 12px;
-        font-weight: 700;
-        opacity: .6;
-        letter-spacing: .6px;
+        font-size: 11px;
+        font-weight: 800;
+        opacity: .55;
+        letter-spacing: .8px;
+        text-transform: uppercase;
     }
 
-    /* ===== Bottom user ===== */
+    .jm-group {
+        margin-top: 2px;
+        padding-top: 0;
+    }
+
+    /* ===== Bottom user (fixed) ===== */
     .jm-bottom {
         border-top: 1px solid rgba(255,255,255,.08);
         padding: 14px 12px;
@@ -185,7 +212,7 @@
         border-radius: 999px;
         background: #1e8b3d;
         display: grid;
-        place-items: center; 
+        place-items: center;
         font-weight: 800;
         color: #fff;
         flex: 0 0 auto;
@@ -251,7 +278,6 @@
             <div class="jm-logo">
                 <img src="~/images/jasmine-logo.png" alt="Logo" />
             </div>
-
             <div class="jm-brand-text">
                 <p class="jm-title">JAS-MINE</p>
                 <p class="jm-subtitle">Knowledge Portal</p>
@@ -263,65 +289,160 @@
         </button>
     </div>
 
+    <!-- SCROLL AREA -->
     <nav class="jm-menu">
-        <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
-            <div class="jm-icon"><i class="bi bi-grid"></i></div>
-            <div class="jm-text">Dashboard</div>
-        </a>
 
-        <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
-            <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
-            <div class="jm-text">Knowledge Repository</div>
-        </a>
+        @* ===================== SUPER ADMIN ===================== *@
+        @if (role == "super_admin")
+        {
+            <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
+                <div class="jm-icon"><i class="bi bi-grid"></i></div>
+                <div class="jm-text">Dashboard</div>
+            </a>
 
-        <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
-            <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
-            <div class="jm-text">Policies &amp; Procedures</div>
-        </a>
+            <div class="jm-section">ADMINISTRATION</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
+                    <div class="jm-icon"><i class="bi bi-people"></i></div>
+                    <div class="jm-text">User Management</div>
+                </a>
 
-        <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
-            <div class="jm-icon"><i class="bi bi-lightbulb"></i></div>
-            <div class="jm-text">Lessons Learned</div>
-        </a>
+                <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
+                    <div class="jm-icon"><i class="bi bi-bell"></i></div>
+                    <div class="jm-text">Announcements</div>
+                </a>
 
-        <a class="jm-item @(IsActive("BestPractices") ? "active" : "")" href="@Url.Action("BestPractices", "Home")">
-            <div class="jm-icon"><i class="bi bi-award"></i></div>
-            <div class="jm-text">Best Practices</div>
-        </a>
+                <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
+                    <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="jm-text">Audit Logs</div>
+                </a>
 
-        <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
-            <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
-            <div class="jm-text">Knowledge Sharing</div>
-        </a>
-        </nav>
-            
-        @if (role == "super_admin" || role == "barangay_admin")
-       {
+                <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
+                    <div class="jm-icon"><i class="bi bi-gear"></i></div>
+                    <div class="jm-text">Settings</div>
+                </a>
 
-        <div class="jm-section">ADMINISTRATION</div>
+                <a class="jm-item @(IsActive("PasswordRequests") ? "active" : "")" href="@Url.Action("PasswordRequests", "Home")">
+                    <div class="jm-icon"><i class="bi bi-key"></i></div>
+                    <div class="jm-text">Password Requests</div>
+                </a>
+            </div>
 
-        <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
-            <div class="jm-icon"><i class="bi bi-people"></i></div>
-            <div class="jm-text">User Management</div>
-        </a>
+            <div class="jm-section">SUBSCRIPTIONS</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("SubscriptionPlans") ? "active" : "")" href="@Url.Action("SubscriptionPlans", "Home")">
+                    <div class="jm-icon"><i class="bi bi-credit-card"></i></div>
+                    <div class="jm-text">Subscription Plans</div>
+                </a>
 
-        <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
-            <div class="jm-icon"><i class="bi bi-bell"></i></div>
-            <div class="jm-text">Announcements</div>
-        </a>
+                <a class="jm-item @(IsActive("BarangaySubscriptions") ? "active" : "")" href="@Url.Action("BarangaySubscriptions", "Home")">
+                    <div class="jm-icon"><i class="bi bi-building"></i></div>
+                    <div class="jm-text">Barangay Subscriptions</div>
+                </a>
 
-        <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
-            <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
-            <div class="jm-text">Audit Logs</div>
-        </a>
+                <a class="jm-item @(IsActive("SubscriptionPayments") ? "active" : "")" href="@Url.Action("SubscriptionPayments", "Home")">
+                    <div class="jm-icon"><i class="bi bi-receipt"></i></div>
+                    <div class="jm-text">Subscription Payments</div>
+                </a>
+            </div>
+        }
 
-        <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
-            <div class="jm-icon"><i class="bi bi-gear"></i></div>
-            <div class="jm-text">Settings</div>
-        </a>
-    }
+        @* ===================== BARANGAY ADMIN ===================== *@
+        else if (role == "barangay_admin")
+        {
+            <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
+                <div class="jm-icon"><i class="bi bi-grid"></i></div>
+                <div class="jm-text">Dashboard</div>
+            </a>
 
+            @* 5 Modules *@
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
+                    <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
+                    <div class="jm-text">Knowledge Repository</div>
+                </a>
 
+                <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
+                    <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
+                    <div class="jm-text">Policies &amp; Procedures</div>
+                </a>
+
+                <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
+                    <div class="jm-icon"><i class="bi bi-lightbulb"></i></div>
+                    <div class="jm-text">Lessons Learned</div>
+                </a>
+
+                <a class="jm-item @(IsActive("BestPractices") ? "active" : "")" href="@Url.Action("BestPractices", "Home")">
+                    <div class="jm-icon"><i class="bi bi-award"></i></div>
+                    <div class="jm-text">Best Practices</div>
+                </a>
+
+                <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
+                    <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
+                    <div class="jm-text">Knowledge Sharing</div>
+                </a>
+            </div>
+
+            @* Limited Administration *@
+            <div class="jm-section">ADMINISTRATION</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
+                    <div class="jm-icon"><i class="bi bi-bell"></i></div>
+                    <div class="jm-text">Announcements</div>
+                </a>
+
+                <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
+                    <div class="jm-icon"><i class="bi bi-gear"></i></div>
+                    <div class="jm-text">Settings</div>
+                </a>
+            </div>
+
+            <div class="jm-section">SUBSCRIPTION</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("MySubscription") ? "active" : "")" href="@Url.Action("MySubscription", "Home")">
+                    <div class="jm-icon"><i class="bi bi-star"></i></div>
+                    <div class="jm-text">My Subscription</div>
+                </a>
+            </div>
+        }
+
+        @* ===================== OTHER ROLES (optional) ===================== *@
+        else
+        {
+            <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
+                <div class="jm-icon"><i class="bi bi-grid"></i></div>
+                <div class="jm-text">Dashboard</div>
+            </a>
+
+            <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
+                <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
+                <div class="jm-text">Knowledge Repository</div>
+            </a>
+
+            <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
+                <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
+                <div class="jm-text">Policies &amp; Procedures</div>
+            </a>
+
+            <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
+                <div class="jm-icon"><i class="bi bi-lightbulb"></i></div>
+                <div class="jm-text">Lessons Learned</div>
+            </a>
+
+            <a class="jm-item @(IsActive("BestPractices") ? "active" : "")" href="@Url.Action("BestPractices", "Home")">
+                <div class="jm-icon"><i class="bi bi-award"></i></div>
+                <div class="jm-text">Best Practices</div>
+            </a>
+
+            <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
+                <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
+                <div class="jm-text">Knowledge Sharing</div>
+            </a>
+        }
+
+    </nav>
+
+    <!-- FIXED BOTTOM USER -->
     <div class="jm-bottom">
         <div class="jm-user">
             <div class="jm-avatar">@userName.Substring(0, 1).ToUpper()</div>
@@ -339,7 +460,6 @@
 </aside>
 
 <script>
-    // remember collapsed state
     (function () {
         try {
             var collapsed = localStorage.getItem("jm_sidebar_collapsed") === "1";

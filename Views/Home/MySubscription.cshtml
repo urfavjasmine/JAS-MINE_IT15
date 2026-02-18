@@ -1,0 +1,109 @@
+﻿@model JAS_MINE_IT15.Models.MySubscriptionViewModel
+@{
+    ViewData["Title"] = "My Subscription";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@functions {
+    private string BadgeClass(string s)
+    {
+        s = (s ?? "").Trim();
+        if (s == "Active" || s == "Paid") return "bg-success-subtle text-success border border-success-subtle";
+        if (s == "Expired") return "bg-danger-subtle text-danger border border-danger-subtle";
+        return "bg-warning-subtle text-warning border border-warning-subtle";
+    }
+
+    private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
+}
+
+<div class="d-flex flex-column gap-4">
+
+    <div>
+        <h2 class="fw-bold mb-1">My Subscription</h2>
+        <div class="text-muted">View your barangay's subscription details and payment history.</div>
+    </div>
+
+    <!-- Subscription Card -->
+    <div class="card border-primary-subtle">
+        <div class="card-header bg-white">
+            <div class="fw-bold d-flex align-items-center gap-2">
+                <span style="font-size:18px;">💳</span>
+                <span>Current Subscription</span>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-8">
+                    <div class="mb-2">
+                        <div class="fs-3 fw-bold">@Model.Subscription.PlanName</div>
+                        <div class="text-muted">@Model.BarangayName</div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-4 small text-muted">
+                        <div class="d-flex align-items-center gap-2">
+                            <span>📅</span>
+                            <span>Start: @Model.Subscription.StartDate</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span>📅</span>
+                            <span>End: @Model.Subscription.EndDate</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-4 text-md-end">
+                    <span class="badge @BadgeClass(Model.Subscription.Status) px-3 py-2">
+                        @Model.Subscription.Status
+                    </span>
+
+                    <div class="mt-2">
+                        <span class="fs-3 fw-bold text-primary">
+                            @Peso(Model.Subscription.Price)
+                        </span>
+                        <span class="text-muted">/year</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card">
+        <div class="card-header bg-white">
+            <div class="fw-bold d-flex align-items-center gap-2">
+                <span style="font-size:18px;">🧾</span>
+                <span>Payment History</span>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <div class="table-responsive border rounded">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Payments)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@Peso(p.Amount)</td>
+                                <td class="text-muted">@p.Date</td>
+                                <td class="text-muted">@p.Method</td>
+                                <td>
+                                    <span class="badge @BadgeClass(p.Status)">@p.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>

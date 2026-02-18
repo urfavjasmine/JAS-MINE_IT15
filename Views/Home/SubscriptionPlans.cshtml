@@ -1,0 +1,378 @@
+﻿@model JAS_MINE_IT15.Models.SubscriptionPlansViewModel
+@{
+    ViewData["Title"] = "Subscription Plans";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@functions {
+    private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
+
+    private string PlanDurationLabel(int months)
+    {
+        if (months >= 12)
+        {
+            var yrs = months / 12;
+            return $"{yrs} Year(s)";
+        }
+        return $"{months} Month(s)";
+    }
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h2 class="fw-bold mb-1">Subscription Plans</h2>
+        <div class="text-muted">Manage subscription plans for barangays.</div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+        + Create Plan
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-primary">@Model.TotalPlans</div>
+                <div class="text-muted small">Total Plans</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-success">@Model.ActivePlans</div>
+                <div class="text-muted small">Active</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-warning">@Model.InactivePlans</div>
+                <div class="text-muted small">Inactive</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-info">@Model.YearlyPlans</div>
+                <div class="text-muted small">Yearly Plans</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-bold">Plans</div>
+    <div class="card-body">
+
+        <!-- Search -->
+        <form method="get" asp-action="SubscriptionPlans" class="mb-3">
+            <input name="q" value="@Model.SearchQuery" class="form-control" placeholder="Search plans..." />
+        </form>
+
+        <div class="table-responsive border rounded">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Plan Name</th>
+                        <th>Price</th>
+                        <th>Duration</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th>Status</th>
+                        <th style="width: 190px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Plans)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@p.Name</td>
+                            <td>@Peso(p.Price)</td>
+                            <td>@PlanDurationLabel(p.DurationMonths)</td>
+                            <td class="d-none d-md-table-cell text-muted" style="max-width: 260px;">
+                                <span title="@p.Description">@p.Description</span>
+                            </td>
+                            <td>
+                                @if (p.IsActive)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Inactive</span>
+                                }
+                            </td>
+                            <td class="text-end">
+
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#viewModal"
+                                        data-id="@p.Id"
+                                        data-name="@p.Name"
+                                        data-price="@p.Price"
+                                        data-duration="@p.DurationMonths"
+                                        data-description="@p.Description"
+                                        data-active="@p.IsActive">
+                                    View
+                                </button>
+
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" data-bs-target="#editModal"
+                                        data-id="@p.Id"
+                                        data-name="@p.Name"
+                                        data-price="@p.Price"
+                                        data-duration="@p.DurationMonths"
+                                        data-description="@p.Description"
+                                        data-active="@p.IsActive">
+                                    Edit
+                                </button>
+
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        data-id="@p.Id"
+                                        data-name="@p.Name">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal fade" id="createModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-action="CreatePlan">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Plan Name</label>
+                            <input class="form-control" name="name" placeholder="Enter plan name" required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Price (₱)</label>
+                            <input class="form-control" type="number" name="price" min="0" step="0.01" placeholder="0" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Duration</label>
+                            <select class="form-select" name="durationMonths" required>
+                                <option value="1">Monthly</option>
+                                <option value="3">Quarterly</option>
+                                <option value="6">Semi-Annual</option>
+                                <option value="12">Yearly</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3" placeholder="Plan description..."></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="isActive">
+                                <option value="true" selected>Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-action="EditPlan">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+                <input type="hidden" name="id" id="edit_id" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Plan Name</label>
+                            <input class="form-control" name="name" id="edit_name" required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Price (₱)</label>
+                            <input class="form-control" type="number" name="price" min="0" step="0.01" id="edit_price" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Duration</label>
+                            <select class="form-select" name="durationMonths" id="edit_duration" required>
+                                <option value="1">Monthly</option>
+                                <option value="3">Quarterly</option>
+                                <option value="6">Semi-Annual</option>
+                                <option value="12">Yearly</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3" id="edit_description"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="isActive" id="edit_active">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Plan Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="fw-bold fs-5" id="view_name"></div>
+                <div class="text-muted" id="view_price_line"></div>
+
+                <p class="text-muted mt-3" id="view_description"></p>
+
+                <div class="d-flex gap-2">
+                    <span class="badge" id="view_status"></span>
+                    <span class="badge bg-light text-dark border" id="view_duration"></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-action="DeletePlan">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="q" value="@Model.SearchQuery" />
+                <input type="hidden" name="id" id="delete_id" />
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Are you sure you want to delete "<span class="fw-semibold" id="delete_name"></span>"?
+                    This action cannot be undone.
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Fill EDIT modal
+        document.getElementById('editModal')?.addEventListener('show.bs.modal', function (event) {
+            const btn = event.relatedTarget;
+
+            document.getElementById('edit_id').value = btn.getAttribute('data-id');
+            document.getElementById('edit_name').value = btn.getAttribute('data-name');
+            document.getElementById('edit_price').value = btn.getAttribute('data-price');
+            document.getElementById('edit_duration').value = btn.getAttribute('data-duration');
+            document.getElementById('edit_description').value = btn.getAttribute('data-description');
+            document.getElementById('edit_active').value = (btn.getAttribute('data-active') === "True") ? "true" : "false";
+        });
+
+        // Fill VIEW modal
+        document.getElementById('viewModal')?.addEventListener('show.bs.modal', function (event) {
+            const btn = event.relatedTarget;
+
+            const name = btn.getAttribute('data-name');
+            const price = Number(btn.getAttribute('data-price'));
+            const duration = Number(btn.getAttribute('data-duration'));
+            const desc = btn.getAttribute('data-description') || "";
+            const active = btn.getAttribute('data-active') === "True";
+
+            document.getElementById('view_name').innerText = name;
+            document.getElementById('view_price_line').innerText =
+                "₱" + price.toLocaleString() + " / " + (duration >= 12 ? "Year" : "Month");
+
+            document.getElementById('view_description').innerText = desc;
+
+            const statusBadge = document.getElementById('view_status');
+            statusBadge.innerText = active ? "Active" : "Inactive";
+            statusBadge.className = "badge " + (active
+                ? "bg-success-subtle text-success border border-success-subtle"
+                : "bg-secondary-subtle text-secondary border border-secondary-subtle");
+
+            document.getElementById('view_duration').innerText = duration + " month(s)";
+        });
+
+        // Fill DELETE modal
+        document.getElementById('deleteModal')?.addEventListener('show.bs.modal', function (event) {
+            const btn = event.relatedTarget;
+            document.getElementById('delete_id').value = btn.getAttribute('data-id');
+            document.getElementById('delete_name').innerText = btn.getAttribute('data-name');
+        });
+    </script>
+}
