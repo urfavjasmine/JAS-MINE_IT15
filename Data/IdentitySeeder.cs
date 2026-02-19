@@ -42,14 +42,30 @@ namespace JAS_MINE_IT15.Data
                     EmailConfirmed = true
                 };
 
-                await userManager.CreateAsync(user, password);
-                await userManager.AddToRoleAsync(user, "super_admin");
+                var createResult = await userManager.CreateAsync(user, password);
+                if (createResult.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(user, "super_admin");
+                    Console.WriteLine($"[Seeder] Created super_admin: {email}");
+                }
+                else
+                {
+                    Console.WriteLine($"[Seeder] FAILED to create {email}: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
+                }
             }
             else
             {
-                // Reset password if user already exists (ensures password matches seeder)
+                // Remove old password and set new one
                 var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                await userManager.ResetPasswordAsync(user, token, password);
+                var resetResult = await userManager.ResetPasswordAsync(user, token, password);
+                if (resetResult.Succeeded)
+                {
+                    Console.WriteLine($"[Seeder] Reset password for: {email}");
+                }
+                else
+                {
+                    Console.WriteLine($"[Seeder] FAILED to reset password for {email}: {string.Join(", ", resetResult.Errors.Select(e => e.Description))}");
+                }
             }
         }
         public static async Task SeedDefaultUsers(IServiceProvider services)

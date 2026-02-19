@@ -447,12 +447,17 @@ namespace JAS_MINE_IT15.Controllers
             model.Email = (model.Email ?? "").Trim();
             model.Password = (model.Password ?? "").Trim();
 
+            Console.WriteLine($"[Login] Attempting login for: {model.Email}");
+
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
+                Console.WriteLine($"[Login] User NOT found: {model.Email}");
                 model.ErrorMessage = "Invalid email or password.";
                 return View(model);
             }
+
+            Console.WriteLine($"[Login] User found: {user.Email}, UserName: {user.UserName}");
 
             var result = await _signInManager.PasswordSignInAsync(
                 user.UserName!,
@@ -460,6 +465,8 @@ namespace JAS_MINE_IT15.Controllers
                 isPersistent: false,
                 lockoutOnFailure: false
             );
+
+            Console.WriteLine($"[Login] SignIn result: Succeeded={result.Succeeded}, IsLockedOut={result.IsLockedOut}, IsNotAllowed={result.IsNotAllowed}, RequiresTwoFactor={result.RequiresTwoFactor}");
 
             if (!result.Succeeded)
             {
