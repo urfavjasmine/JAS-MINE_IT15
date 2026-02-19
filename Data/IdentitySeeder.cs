@@ -45,6 +45,12 @@ namespace JAS_MINE_IT15.Data
                 await userManager.CreateAsync(user, password);
                 await userManager.AddToRoleAsync(user, "super_admin");
             }
+            else
+            {
+                // Reset password if user already exists (ensures password matches seeder)
+                var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                await userManager.ResetPasswordAsync(user, token, password);
+            }
         }
         public static async Task SeedDefaultUsers(IServiceProvider services)
         {
@@ -72,6 +78,12 @@ namespace JAS_MINE_IT15.Data
                     };
 
                     await userManager.CreateAsync(user, d.Password);
+                }
+                else
+                {
+                    // Reset password if user already exists
+                    var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                    await userManager.ResetPasswordAsync(user, token, d.Password);
                 }
 
                 if (!await userManager.IsInRoleAsync(user, d.Role))
