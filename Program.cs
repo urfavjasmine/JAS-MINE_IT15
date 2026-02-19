@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
+builder.Services.AddAuthorization();
+
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -14,14 +18,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Identity
-builder.Services.AddDefaultIdentity<IdentityUser>(options =>
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false; 
+    options.SignIn.RequireConfirmedAccount = false;
 })
-.AddEntityFrameworkStores<ApplicationDbContext>();
-
-builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages();
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
 
 // Session
 builder.Services.AddDistributedMemoryCache();
@@ -33,7 +35,6 @@ builder.Services.AddSession(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
-
 
 var app = builder.Build();
 
@@ -53,7 +54,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseSession();         
+app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -62,5 +63,14 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=LandingPage}/{id?}");
 
 app.MapRazorPages();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+
+    await IdentitySeeder.SeedRoles(services);
+    await IdentitySeeder.SeedSuperAdmin(services);
+    await IdentitySeeder.SeedDefaultUsers(services);
+}
 
 app.Run();
