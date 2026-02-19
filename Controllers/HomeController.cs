@@ -1,7 +1,10 @@
+using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models;
+using JAS_MINE_IT15.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,16 +19,17 @@ namespace JAS_MINE_IT15.Controllers
         // ✅ Identity services (needed for DB login)
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly UserManager<IdentityUser> _userManager;
+        private readonly ApplicationDbContext _context;
 
-        public HomeController(SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager)
+        public HomeController(
+            SignInManager<IdentityUser> signInManager,
+            UserManager<IdentityUser> userManager,
+            ApplicationDbContext context)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _context = context;
         }
-
-        // TODO: Inject DbContext via constructor for database integration
-        // private readonly ApplicationDbContext _context;
-        // public HomeController(ApplicationDbContext context) { _context = context; }
 
         private bool IsLoggedIn() =>
             !string.IsNullOrEmpty(HttpContext.Session.GetString("UserName"));
@@ -500,7 +504,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/KnowledgeRepository
         [HttpGet]
-        public IActionResult KnowledgeRepository(string q = "", string category = "All Categories")
+        public async Task<IActionResult> KnowledgeRepository(string q = "", string category = "All Categories")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -511,26 +515,45 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
 
-            var allDocs = new List<RepoDocument>();
-            var list = allDocs;
+            var query = _context.KnowledgeDocuments
+                .Where(d => d.IsActive)
+                .Include(d => d.UploadedBy)
+                .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
             {
-                list = list.Where(d =>
-                    (d.Title ?? "").ToLower().Contains(q) ||
-                    (d.TagsCsv ?? "").ToLower().Contains(q)
-                ).ToList();
+                query = query.Where(d =>
+                    d.Title.ToLower().Contains(q) ||
+                    (d.Tags ?? "").ToLower().Contains(q)
+                );
             }
 
             if (category != "All Categories")
-                list = list.Where(d => d.Category == category).ToList();
+                query = query.Where(d => d.Category == category);
+
+            var docs = await query
+                .OrderByDescending(d => d.CreatedAt)
+                .Select(d => new RepoDocument
+                {
+                    Id = d.Id.ToString(),
+                    Title = d.Title,
+                    Category = d.Category,
+                    TagsCsv = d.Tags ?? "",
+                    UploadedBy = d.UploadedBy != null ? d.UploadedBy.FullName : "Unknown",
+                    Date = d.CreatedAt.ToString("yyyy-MM-dd"),
+                    Status = d.Status,
+                    Version = d.Version,
+                    Description = d.Description ?? "",
+                    FileName = d.FileName ?? ""
+                })
+                .ToListAsync();
 
             var vm = new KnowledgeRepositoryViewModel
             {
                 SearchQuery = q,
                 SelectedCategory = category,
                 Categories = new List<string> { "All Categories", "Resolutions", "Ordinances", "Memorandums", "Policies", "Reports" },
-                Documents = list,
+                Documents = docs,
                 CanUpload = canUpload,
                 CanApprove = canApprove,
                 SuccessMessage = TempData["Success"] as string,
@@ -542,7 +565,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult CreateDoc(string title, string category, string tags, string description)
+        public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -557,19 +580,69 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(KnowledgeRepository));
             }
 
+            // Get uploading user ID from session email
+            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+            var uploaderId = await _context.BusinessUsers
+                .Where(u => u.Email == userEmail)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (uploaderId == 0)
+            {
+                // Create a default entry if user not found
+                uploaderId = 1;
+            }
+
+            var doc = new KnowledgeDocument
+            {
+                Title = title,
+                Category = string.IsNullOrWhiteSpace(category) ? "Policies" : category.Trim(),
+                Tags = (tags ?? "").Trim(),
+                Description = (description ?? "").Trim(),
+                Status = "pending",
+                Version = "1.0",
+                UploadedById = uploaderId,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.KnowledgeDocuments.Add(doc);
+            await _context.SaveChangesAsync();
+
             TempData["Success"] = $"Document uploaded: \"{title}\"";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult EditDoc(string id, string title, string category, string tags, string description)
+        public async Task<IActionResult> EditDoc(string id, string title, string category, string tags, string description)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
+
+            if (!int.TryParse(id, out var docId))
+            {
+                TempData["Error"] = "Invalid document ID.";
+                return RedirectToAction(nameof(KnowledgeRepository));
+            }
+
+            var doc = await _context.KnowledgeDocuments.FindAsync(docId);
+            if (doc == null || !doc.IsActive)
+            {
+                TempData["Error"] = "Document not found.";
+                return RedirectToAction(nameof(KnowledgeRepository));
+            }
+
+            doc.Title = (title ?? doc.Title).Trim();
+            doc.Category = string.IsNullOrWhiteSpace(category) ? doc.Category : category.Trim();
+            doc.Tags = (tags ?? "").Trim();
+            doc.Description = (description ?? "").Trim();
+            doc.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
 
             TempData["Success"] = "Document updated.";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -577,7 +650,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteDoc(string id)
+        public async Task<IActionResult> DeleteDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -585,19 +658,42 @@ namespace JAS_MINE_IT15.Controllers
             var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
-            TempData["Success"] = "Document deleted.";
+            if (int.TryParse(id, out var docId))
+            {
+                var doc = await _context.KnowledgeDocuments.FindAsync(docId);
+                if (doc != null)
+                {
+                    doc.IsActive = false;
+                    doc.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Document archived.";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ApproveDoc(string id)
+        public async Task<IActionResult> ApproveDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var canApprove = role == "barangay_admin" || role == "super_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
+
+            if (int.TryParse(id, out var docId))
+            {
+                var doc = await _context.KnowledgeDocuments.FindAsync(docId);
+                if (doc != null && doc.IsActive)
+                {
+                    doc.Status = "approved";
+                    doc.ApprovedAt = DateTime.Now;
+                    doc.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
 
             TempData["Success"] = "Document approved.";
             return RedirectToAction(nameof(KnowledgeRepository));
@@ -605,7 +701,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult RejectDoc(string id)
+        public async Task<IActionResult> RejectDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -613,13 +709,24 @@ namespace JAS_MINE_IT15.Controllers
             var canApprove = role == "barangay_admin" || role == "super_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
 
+            if (int.TryParse(id, out var docId))
+            {
+                var doc = await _context.KnowledgeDocuments.FindAsync(docId);
+                if (doc != null && doc.IsActive)
+                {
+                    doc.Status = "rejected";
+                    doc.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             TempData["Success"] = "Document rejected.";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
 
         // GET: /Home/PoliciesProcedures
         [HttpGet]
-        public IActionResult PoliciesManagement(string status = "all", string q = "")
+        public async Task<IActionResult> PoliciesManagement(string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -630,20 +737,39 @@ namespace JAS_MINE_IT15.Controllers
             status = (status ?? "all").Trim().ToLower();
             q = (q ?? "").Trim();
 
-            var allPolicies = new List<PolicyItem>();
-            var list = allPolicies;
+            var query = _context.Policies
+                .Where(p => p.IsActive)
+                .Include(p => p.Author)
+                .AsQueryable();
 
             if (status != "all")
-                list = list.Where(x => (x.Status ?? "").ToLower() == status).ToList();
+                query = query.Where(p => p.Status.ToLower() == status);
 
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var qq = q.ToLower();
-                list = list.Where(x =>
-                    (x.Title ?? "").ToLower().Contains(qq) ||
-                    (x.Description ?? "").ToLower().Contains(qq)
-                ).ToList();
+                query = query.Where(p =>
+                    p.Title.ToLower().Contains(qq) ||
+                    (p.Description ?? "").ToLower().Contains(qq)
+                );
             }
+
+            var policies = await query
+                .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
+                .Select(p => new PolicyItem
+                {
+                    Id = p.Id.ToString(),
+                    Title = p.Title,
+                    Description = p.Description ?? "",
+                    Status = p.Status,
+                    LastUpdated = (p.UpdatedAt ?? p.CreatedAt).ToString("yyyy-MM-dd"),
+                    Author = p.Author != null ? p.Author.FullName : "Unknown",
+                    Version = p.Version
+                })
+                .ToListAsync();
+
+            // Get counts from all active policies
+            var allPolicies = await _context.Policies.Where(p => p.IsActive).ToListAsync();
 
             var vm = new PoliciesManagementViewModel
             {
@@ -657,7 +783,7 @@ namespace JAS_MINE_IT15.Controllers
                 CountPending = allPolicies.Count(x => x.Status == "pending"),
                 CountDraft = allPolicies.Count(x => x.Status == "draft"),
 
-                Policies = list
+                Policies = policies
             };
 
             return View(vm);
@@ -665,47 +791,149 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult CreatePolicy(string title, string description, string status = "all", string q = "")
+        public async Task<IActionResult> CreatePolicy(string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            if (!canCreate) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             title = (title ?? "").Trim();
             description = (description ?? "").Trim();
 
             if (string.IsNullOrWhiteSpace(title))
+            {
+                TempData["Error"] = "Title is required.";
                 return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+            }
 
+            // Get author ID from session email
+            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+            var authorId = await _context.BusinessUsers
+                .Where(u => u.Email == userEmail)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (authorId == 0) authorId = 1;
+
+            var policy = new Policy
+            {
+                Title = title,
+                Description = description,
+                Status = "draft",
+                Version = "1.0",
+                AuthorId = authorId,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Policies.Add(policy);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Policy \"{title}\" created successfully.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult EditPolicy(string id, string title, string description, string status = "all", string q = "")
+        public async Task<IActionResult> EditPolicy(string id, string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canEdit = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            if (!canEdit) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+
+            if (!int.TryParse(id, out var policyId))
+            {
+                TempData["Error"] = "Invalid policy ID.";
+                return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+            }
+
+            var policy = await _context.Policies.FindAsync(policyId);
+            if (policy == null || !policy.IsActive)
+            {
+                TempData["Error"] = "Policy not found.";
+                return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+            }
+
+            policy.Title = (title ?? policy.Title).Trim();
+            policy.Description = (description ?? "").Trim();
+            policy.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Policy updated successfully.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeletePolicy(string id, string status = "all", string q = "")
+        public async Task<IActionResult> DeletePolicy(string id, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canDelete = role == "barangay_admin" || role == "super_admin";
+            if (!canDelete) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+
+            if (int.TryParse(id, out var policyId))
+            {
+                var policy = await _context.Policies.FindAsync(policyId);
+                if (policy != null)
+                {
+                    policy.IsActive = false;
+                    policy.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Policy archived.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult SetPolicyStatus(string id, string newStatus, string status = "all", string q = "")
+        public async Task<IActionResult> SetPolicyStatus(string id, string newStatus, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canApprove = role == "barangay_admin" || role == "super_admin";
+            if (!canApprove) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             newStatus = (newStatus ?? "").Trim().ToLower();
             if (newStatus != "approved" && newStatus != "rejected" && newStatus != "pending" && newStatus != "draft")
                 newStatus = "draft";
 
+            if (int.TryParse(id, out var policyId))
+            {
+                var policy = await _context.Policies.FindAsync(policyId);
+                if (policy != null && policy.IsActive)
+                {
+                    policy.Status = newStatus;
+                    policy.UpdatedAt = DateTime.Now;
+
+                    if (newStatus == "approved")
+                    {
+                        var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+                        var approverId = await _context.BusinessUsers
+                            .Where(u => u.Email == userEmail)
+                            .Select(u => u.Id)
+                            .FirstOrDefaultAsync();
+                        if (approverId > 0)
+                        {
+                            policy.ApprovedById = approverId;
+                            policy.ApprovedAt = DateTime.Now;
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = $"Policy status set to {newStatus}.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
 
@@ -867,17 +1095,147 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(KnowledgeSharing));
         }
 
-        public IActionResult UserManagement()
+        public async Task<IActionResult> UserManagement()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
+            var dbUsers = await _context.BusinessUsers
+                .Where(u => u.IsActive)
+                .OrderByDescending(u => u.CreatedAt)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.FullName,
+                    u.Email,
+                    u.Role,
+                    u.IsActive,
+                    u.BarangayName
+                })
+                .ToListAsync();
+
+            var users = dbUsers.Select(u => new UserItem
+            {
+                Id = u.Id.ToString(),
+                Name = u.FullName,
+                Email = u.Email,
+                Role = Enum.TryParse<UserRole>(u.Role, out var r) ? r : UserRole.barangay_staff,
+                Status = u.IsActive ? "active" : "inactive",
+                Barangay = u.BarangayName ?? ""
+            }).ToList();
+
             var vm = new UserManagementViewModel
             {
-                Users = new List<UserItem>()
+                Users = users
             };
 
             return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateUser(string name, string email, string password, string role, string barangay)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            name = (name ?? "").Trim();
+            email = (email ?? "").Trim();
+            password = (password ?? "").Trim();
+            role = (role ?? "barangay_staff").Trim();
+            barangay = (barangay ?? "").Trim();
+
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "Name and email are required.";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            // Check if email already exists
+            var exists = await _context.BusinessUsers.AnyAsync(u => u.Email == email);
+            if (exists)
+            {
+                TempData["Error"] = "A user with this email already exists.";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            // Hash password (simplified - in production use proper hashing)
+            var passwordHash = Convert.ToBase64String(
+                System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(password)
+                )
+            );
+
+            var user = new Models.Entities.User
+            {
+                FullName = name,
+                Email = email,
+                PasswordHash = passwordHash,
+                Role = role,
+                BarangayName = barangay,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.BusinessUsers.Add(user);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"User \"{name}\" created successfully.";
+            return RedirectToAction(nameof(UserManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditUser(string id, string name, string email, string role, string barangay)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            if (!int.TryParse(id, out var userId))
+            {
+                TempData["Error"] = "Invalid user ID.";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            var user = await _context.BusinessUsers.FindAsync(userId);
+            if (user == null)
+            {
+                TempData["Error"] = "User not found.";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            user.FullName = (name ?? user.FullName).Trim();
+            user.Email = (email ?? user.Email).Trim();
+            user.Role = (role ?? user.Role).Trim();
+            user.BarangayName = (barangay ?? "").Trim();
+            user.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"User \"{user.FullName}\" updated successfully.";
+            return RedirectToAction(nameof(UserManagement));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ArchiveUser(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+
+            if (int.TryParse(id, out var userId))
+            {
+                var user = await _context.BusinessUsers.FindAsync(userId);
+                if (user != null)
+                {
+                    user.IsActive = false;
+                    user.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = $"User \"{user.FullName}\" archived.";
+                }
+            }
+
+            return RedirectToAction(nameof(UserManagement));
         }
 
         // GET: /Home/Announcements
