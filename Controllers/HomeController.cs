@@ -1284,7 +1284,7 @@ namespace JAS_MINE_IT15.Controllers
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = HttpContext.Session.GetInt32("BarangayId");
             bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
-            bool canModify = role == "barangay_admin" || role == "barangay_secretary";
+            bool canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             q = (q ?? "").Trim().ToLower();
@@ -1530,7 +1530,7 @@ namespace JAS_MINE_IT15.Controllers
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = HttpContext.Session.GetInt32("BarangayId");
-            bool canManage = role == "barangay_admin" || role == "barangay_secretary";
+            bool canManage = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canModify = canManage;
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
