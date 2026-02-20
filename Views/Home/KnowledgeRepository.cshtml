@@ -5,9 +5,20 @@
     ViewData["Title"] = "Knowledge Repository";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // Use permissions from controller (NOT hardcoded)
-    var canUpload = Model.CanUpload;
-    var canApprove = Model.CanApprove;
+    // Null-safe properties
+    var canUpload = Model?.CanUpload ?? false;
+    var canApprove = Model?.CanApprove ?? false;
+    var canArchive = Model?.CanArchive ?? false;
+    var archiveStatus = Model?.ArchiveStatus ?? "active";
+    var searchQuery = Model?.SearchQuery ?? "";
+    var selectedCategory = Model?.SelectedCategory ?? "All Categories";
+    var selectedStatus = Model?.SelectedStatus ?? "all";
+    var categories = Model?.Categories ?? new List<string> { "All Categories" };
+    var documents = Model?.Documents ?? new List<JAS_MINE_IT15.Models.RepoDocument>();
+    var totalDocuments = Model?.TotalDocuments ?? 0;
+    var archivedDocuments = Model?.ArchivedDocuments ?? 0;
+    var successMessage = Model?.SuccessMessage ?? "";
+    var errorMessage = Model?.ErrorMessage ?? "";
 }
 
 <style>
@@ -219,17 +230,17 @@
         }
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+    @if (!string.IsNullOrWhiteSpace(successMessage))
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="bi bi-check-circle me-2"></i>@Model.SuccessMessage
+            <i class="bi bi-check-circle me-2"></i>@successMessage
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
-    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="bi bi-exclamation-circle me-2"></i>@Model.ErrorMessage
+            <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
@@ -237,20 +248,20 @@
     <!-- Archive Status Tabs -->
     <ul class="nav nav-tabs mb-4">
         <li class="nav-item">
-            <a class="nav-link @(Model.ArchiveStatus == "active" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "active" })">
-                <i class="bi bi-check-circle me-1"></i> Active (@Model.TotalDocuments)
+            <a class="nav-link @(archiveStatus == "active" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "active" })">
+                <i class="bi bi-check-circle me-1"></i> Active (@totalDocuments)
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link @(Model.ArchiveStatus == "archived" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "archived" })">
-                <i class="bi bi-archive me-1"></i> Archived (@Model.ArchivedDocuments)
+            <a class="nav-link @(archiveStatus == "archived" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "archived" })">
+                <i class="bi bi-archive me-1"></i> Archived (@archivedDocuments)
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link @(Model.ArchiveStatus == "all" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "all" })">
+            <a class="nav-link @(archiveStatus == "all" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "all" })">
                 <i class="bi bi-list-ul me-1"></i> All
             </a>
         </li>
@@ -260,13 +271,13 @@
     <div class="soft-card mb-4">
         <div class="filter-wrap">
             <form method="get" action="@Url.Action("KnowledgeRepository","Home")">
-                <input type="hidden" name="archiveStatus" value="@Model.ArchiveStatus" />
+                <input type="hidden" name="archiveStatus" value="@archiveStatus" />
                 <div class="row g-3 align-items-center">
                     <div class="col-12 col-lg-6 position-relative">
                         <i class="bi bi-search input-icon-left"></i>
                         <input class="form-control input-soft input-with-icon"
                                name="q"
-                               value="@Model.SearchQuery"
+                               value="@searchQuery"
                                placeholder="Search by title, tags..." />
                     </div>
 
@@ -279,9 +290,9 @@
                             <select class="form-select select-soft border-start-0"
                                     name="category"
                                     style="border-radius:0 10px 10px 0;">
-                                @foreach (var c in Model.Categories)
+                                @foreach (var c in categories)
                                 {
-                                    <option value="@c" selected="@(Model.SelectedCategory == c)">@c</option>
+                                    <option value="@c" selected="@(selectedCategory == c)">@c</option>
                                 }
                             </select>
                         </div>
@@ -289,11 +300,11 @@
 
                     <div class="col-12 col-lg-3">
                         <select class="form-select select-soft" name="status" onchange="this.form.submit()">
-                            <option value="all" selected="@(Model.SelectedStatus == "all")">All Status</option>
-                            <option value="draft" selected="@(Model.SelectedStatus == "draft")">Draft</option>
-                            <option value="pending" selected="@(Model.SelectedStatus == "pending")">Pending</option>
-                            <option value="approved" selected="@(Model.SelectedStatus == "approved")">Approved</option>
-                            <option value="rejected" selected="@(Model.SelectedStatus == "rejected")">Rejected</option>
+                            <option value="all" selected="@(selectedStatus == "all")">All Status</option>
+                            <option value="draft" selected="@(selectedStatus == "draft")">Draft</option>
+                            <option value="pending" selected="@(selectedStatus == "pending")">Pending</option>
+                            <option value="approved" selected="@(selectedStatus == "approved")">Approved</option>
+                            <option value="rejected" selected="@(selectedStatus == "rejected")">Rejected</option>
                         </select>
                     </div>
                 </div>
@@ -304,7 +315,7 @@
     <!-- Documents Table Card -->
     <div class="soft-card">
         <div class="p-4">
-            <h5 class="fw-bold mb-3">Documents (@Model.Documents.Count)</h5>
+            <h5 class="fw-bold mb-3">Documents (@documents.Count)</h5>
 
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
@@ -320,7 +331,7 @@
                     </thead>
 
                     <tbody>
-                        @if (Model.Documents.Count == 0)
+                        @if (documents.Count == 0)
                         {
                             <tr>
                                 <td colspan="6" class="text-center text-muted py-4">No documents found.</td>
@@ -328,7 +339,7 @@
                         }
                         else
                         {
-                            foreach (var doc in Model.Documents)
+                            foreach (var doc in documents)
                             {
                                 string badgeHtml = doc.Status switch
                                 {
@@ -426,7 +437,7 @@
                                                     }
 
                                                     <!-- ARCHIVE (only if canArchive) -->
-                                                    @if (Model.CanArchive)
+                                                    @if (canArchive)
                                                     {
                                                         <li><hr class="dropdown-divider"></li>
                                                         <li>
@@ -441,7 +452,7 @@
                                                 else
                                                 {
                                                     <!-- RESTORE (only if canArchive and archived) -->
-                                                    @if (Model.CanArchive)
+                                                    @if (canArchive)
                                                     {
                                                         <li><hr class="dropdown-divider"></li>
                                                         <li>
