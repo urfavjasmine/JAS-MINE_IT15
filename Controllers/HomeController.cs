@@ -306,14 +306,17 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public IActionResult MySubscription()
         {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-
-            var barangay = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
-
             var vm = new MySubscriptionViewModel
             {
-                BarangayName = barangay,
-                Subscription = null,
+                BarangayName = "Your Barangay",
+                Subscription = new MySubscriptionViewModel.SubscriptionSummary
+                {
+                    PlanName = "Starter Plan",
+                    Price = 0m,
+                    Status = "Pending",
+                    StartDate = "",
+                    EndDate = ""
+                },
                 Payments = new List<MySubscriptionViewModel.PaymentRow>()
             };
 
