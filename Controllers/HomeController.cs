@@ -89,6 +89,17 @@ namespace JAS_MINE_IT15.Controllers
             return role == "super_admin" || role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
         }
 
+        /// <summary>
+        /// Redirects to the appropriate dashboard based on current user's role.
+        /// </summary>
+        private IActionResult RedirectToDashboard()
+        {
+            var role = GetCurrentRole();
+            if (role == "super_admin")
+                return RedirectToAction("System", "Dashboard");
+            return RedirectToAction("Barangay", "Dashboard");
+        }
+
         #endregion
 
         private static string ComputeStatus(string endDate)
@@ -104,7 +115,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             // If already logged in, go dashboard
             if (IsLoggedIn())
-                return RedirectToAction(nameof(DashboardHome));
+                return RedirectToDashboard();
 
             // If not logged in, show landing page
             return View("LandingPage");
@@ -123,7 +134,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult BarangaySubscriptions(string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
             status = (status ?? "all").Trim();
@@ -182,7 +193,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult CreateSubscription(string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             barangayName = (barangayName ?? "").Trim();
             planName = (planName ?? "").Trim();
@@ -208,7 +219,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult EditSubscription(string id, string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             SubscriptionItem? item = null;
 
@@ -236,7 +247,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult CancelSubscription(string id, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             TempData["Success"] = "Subscription cancelled.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
@@ -265,7 +276,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult SubscriptionPayments(string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
 
@@ -318,7 +329,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult CreatePayment(string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             barangayName = (barangayName ?? "").Trim();
             planName = (planName ?? "").Trim();
@@ -343,7 +354,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult EditPayment(string id, string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             PaymentItem? p = null;
 
@@ -371,7 +382,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchivePayment(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (int.TryParse(id, out var paymentId))
             {
@@ -392,7 +403,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult SubscriptionPlans(string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
 
@@ -431,7 +442,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult CreatePlan(string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             name = (name ?? "").Trim();
             description = (description ?? "").Trim();
@@ -455,7 +466,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult EditPlan(string id, string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             PlanItem? p = null;
 
@@ -485,7 +496,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchivePlan(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (int.TryParse(id, out var planId))
             {
@@ -508,7 +519,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             // If already logged in, go dashboard
             if (IsLoggedIn())
-                return RedirectToAction(nameof(DashboardHome));
+                return RedirectToDashboard();
 
             return View(new LoginViewModel());
         }
@@ -610,26 +621,15 @@ namespace JAS_MINE_IT15.Controllers
             }
         }
 
-        // GET: /Home/DashboardHome
+        // GET: /Home/DashboardHome (Legacy - redirects to role-based dashboard)
         [HttpGet]
         public IActionResult DashboardHome()
         {
             if (!IsLoggedIn())
                 return RedirectToAction(nameof(Login));
 
-            var vm = new DashboardHomeViewModel();
-
-            vm.Role = HttpContext.Session.GetString("Role") ?? "";
-            vm.RoleLabel = HttpContext.Session.GetString("RoleLabel") ?? "";
-
-            vm.TotalDocuments = 0;
-            vm.ActivePolicies = 0;
-            vm.LessonsLearned = 0;
-            vm.BestPractices = 0;
-
-            vm.ModuleUsage = new List<ModuleUsageRow>();
-
-            return View(vm);
+            // Redirect to role-based dashboard
+            return RedirectToDashboard();
         }
 
         // GET: /Home/KnowledgeRepository
@@ -1277,7 +1277,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> UserManagement()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             var dbUsers = await _context.BusinessUsers
                 .Where(u => u.IsActive)
@@ -1316,7 +1316,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> CreateUser(string name, string email, string password, string role, string barangay)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             name = (name ?? "").Trim();
             email = (email ?? "").Trim();
@@ -1368,7 +1368,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> EditUser(string id, string name, string email, string role, string barangay)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (!int.TryParse(id, out var userId))
             {
@@ -1401,7 +1401,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchiveUser(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (int.TryParse(id, out var userId))
             {
@@ -1423,7 +1423,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult Announcements(string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             filter = (filter ?? "all").Trim().ToLower();
 
@@ -1448,7 +1448,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             title = (title ?? "").Trim();
             content = (content ?? "").Trim();
@@ -1467,7 +1467,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult EditAnnouncement(string id, string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1478,7 +1478,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchiveAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (int.TryParse(id, out var announcementId))
             {
@@ -1500,7 +1500,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult TogglePinAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1510,7 +1510,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult IncrementAnnouncementViews(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
@@ -1520,7 +1520,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult AuditLogs(string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
@@ -1558,7 +1558,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (long.TryParse(id, out var logId))
             {
@@ -1579,7 +1579,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult ClearAllLogs()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             return RedirectToAction(nameof(AuditLogs));
         }
@@ -1589,7 +1589,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult ExportLogsCsv(string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
@@ -1636,7 +1636,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult Settings(string tab = "general")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             tab = (tab ?? "general").Trim().ToLower();
 
@@ -1673,7 +1673,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult SaveProfile(SettingsViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_FullName", (model.FullName ?? "").Trim());
             HttpContext.Session.SetString("Settings_Email", (model.Email ?? "").Trim());
@@ -1695,7 +1695,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult SaveNotifications(SettingsViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_NotifApprovals", model.NotifApprovals ? "true" : "false");
             HttpContext.Session.SetString("Settings_NotifPolicyUpdates", model.NotifPolicyUpdates ? "true" : "false");
@@ -1712,7 +1712,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult UpdatePassword(string currentPassword, string newPassword, string confirmPassword)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
             {
@@ -1735,7 +1735,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult ToggleTwoFa(bool twoFaEnabled)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_TwoFa", twoFaEnabled ? "true" : "false");
             TempData["Success"] = twoFaEnabled ? "2FA Enabled." : "2FA Disabled.";
@@ -1747,7 +1747,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult SaveSystem(SettingsViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
+            if (!IsAdminRole()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_Maintenance", model.MaintenanceMode ? "true" : "false");
             HttpContext.Session.SetString("Settings_SessionTimeout", model.SessionTimeout ?? "30");
