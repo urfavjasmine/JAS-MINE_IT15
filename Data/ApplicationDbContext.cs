@@ -28,6 +28,8 @@ namespace JAS_MINE_IT15.Data
         public DbSet<KnowledgeDiscussion> KnowledgeDiscussions { get; set; } = null!;
         public DbSet<PasswordResetRequest> PasswordResetRequests { get; set; } = null!;
         public DbSet<SharedDocument> SharedDocuments { get; set; } = null!;
+        public DbSet<Ordinance> Ordinances { get; set; } = null!;
+        public DbSet<PortalPost> PortalPosts { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

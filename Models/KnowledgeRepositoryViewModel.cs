@@ -14,13 +14,15 @@ namespace JAS_MINE_IT15.Models
         public string Status { get; set; } = "draft"; // draft/pending/approved/rejected
         public string Version { get; set; } = "1.0";
         public string Description { get; set; } = "";
-        public string FileName { get; set; } = ""; // optional (for later)
+        public string FileName { get; set; } = "";
+        public string FilePath { get; set; } = "";
     }
 
     public class KnowledgeRepositoryViewModel
     {
         public string SearchQuery { get; set; } = "";
         public string SelectedCategory { get; set; } = "";
+        public string SelectedStatus { get; set; } = "all";
 
         // TODO: Load categories from database
         public List<string> Categories { get; set; } = new();

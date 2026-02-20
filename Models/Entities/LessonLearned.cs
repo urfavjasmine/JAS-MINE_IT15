@@ -21,6 +21,34 @@ namespace JAS_MINE_IT15.Models.Entities
         [Required]
         public string Summary { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Problem description for CRUD
+        /// </summary>
+        [Required]
+        public string Problem { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action taken to address the problem
+        /// </summary>
+        [Required]
+        public string ActionTaken { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Result of the action taken
+        /// </summary>
+        [Required]
+        public string Result { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Recommendation for future reference
+        /// </summary>
+        public string? Recommendation { get; set; }
+
+        /// <summary>
+        /// Date when the lesson was recorded
+        /// </summary>
+        public DateTime DateRecorded { get; set; } = DateTime.Now;
+
         [MaxLength(200)]
         public string? ProjectName { get; set; }
 
@@ -45,6 +73,11 @@ namespace JAS_MINE_IT15.Models.Entities
         public DateTime? ApprovedAt { get; set; }
 
         public int? BarangayId { get; set; }
+
+        /// <summary>
+        /// Soft delete flag
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
 
         public int LikesCount { get; set; } = 0;
 

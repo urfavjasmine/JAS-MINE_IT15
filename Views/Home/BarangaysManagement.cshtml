@@ -1,0 +1,287 @@
+@model JAS_MINE_IT15.Models.BarangaysManagementViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Barangays Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string StatusBadgeClass(bool isActive)
+    {
+        return isActive
+            ? "badge rounded-pill bg-success bg-opacity-10 text-success border border-success-subtle"
+            : "badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle";
+    }
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+<style>
+    .page-wrap { padding: 18px; }
+    .stat-card { border-radius: 12px; }
+    .table-wrap { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(13,110,253,.10); color: #0d6efd; font-size: 12px; font-weight: 700; }
+    .muted { color: #6b7280; }
+    .kebab { width: 38px; height: 38px; border-radius: 10px; }
+</style>
+
+<div class="page-wrap">
+
+    <!-- Page title + Add Barangay -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="mb-0">Barangays Management</h3>
+            <div class="muted">Manage barangays registered in the system.</div>
+        </div>
+        @if (Model.CanCreate)
+        {
+            <button class="btn btn-primary d-flex align-items-center gap-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createEditModal"
+                    onclick="openCreate()">
+                <span style="font-weight:900;">+</span>
+                Add Barangay
+            </button>
+        }
+    </div>
+
+    <!-- Stat cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-primary">@Model.TotalBarangays</div>
+                    <div class="small muted">Total Barangays</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-success">@Model.ActiveBarangays</div>
+                    <div class="small muted">Active</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-warning">@Model.InactiveBarangays</div>
+                    <div class="small muted">Archived</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barangays table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">Barangays</div>
+
+            <!-- Search -->
+            <div class="d-flex gap-2 mb-3">
+                <form method="get" class="d-flex gap-2 w-100">
+                    <input name="q" class="form-control" placeholder="Search by name, code, or municipality..." value="@Model.SearchQuery" />
+                    <button type="submit" class="btn btn-outline-primary">Search</button>
+                </form>
+            </div>
+
+            <div class="table-wrap">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Barangay</th>
+                            <th class="d-none d-md-table-cell">Code</th>
+                            <th class="d-none d-md-table-cell">Municipality</th>
+                            <th class="d-none d-md-table-cell">Contact</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.Barangays)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar">@b.Name.Substring(0, 1).ToUpper()</div>
+                                        <div>
+                                            <div class="fw-semibold">@b.Name</div>
+                                            <div class="small muted">@b.Region</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="d-none d-md-table-cell muted">@b.Code</td>
+                                <td class="d-none d-md-table-cell muted">@b.Municipality, @b.Province</td>
+                                <td class="d-none d-md-table-cell">
+                                    <div class="small">@b.ContactEmail</div>
+                                    <div class="small muted">@b.ContactPhone</div>
+                                </td>
+                                <td>
+                                    <span class="@StatusBadgeClass(b.IsActive)">
+                                        @(b.IsActive ? "Active" : "Archived")
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-light kebab dropdown-toggle" data-bs-toggle="dropdown">⋯</button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                        onclick="openView('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                                    View
+                                                </button>
+                                            </li>
+                                            @if (Model.CanEdit)
+                                            {
+                                                <li>
+                                                    <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createEditModal"
+                                                            onclick="openEdit('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                                        Edit
+                                                    </button>
+                                                </li>
+                                            }
+                                            @if (Model.CanArchive)
+                                            {
+                                                <li><hr class="dropdown-divider" /></li>
+                                                <li>
+                                                    <form method="post" asp-action="ArchiveBarangay" asp-route-id="@b.Id" asp-route-q="@Model.SearchQuery">
+                                                        <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Archive this barangay?')">Archive</button>
+                                                    </form>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Barangays.Any())
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">No barangays found.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Barangay Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Name</dt><dd class="col-sm-8" id="vName"></dd>
+                    <dt class="col-sm-4">Code</dt><dd class="col-sm-8" id="vCode"></dd>
+                    <dt class="col-sm-4">Municipality</dt><dd class="col-sm-8" id="vMunicipality"></dd>
+                    <dt class="col-sm-4">Province</dt><dd class="col-sm-8" id="vProvince"></dd>
+                    <dt class="col-sm-4">Region</dt><dd class="col-sm-8" id="vRegion"></dd>
+                    <dt class="col-sm-4">Email</dt><dd class="col-sm-8" id="vEmail"></dd>
+                    <dt class="col-sm-4">Phone</dt><dd class="col-sm-8" id="vPhone"></dd>
+                    <dt class="col-sm-4">Address</dt><dd class="col-sm-8" id="vAddress"></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="createEditModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="barangayForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Barangay</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="fId" />
+                    <input type="hidden" name="q" value="@Model.SearchQuery" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name *</label>
+                            <input type="text" name="name" id="fName" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Code</label>
+                            <input type="text" name="code" id="fCode" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Municipality</label>
+                            <input type="text" name="municipality" id="fMunicipality" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Province</label>
+                            <input type="text" name="province" id="fProvince" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Region</label>
+                            <input type="text" name="region" id="fRegion" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contact Email</label>
+                            <input type="email" name="contactEmail" id="fContactEmail" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contact Phone</label>
+                            <input type="text" name="contactPhone" id="fContactPhone" class="form-control" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <textarea name="address" id="fAddress" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openCreate() {
+        document.getElementById('modalTitle').textContent = 'Add Barangay';
+        document.getElementById('barangayForm').action = '@Url.Action("CreateBarangay")';
+        document.getElementById('fId').value = '';
+        document.getElementById('fName').value = '';
+        document.getElementById('fCode').value = '';
+        document.getElementById('fMunicipality').value = '';
+        document.getElementById('fProvince').value = '';
+        document.getElementById('fRegion').value = '';
+        document.getElementById('fContactEmail').value = '';
+        document.getElementById('fContactPhone').value = '';
+        document.getElementById('fAddress').value = '';
+    }
+
+    function openEdit(id, name, code, municipality, province, region, email, phone, address) {
+        document.getElementById('modalTitle').textContent = 'Edit Barangay';
+        document.getElementById('barangayForm').action = '@Url.Action("EditBarangay")';
+        document.getElementById('fId').value = id;
+        document.getElementById('fName').value = name;
+        document.getElementById('fCode').value = code;
+        document.getElementById('fMunicipality').value = municipality;
+        document.getElementById('fProvince').value = province;
+        document.getElementById('fRegion').value = region;
+        document.getElementById('fContactEmail').value = email;
+        document.getElementById('fContactPhone').value = phone;
+        document.getElementById('fAddress').value = address;
+    }
+
+    function openView(id, name, code, municipality, province, region, email, phone, address) {
+        document.getElementById('vName').textContent = name;
+        document.getElementById('vCode').textContent = code || '-';
+        document.getElementById('vMunicipality').textContent = municipality || '-';
+        document.getElementById('vProvince').textContent = province || '-';
+        document.getElementById('vRegion').textContent = region || '-';
+        document.getElementById('vEmail').textContent = email || '-';
+        document.getElementById('vPhone').textContent = phone || '-';
+        document.getElementById('vAddress').textContent = address || '-';
+    }
+</script>

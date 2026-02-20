@@ -302,6 +302,11 @@
 
             <div class="jm-section">ADMINISTRATION</div>
             <div class="jm-group">
+                <a class="jm-item @(IsActive("BarangaysManagement") ? "active" : "")" href="@Url.Action("BarangaysManagement", "Home")">
+                    <div class="jm-icon"><i class="bi bi-geo-alt"></i></div>
+                    <div class="jm-text">Barangays</div>
+                </a>
+
                 <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
                     <div class="jm-icon"><i class="bi bi-people"></i></div>
                     <div class="jm-text">User Management</div>
@@ -362,9 +367,24 @@
                     <div class="jm-text">Knowledge Repository</div>
                 </a>
 
+                <a class="jm-item @(IsActive("SharedDocuments") ? "active" : "")" href="@Url.Action("SharedDocuments", "Home")">
+                    <div class="jm-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+                    <div class="jm-text">Shared Documents</div>
+                </a>
+
+                <a class="jm-item @(IsActive("KnowledgeDiscussions") ? "active" : "")" href="@Url.Action("KnowledgeDiscussions", "Home")">
+                    <div class="jm-icon"><i class="bi bi-chat-square-dots"></i></div>
+                    <div class="jm-text">Discussions</div>
+                </a>
+
                 <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
                     <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
                     <div class="jm-text">Policies &amp; Procedures</div>
+                </a>
+
+                <a class="jm-item @(IsActive("Ordinances") ? "active" : "")" href="@Url.Action("Ordinances", "Home")">
+                    <div class="jm-icon"><i class="bi bi-journal-text"></i></div>
+                    <div class="jm-text">Ordinances</div>
                 </a>
 
                 <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
@@ -380,6 +400,11 @@
                 <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
                     <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
                     <div class="jm-text">Knowledge Sharing</div>
+                </a>
+
+                <a class="jm-item @(IsActive("PortalPosts") ? "active" : "")" href="@Url.Action("PortalPosts", "Home")">
+                    <div class="jm-icon"><i class="bi bi-megaphone"></i></div>
+                    <div class="jm-text">Portal Posts</div>
                 </a>
             </div>
 
@@ -417,6 +442,16 @@
             <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
                 <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
                 <div class="jm-text">Knowledge Repository</div>
+            </a>
+
+            <a class="jm-item @(IsActive("SharedDocuments") ? "active" : "")" href="@Url.Action("SharedDocuments", "Home")">
+                <div class="jm-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+                <div class="jm-text">Shared Documents</div>
+            </a>
+
+            <a class="jm-item @(IsActive("KnowledgeDiscussions") ? "active" : "")" href="@Url.Action("KnowledgeDiscussions", "Home")">
+                <div class="jm-icon"><i class="bi bi-chat-square-dots"></i></div>
+                <div class="jm-text">Discussions</div>
             </a>
 
             <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">

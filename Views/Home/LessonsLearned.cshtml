@@ -5,403 +5,238 @@
     ViewData["Title"] = "Lessons Learned";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // UI-only (from controller)
     var userName = Context.Session.GetString("UserName") ?? "User";
     var canSubmit = Model?.CanSubmit ?? false;
-
-    // TODO: Load from database via controller
+    var canModify = Model?.CanModify ?? false;
     var lessons = Model?.Lessons ?? new List<JAS_MINE_IT15.Models.LessonRow>();
-    var projectTypes = Model?.ProjectTypes ?? new List<string> { "All Projects" };
-
-    string StatusBadge(string status) => status switch
-    {
-        "approved" => "<span class=\"badge badge-approved\">Approved</span>",
-        "pending" => "<span class=\"badge badge-pending\">Under Review</span>",
-        _ => $"<span class=\"badge badge-draft\">{status}</span>"
-    };
 }
 
 <style>
-    .page-title {
-        font-size: 28px;
-        font-weight: 800;
-        color: #0f2747;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .page-subtitle {
-        color: #6c7a89;
-        margin-top: 4px;
-    }
-
-    .soft-card {
-        background: #fff;
-        border: 1px solid #e6edf5;
-        border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(16,24,40,.06);
-    }
-
-    .btn-primary-custom {
-        background: #163a5f;
-        border-color: #163a5f;
-        border-radius: 10px;
-        height: 42px;
-        font-weight: 700;
-        padding: 0 18px;
-        color: #fff;
-    }
-
-        .btn-primary-custom:hover {
-            background: #102d49;
-            border-color: #102d49;
-            color: #fff;
-        }
-
-    .filter-card {
-        padding: 14px;
-    }
-
-    .search-wrap {
-        position: relative;
-    }
-
-    .search-ico {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #7b8794;
-        font-size: 16px;
-    }
-
-    .search-input {
-        height: 46px;
-        padding-left: 42px;
-        border-radius: 10px;
-        border: 1px solid #d9e3ef;
-    }
-
-        .search-input:focus {
-            box-shadow: none;
-            border-color: #9bb7d6;
-        }
-
-    .select-input {
-        height: 46px;
-        border-radius: 10px;
-        border: 1px solid #d9e3ef;
-    }
-
-    /* Badges (match your other pages) */
-    .badge-approved {
-        background: #dff5e6;
-        color: #1b7a3a;
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-weight: 700;
-        font-size: 12px;
-        display: inline-block;
-    }
-
-    .badge-pending {
-        background: #fff3da;
-        color: #b36b00;
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-weight: 700;
-        font-size: 12px;
-        display: inline-block;
-    }
-
-    .badge-draft {
-        background: #eef2f6;
-        color: #55657a;
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-weight: 700;
-        font-size: 12px;
-        display: inline-block;
-    }
-
-    /* Lesson card */
-    .lesson-card {
-        padding: 18px 18px 12px 18px;
-    }
-
-    .lesson-project {
-        font-size: 13px;
-        font-weight: 700;
-        color: #1b7a3a; /* green like screenshot label */
-        display: inline-block;
-        margin-bottom: 6px;
-    }
-
-    .lesson-title {
-        font-size: 18px;
-        font-weight: 800;
-        color: #1f2d3d;
-        margin: 0;
-    }
-
-    .lesson-summary {
-        color: #6c7a89;
-        margin-top: 10px;
-        margin-bottom: 14px;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .tag-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        background: #f1f5f9;
-        border-radius: 999px;
-        color: #6c7a89;
-        font-size: 12px;
-        border: 1px solid #e6edf5;
-    }
-
-    .card-footer-row {
-        border-top: 1px solid #eef3f8;
-        padding: 10px 18px 14px 18px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .meta {
-        color: #6c7a89;
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 14px;
-        white-space: nowrap;
-    }
-
-    .stats {
-        color: #6c7a89;
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
-        gap: 14px;
-        white-space: nowrap;
-    }
-
-    .ico {
-        color: #6c7a89;
-    }
-
-    /* Modal */
-    .modal .form-label {
-        font-weight: 700;
-        color: #1f2d3d;
-    }
-
-    .modal .form-control, .modal .form-select {
-        border-radius: 10px;
-        border: 1px solid #d9e3ef;
-        height: 44px;
-    }
-
-    .modal textarea.form-control {
-        height: auto;
-    }
+    .page-title { font-size: 28px; font-weight: 800; color: #0f2747; margin: 0; display: flex; align-items: center; gap: 10px; }
+    .page-subtitle { color: #6c7a89; margin-top: 4px; }
+    .soft-card { background: #fff; border: 1px solid #e6edf5; border-radius: 12px; box-shadow: 0 4px 14px rgba(16,24,40,.06); }
+    .btn-primary-custom { background: #163a5f; border-color: #163a5f; border-radius: 10px; height: 42px; font-weight: 700; padding: 0 18px; color: #fff; }
+    .btn-primary-custom:hover { background: #102d49; border-color: #102d49; color: #fff; }
+    .stat-card { padding: 20px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 800; color: #163a5f; }
+    .stat-label { font-size: 13px; color: #6c7a89; margin-top: 4px; }
+    .table-container { padding: 0; }
+    .table thead th { background: #f8fafc; font-weight: 700; color: #344054; border-bottom: 2px solid #e6edf5; }
+    .table tbody td { vertical-align: middle; }
+    .modal .form-label { font-weight: 700; color: #1f2d3d; }
+    .modal .form-control, .modal .form-select { border-radius: 10px; border: 1px solid #d9e3ef; }
+    .alert { border-radius: 10px; }
 </style>
 
 <div class="container-fluid">
-
     <!-- Header -->
     <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 mb-4">
         <div>
-            <div class="page-title">
-                <i class="bi bi-lightbulb" style="color:#f59e0b;"></i>
-                Lessons Learned
-            </div>
+            <div class="page-title"><i class="bi bi-lightbulb" style="color:#f59e0b;"></i> Lessons Learned</div>
             <div class="page-subtitle">Record and share insights from programs and activities</div>
         </div>
-
         @if (canSubmit)
         {
-            <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#submitLessonModal">
+            <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#createModal">
                 <i class="bi bi-plus-lg me-2"></i>Submit Lesson
             </button>
         }
     </div>
 
-    <!-- Filters -->
-    <div class="soft-card filter-card mb-4">
-        <div class="row g-3 align-items-center">
-            <div class="col-12 col-lg-8">
-                <div class="search-wrap">
-                    <span class="search-ico"><i class="bi bi-search"></i></span>
-                    <input id="lessonSearch" class="form-control search-input" placeholder="Search lessons..." />
-                </div>
+    @if (!string.IsNullOrEmpty(Model?.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="soft-card stat-card">
+                <div class="stat-value">@Model?.TotalLessons</div>
+                <div class="stat-label">Total Lessons</div>
             </div>
-            <div class="col-12 col-lg-4">
-                <div class="position-relative">
-                    <span class="search-ico" style="left:14px;"><i class="bi bi-funnel"></i></span>
-                    <select id="projectFilter" class="form-select select-input" style="padding-left:42px;">
-                        @foreach (var p in projectTypes)
-                        {
-                            <option value="@p">@p</option>
-                        }
-                    </select>
-                </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="soft-card stat-card">
+                <div class="stat-value">@Model?.RecentLessons</div>
+                <div class="stat-label">Recent (30 days)</div>
             </div>
         </div>
     </div>
 
-    <!-- Lessons Grid -->
-    <div id="lessonsGrid" class="row g-4">
-        @if (lessons.Count == 0)
-        {
-            <div class="col-12">
-                <div class="soft-card p-4 text-center text-muted">No lessons found. Submit a new lesson!</div>
+    <!-- Filters -->
+    <form method="get" asp-action="LessonsLearned" class="soft-card p-3 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Search by Title/Problem</label>
+                <input type="text" name="q" value="@Model?.SearchQuery" class="form-control" placeholder="Search..." />
             </div>
-        }
-        else
-        {
-            foreach (var lesson in lessons)
-            {
-                <div class="col-12 col-lg-6 lesson-item"
-                     data-title="@lesson.Title.ToLower()"
-                     data-summary="@lesson.Summary.ToLower()"
-                     data-tags="@string.Join(" ", lesson.Tags).ToLower()"
-                     data-project="@lesson.Project">
-                    <div class="soft-card">
-                        <div class="lesson-card">
-                            <div class="d-flex align-items-start justify-content-between gap-3">
-                                <div>
-                                    <div class="lesson-project">@lesson.Project</div>
-                                    <h3 class="lesson-title">@lesson.Title</h3>
-                                </div>
-                                @Html.Raw(StatusBadge(lesson.Status))
-                            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Filter by Date</label>
+                <select name="dateFilter" class="form-select" onchange="this.form.submit()">
+                    @foreach (var d in Model?.AvailableDates ?? new List<string>())
+                    {
+                        <option value="@d" selected="@(d == Model?.DateFilter)">@d</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary-custom w-100">Filter</button>
+            </div>
+        </div>
+    </form>
 
-                            <div class="lesson-summary">@lesson.Summary</div>
-
-                            <!-- Tags -->
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                @foreach (var t in lesson.Tags)
-                                {
-                                    <span class="tag-pill">
-                                        <i class="bi bi-tag ico"></i> @t
-                                    </span>
-                                }
-                            </div>
-                        </div>
-
-                        <!-- Footer -->
-                        <div class="card-footer-row">
-                            <div class="d-flex flex-wrap">
-                                <span class="meta">
-                                    <i class="bi bi-person ico"></i> @lesson.SubmittedBy
-                                </span>
-                                <span class="meta">
-                                    <i class="bi bi-calendar3 ico"></i> @lesson.Date
-                                </span>
-                            </div>
-
-                            <div class="stats">
-                                <span class="d-inline-flex align-items-center gap-1">
-                                    <i class="bi bi-hand-thumbs-up ico"></i> @lesson.Likes
-                                </span>
-                                <span class="d-inline-flex align-items-center gap-1">
-                                    <i class="bi bi-chat-left-text ico"></i> @lesson.Comments
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
+    <!-- Table -->
+    <div class="soft-card table-container">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Problem</th>
+                        <th>Date Recorded</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (lessons.Count == 0)
+                    {
+                        <tr><td colspan="4" class="text-center text-muted py-4">No lessons found.</td></tr>
+                    }
+                    else
+                    {
+                        foreach (var lesson in lessons)
+                        {
+                            <tr>
+                                <td><strong>@lesson.Title</strong></td>
+                                <td>@(lesson.Problem.Length > 80 ? lesson.Problem.Substring(0, 80) + "..." : lesson.Problem)</td>
+                                <td>@lesson.Date</td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" href="#" onclick="viewLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-eye me-2"></i>View</a></li>
+                                            @if (canModify)
+                                            {
+                                                <li><a class="dropdown-item" href="#" onclick="editLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form asp-action="ArchiveLesson" method="post" onsubmit="return confirm('Archive this lesson?');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@lesson.Id" />
+                                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-archive me-2"></i>Archive</button>
+                                                    </form>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- Submit Lesson Modal (UI only) -->
-<div class="modal fade" id="submitLessonModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content" style="border-radius:14px;border:0;">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold">Submit Lesson Learned</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold" id="viewTitle">View Lesson</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Title</label>
-                    <input class="form-control" placeholder="Brief descriptive title" />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Project/Program</label>
-                    <select class="form-select">
-                        <option value="">Select project type</option>
-                        @foreach (var p in projectTypes.Skip(1))
-                        {
-                            <option value="@p">@p</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Summary</label>
-                    <textarea class="form-control" rows="4"
-                              placeholder="Describe the lesson learned, what worked, what didn't, and recommendations..."></textarea>
-                </div>
-
-                <div class="mb-2">
-                    <label class="form-label">Tags (comma-separated)</label>
-                    <input class="form-control" placeholder="e.g., health, community" />
-                </div>
+                <div class="mb-3"><label class="form-label">Problem</label><div id="viewProblem" class="border rounded p-3 bg-light"></div></div>
+                <div class="mb-3"><label class="form-label">Action Taken</label><div id="viewAction" class="border rounded p-3 bg-light"></div></div>
+                <div class="mb-3"><label class="form-label">Result</label><div id="viewResult" class="border rounded p-3 bg-light"></div></div>
+                <div class="mb-3"><label class="form-label">Recommendation</label><div id="viewRecommendation" class="border rounded p-3 bg-light"></div></div>
             </div>
+        </div>
+    </div>
+</div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:10px;height:42px;">
-                    Cancel
-                </button>
-                <button type="button" class="btn btn-primary-custom" data-bs-dismiss="modal">
-                    Submit for Review
-                </button>
-            </div>
+<!-- Create Modal -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:0;">
+            <form asp-action="CreateLesson" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Submit Lesson Learned</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Title <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Problem <span class="text-danger">*</span></label><textarea name="problem" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Action Taken <span class="text-danger">*</span></label><textarea name="actionTaken" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Result <span class="text-danger">*</span></label><textarea name="result" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Recommendation</label><textarea name="recommendation" class="form-control" rows="2"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:10px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary-custom">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:0;">
+            <form asp-action="EditLesson" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="editId" />
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Edit Lesson</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Title <span class="text-danger">*</span></label><input type="text" name="title" id="editTitle" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Problem <span class="text-danger">*</span></label><textarea name="problem" id="editProblem" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Action Taken <span class="text-danger">*</span></label><textarea name="actionTaken" id="editAction" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Result <span class="text-danger">*</span></label><textarea name="result" id="editResult" class="form-control" rows="3" required></textarea></div>
+                    <div class="mb-3"><label class="form-label">Recommendation</label><textarea name="recommendation" id="editRecommendation" class="form-control" rows="2"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius:10px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary-custom">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
-    (function () {
-        const search = document.getElementById("lessonSearch");
-        const project = document.getElementById("projectFilter");
-        const items = Array.from(document.querySelectorAll(".lesson-item"));
-
-        function applyFilters() {
-            const q = (search.value || "").toLowerCase().trim();
-            const p = project.value || "All Projects";
-
-            items.forEach(it => {
-                const title = it.getAttribute("data-title") || "";
-                const summary = it.getAttribute("data-summary") || "";
-                const tags = it.getAttribute("data-tags") || "";
-                const proj = it.getAttribute("data-project") || "";
-
-                const matchesSearch = !q || title.includes(q) || summary.includes(q) || tags.includes(q);
-                const matchesProject = (p === "All Projects") || (proj === p);
-
-                it.style.display = (matchesSearch && matchesProject) ? "" : "none";
-            });
-        }
-
-        search && search.addEventListener("input", applyFilters);
-        project && project.addEventListener("change", applyFilters);
-    })();
+    function viewLesson(id, title, problem, action, result, recommendation) {
+        document.getElementById('viewTitle').textContent = title;
+        document.getElementById('viewProblem').textContent = problem;
+        document.getElementById('viewAction').textContent = action;
+        document.getElementById('viewResult').textContent = result;
+        document.getElementById('viewRecommendation').textContent = recommendation || 'N/A';
+        new bootstrap.Modal(document.getElementById('viewModal')).show();
+    }
+    function editLesson(id, title, problem, action, result, recommendation) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editTitle').value = title;
+        document.getElementById('editProblem').value = problem;
+        document.getElementById('editAction').value = action;
+        document.getElementById('editResult').value = result;
+        document.getElementById('editRecommendation').value = recommendation;
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
 </script>

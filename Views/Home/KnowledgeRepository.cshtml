@@ -233,7 +233,7 @@
         <div class="filter-wrap">
             <form method="get" action="@Url.Action("KnowledgeRepository","Home")">
                 <div class="row g-3 align-items-center">
-                    <div class="col-12 col-lg-9 position-relative">
+                    <div class="col-12 col-lg-6 position-relative">
                         <i class="bi bi-search input-icon-left"></i>
                         <input class="form-control input-soft input-with-icon"
                                name="q"
@@ -256,6 +256,16 @@
                                 }
                             </select>
                         </div>
+                    </div>
+
+                    <div class="col-12 col-lg-3">
+                        <select class="form-select select-soft" name="status" onchange="this.form.submit()">
+                            <option value="all" selected="@(Model.SelectedStatus == "all")">All Status</option>
+                            <option value="draft" selected="@(Model.SelectedStatus == "draft")">Draft</option>
+                            <option value="pending" selected="@(Model.SelectedStatus == "pending")">Pending</option>
+                            <option value="approved" selected="@(Model.SelectedStatus == "approved")">Approved</option>
+                            <option value="rejected" selected="@(Model.SelectedStatus == "rejected")">Rejected</option>
+                        </select>
                     </div>
                 </div>
             </form>
@@ -332,7 +342,7 @@
                                                 <li>
                                                     <button type="button" class="dropdown-item"
                                                             data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                            onclick="openView('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.UploadedBy)','@doc.Date','@doc.Status','@doc.Version')">
+                                                            onclick="openView('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.UploadedBy)','@doc.Date','@doc.Status','@doc.Version','@js(doc.FileName)','@js(doc.FilePath)')">
                                                         <i class="bi bi-eye me-2"></i>View
                                                     </button>
                                                 </li>
@@ -343,17 +353,20 @@
                                                     <li>
                                                         <button type="button" class="dropdown-item"
                                                                 data-bs-toggle="modal" data-bs-target="#editModal"
-                                                                onclick="openEdit('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)')">
+                                                                onclick="openEdit('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.FileName)','@js(doc.FilePath)')">
                                                             <i class="bi bi-pencil me-2"></i>Edit
                                                         </button>
                                                     </li>
                                                 }
 
-                                                <li>
-                                                    <a class="dropdown-item" href="#">
-                                                        <i class="bi bi-download me-2"></i>Download
-                                                    </a>
-                                                </li>
+                                                @if (!string.IsNullOrEmpty(doc.FilePath))
+                                                {
+                                                    <li>
+                                                        <a class="dropdown-item" href="@doc.FilePath" target="_blank" download>
+                                                            <i class="bi bi-download me-2"></i>Download
+                                                        </a>
+                                                    </li>
+                                                }
 
                                                 <!-- APPROVE/REJECT (only if canApprove and pending) -->
                                                 @if (canApprove && doc.Status == "pending")
@@ -406,7 +419,7 @@
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <form method="post" action="@Url.Action("CreateDoc","Home")">
+            <form method="post" action="@Url.Action("CreateDoc","Home")" enctype="multipart/form-data">
                 @Html.AntiForgeryToken()
                 <div class="modal-header">
                     <h5 class="modal-title">Upload New Document</h5>
@@ -436,6 +449,11 @@
                             <label class="form-label fw-bold">Description</label>
                             <textarea class="form-control" rows="4" name="description"></textarea>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Attach File</label>
+                            <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png" />
+                            <small class="text-muted">Supported: PDF, Word, Excel, PowerPoint, Images (max 10MB)</small>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -451,7 +469,7 @@
 <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <form method="post" action="@Url.Action("EditDoc","Home")">
+            <form method="post" action="@Url.Action("EditDoc","Home")" enctype="multipart/form-data">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" id="eId" />
                 <div class="modal-header">
@@ -481,6 +499,12 @@
                         <div class="col-12">
                             <label class="form-label fw-bold">Description</label>
                             <textarea class="form-control" rows="4" name="description" id="eDesc"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Replace File (optional)</label>
+                            <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png" />
+                            <small class="text-muted">Leave empty to keep existing file</small>
+                            <div id="eCurrentFile" class="mt-2"></div>
                         </div>
                     </div>
                 </div>
@@ -513,6 +537,8 @@
                     <div><b>Date:</b> <span id="vDate"></span></div>
                     <div><b>Version:</b> <span id="vVersion"></span></div>
                 </div>
+                <hr />
+                <div><b>File:</b> <span id="vFile"></span></div>
             </div>
         </div>
     </div>
@@ -551,15 +577,22 @@
 }
 
 <script>
-    function openEdit(id, title, category, tags, desc) {
+    function openEdit(id, title, category, tags, desc, fileName, filePath) {
         document.getElementById('eId').value = id;
         document.getElementById('eTitle').value = title;
         document.getElementById('eCategory').value = category;
         document.getElementById('eTags').value = tags;
         document.getElementById('eDesc').value = desc;
+        
+        var currentFileDiv = document.getElementById('eCurrentFile');
+        if (fileName && filePath) {
+            currentFileDiv.innerHTML = '<a href="' + filePath + '" target="_blank" class="text-primary"><i class="bi bi-file-earmark me-1"></i>' + fileName + '</a>';
+        } else {
+            currentFileDiv.innerHTML = '<span class="text-muted">No file attached</span>';
+        }
     }
 
-    function openView(id, title, category, tags, desc, by, date, status, version) {
+    function openView(id, title, category, tags, desc, by, date, status, version, fileName, filePath) {
         document.getElementById('vTitle').innerText = title;
         document.getElementById('vCategory').innerText = category;
         document.getElementById('vTags').innerText = tags;
@@ -576,6 +609,15 @@
 
         document.getElementById('vStatus').innerHTML = badge;
         document.getElementById('vMeta').innerText = "Status: " + status + " • v" + version;
+        
+        var fileDiv = document.getElementById('vFile');
+        if (fileDiv) {
+            if (fileName && filePath) {
+                fileDiv.innerHTML = '<a href="' + filePath + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Download ' + fileName + '</a>';
+            } else {
+                fileDiv.innerHTML = '<span class="text-muted">No file attached</span>';
+            }
+        }
     }
 
     function openArchive(id, title) {

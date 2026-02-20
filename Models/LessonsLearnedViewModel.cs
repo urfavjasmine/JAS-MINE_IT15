@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace JAS_MINE_IT15.Models
@@ -6,18 +7,36 @@ namespace JAS_MINE_IT15.Models
     {
         // Permissions
         public bool CanSubmit { get; set; }
+        public bool CanModify { get; set; }
+
+        // Stats
+        public int TotalLessons { get; set; }
+        public int RecentLessons { get; set; }
+
+        // Filters
+        public string SearchQuery { get; set; } = "";
+        public string DateFilter { get; set; } = "";
+        public List<string> AvailableDates { get; set; } = new();
 
         // TODO: Load from database
         public List<LessonRow> Lessons { get; set; } = new();
 
         // Filter options (from database or static list)
         public List<string> ProjectTypes { get; set; } = new();
+
+        public string? SuccessMessage { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 
     public class LessonRow
     {
         public int Id { get; set; }
         public string Title { get; set; } = "";
+        public string Problem { get; set; } = "";
+        public string ActionTaken { get; set; } = "";
+        public string Result { get; set; } = "";
+        public string Recommendation { get; set; } = "";
+        public DateTime DateRecorded { get; set; }
         public string Project { get; set; } = "";
         public string Summary { get; set; } = "";
         public string SubmittedBy { get; set; } = "";

@@ -256,7 +256,7 @@
         <div class="soft-card mb-4">
             <div class="p-3 p-md-4">
                 <div class="row g-3 align-items-center">
-                    <div class="col-12 col-lg-9 position-relative">
+                    <div class="col-12 col-lg-8 position-relative">
                         <i class="bi bi-search input-icon-left"></i>
                         <input name="q"
                                value="@Model.SearchQuery"
@@ -264,17 +264,16 @@
                                placeholder="Search best practices..." />
                     </div>
 
-                    <div class="col-12 col-lg-3">
+                    <div class="col-12 col-lg-4">
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0"
                                   style="border-radius:10px 0 0 10px; border:1px solid #d9e3ef; height:46px;">
                                 <i class="bi bi-funnel"></i>
                             </span>
-                            <select name="cat" class="form-select select-soft border-start-0" style="border-radius:0 10px 10px 0;" onchange="this.form.submit()">
-                                @foreach (var c in Model.Categories)
-                                {
-                                    <option value="@c" selected="@(c == Model.SelectedCategory)">@c</option>
-                                }
+                            <select name="status" class="form-select select-soft border-start-0" style="border-radius:0 10px 10px 0;" onchange="this.form.submit()">
+                                <option value="" selected="@(string.IsNullOrEmpty(Model.SelectedStatus))">All Status</option>
+                                <option value="Active" selected="@(Model.SelectedStatus == "Active")">Active</option>
+                                <option value="Archived" selected="@(Model.SelectedStatus == "Archived")">Archived</option>
                             </select>
                         </div>
                     </div>
@@ -393,7 +392,7 @@
 @if (Model.CanManage)
 {
     <div class="modal fade" id="bpCreateModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content" style="border-radius:12px;">
                 <form method="post" asp-action="CreatePractice">
                     @Html.AntiForgeryToken()
@@ -404,33 +403,40 @@
 
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Title</label>
+                            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
                             <input name="title" class="form-control input-soft" placeholder="Practice title" required />
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label fw-semibold">Purpose</label>
+                            <textarea name="purpose" class="form-control" rows="2" placeholder="What is the purpose of this practice?"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Steps <span class="text-danger">*</span></label>
+                            <textarea name="steps" class="form-control" rows="4" placeholder="Describe the steps to implement this practice..." required></textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Resources Needed</label>
+                                <textarea name="resourcesNeeded" class="form-control" rows="2" placeholder="List required resources..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Owner Office</label>
+                                <input name="ownerOffice" class="form-control input-soft" placeholder="Responsible office" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label fw-semibold">Category</label>
-                            <select name="category" class="form-select select-soft" required>
+                            <select name="category" class="form-select select-soft">
                                 @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
                                 {
                                     <option value="@c">@c</option>
                                 }
                             </select>
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Barangay</label>
-                            <input name="barangay" class="form-control input-soft" placeholder="Barangay name" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Description</label>
-                            <textarea name="description" class="form-control" rows="4" placeholder="Describe the best practice..."></textarea>
-                        </div>
-
-                        <!-- keep filters after action -->
-                        <input type="hidden" name="q" value="@Model.SearchQuery" />
-                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
                     </div>
 
                     <div class="modal-footer">
@@ -449,7 +455,7 @@
 @if (Model.CanManage)
 {
     <div class="modal fade" id="bpEditModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content" style="border-radius:12px;">
                 <form method="post" asp-action="EditPractice">
                     @Html.AntiForgeryToken()
@@ -463,32 +469,49 @@
                         <input type="hidden" name="id" id="bpEditId" />
 
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Title</label>
+                            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
                             <input name="title" id="bpEditTitle" class="form-control input-soft" required />
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Category</label>
-                            <select name="category" id="bpEditCategory" class="form-select select-soft" required>
-                                @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
-                                {
-                                    <option value="@c">@c</option>
-                                }
-                            </select>
+                            <label class="form-label fw-semibold">Purpose</label>
+                            <textarea name="purpose" id="bpEditPurpose" class="form-control" rows="2"></textarea>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Barangay</label>
-                            <input name="barangay" id="bpEditBarangay" class="form-control input-soft" />
+                            <label class="form-label fw-semibold">Steps <span class="text-danger">*</span></label>
+                            <textarea name="steps" id="bpEditSteps" class="form-control" rows="4" required></textarea>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Description</label>
-                            <textarea name="description" id="bpEditDesc" class="form-control" rows="4"></textarea>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Resources Needed</label>
+                                <textarea name="resourcesNeeded" id="bpEditResources" class="form-control" rows="2"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Owner Office</label>
+                                <input name="ownerOffice" id="bpEditOwner" class="form-control input-soft" />
+                            </div>
                         </div>
 
-                        <input type="hidden" name="q" value="@Model.SearchQuery" />
-                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Category</label>
+                                <select name="category" id="bpEditCategory" class="form-select select-soft">
+                                    @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
+                                    {
+                                        <option value="@c">@c</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-semibold">Status</label>
+                                <select name="status" id="bpEditStatus" class="form-select select-soft">
+                                    <option value="Active">Active</option>
+                                    <option value="Archived">Archived</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="modal-footer">

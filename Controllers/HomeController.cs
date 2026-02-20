@@ -73,6 +73,17 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         /// <summary>
+        /// Gets the current user's ID from session.
+        /// </summary>
+        private int? GetCurrentUserId()
+        {
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            if (int.TryParse(userIdStr, out var id))
+                return id;
+            return null;
+        }
+
+        /// <summary>
         /// Checks if current user has view-only access (council_member).
         /// </summary>
         private bool IsViewOnly()
@@ -86,7 +97,17 @@ namespace JAS_MINE_IT15.Controllers
         private bool CanModify()
         {
             var role = GetCurrentRole();
-            return role == "super_admin" || role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            return role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+        }
+
+        /// <summary>
+        /// Checks if current user is a barangay role (not super_admin).
+        /// Super_admin only monitors system, does not access barangay modules.
+        /// </summary>
+        private bool IsBarangayRole()
+        {
+            var role = GetCurrentRole();
+            return role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff" || role == "council_member";
         }
 
         /// <summary>
@@ -580,6 +601,7 @@ namespace JAS_MINE_IT15.Controllers
             await AddBarangayClaimAsync(user, barangayId);
 
             // Save to session
+            HttpContext.Session.SetString("UserId", businessUser?.Id.ToString() ?? "");
             HttpContext.Session.SetString("UserName", user.Email ?? "User");
             HttpContext.Session.SetString("Role", role);
             HttpContext.Session.SetString("RoleLabel", GetRoleLabel(role));
@@ -634,22 +656,26 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/KnowledgeRepository
         [HttpGet]
-        public async Task<IActionResult> KnowledgeRepository(string q = "", string category = "All Categories")
+        public async Task<IActionResult> KnowledgeRepository(string q = "", string category = "All Categories", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
-            var canApprove = role == "barangay_admin" || role == "super_admin";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canApprove = role == "barangay_admin";
 
             q = (q ?? "").Trim().ToLower();
             category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
+            status = string.IsNullOrWhiteSpace(status) ? "all" : status.Trim().ToLower();
 
-            // TENANT FILTERING: super_admin sees all, others see only their barangay's records
+            // TENANT FILTERING: filter by user's barangay only
             var barangayId = GetCurrentBarangayId();
             var query = _context.KnowledgeDocuments
                 .Where(d => d.IsActive)
-                .Where(d => IsSuperAdmin() || d.BarangayId == barangayId)
+                .Where(d => d.BarangayId == barangayId)
                 .Include(d => d.UploadedBy)
                 .AsQueryable();
 
@@ -664,6 +690,9 @@ namespace JAS_MINE_IT15.Controllers
             if (category != "All Categories")
                 query = query.Where(d => d.Category == category);
 
+            if (status != "all")
+                query = query.Where(d => d.Status.ToLower() == status);
+
             var docs = await query
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new RepoDocument
@@ -677,7 +706,8 @@ namespace JAS_MINE_IT15.Controllers
                     Status = d.Status,
                     Version = d.Version,
                     Description = d.Description ?? "",
-                    FileName = d.FileName ?? ""
+                    FileName = d.FileName ?? "",
+                    FilePath = d.FileUrl ?? ""
                 })
                 .ToListAsync();
 
@@ -685,6 +715,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 SearchQuery = q,
                 SelectedCategory = category,
+                SelectedStatus = status,
                 Categories = new List<string> { "All Categories", "Resolutions", "Ordinances", "Memorandums", "Policies", "Reports" },
                 Documents = docs,
                 CanUpload = canUpload,
@@ -698,12 +729,12 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description)
+        public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             title = (title ?? "").Trim();
@@ -726,12 +757,42 @@ namespace JAS_MINE_IT15.Controllers
                 uploaderId = 1;
             }
 
+            // Handle file upload
+            string? filePath = null;
+            string? fileName = null;
+            long? fileSize = null;
+            string? fileType = null;
+
+            if (file != null && file.Length > 0)
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "documents");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                fileName = file.FileName;
+                var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
+                var fullPath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                filePath = $"/uploads/documents/{uniqueFileName}";
+                fileSize = file.Length;
+                fileType = file.ContentType;
+            }
+
             var doc = new KnowledgeDocument
             {
                 Title = title,
                 Category = string.IsNullOrWhiteSpace(category) ? "Policies" : category.Trim(),
                 Tags = (tags ?? "").Trim(),
                 Description = (description ?? "").Trim(),
+                FileUrl = filePath,
+                FileName = fileName,
+                FileSize = fileSize,
+                FileType = fileType,
                 Status = "pending",
                 Version = "1.0",
                 UploadedById = uploaderId,
@@ -749,12 +810,12 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditDoc(string id, string title, string category, string tags, string description)
+        public async Task<IActionResult> EditDoc(string id, string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (!int.TryParse(id, out var docId))
@@ -777,6 +838,28 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(KnowledgeRepository));
             }
 
+            // Handle file upload (replace existing if new file provided)
+            if (file != null && file.Length > 0)
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "documents");
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var fileName = file.FileName;
+                var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
+                var fullPath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                doc.FileUrl = $"/uploads/documents/{uniqueFileName}";
+                doc.FileName = fileName;
+                doc.FileSize = file.Length;
+                doc.FileType = file.ContentType;
+            }
+
             doc.Title = (title ?? doc.Title).Trim();
             doc.Category = string.IsNullOrWhiteSpace(category) ? doc.Category : category.Trim();
             doc.Tags = (tags ?? "").Trim();
@@ -797,7 +880,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (int.TryParse(id, out var docId))
@@ -829,7 +912,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canApprove = role == "barangay_admin" || role == "super_admin";
+            var canApprove = role == "barangay_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (int.TryParse(id, out var docId))
@@ -862,7 +945,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canApprove = role == "barangay_admin" || role == "super_admin";
+            var canApprove = role == "barangay_admin";
             if (!canApprove) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (int.TryParse(id, out var docId))
@@ -893,9 +976,12 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
-            var canApprove = role == "barangay_admin" || role == "super_admin";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canApprove = role == "barangay_admin";
 
             status = (status ?? "all").Trim().ToLower();
             q = (q ?? "").Trim();
@@ -959,7 +1045,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canCreate) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             title = (title ?? "").Trim();
@@ -1005,7 +1091,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canEdit = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            var canEdit = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canEdit) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (!int.TryParse(id, out var policyId))
@@ -1039,7 +1125,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canArchive = role == "barangay_admin" || role == "super_admin";
+            var canArchive = role == "barangay_admin";
             if (!canArchive) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (int.TryParse(id, out var policyId))
@@ -1064,7 +1150,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canApprove = role == "barangay_admin" || role == "super_admin";
+            var canApprove = role == "barangay_admin";
             if (!canApprove) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             newStatus = (newStatus ?? "").Trim().ToLower();
@@ -1102,71 +1188,488 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: /Home/LessonsLearned
-        public IActionResult LessonsLearned()
+        public async Task<IActionResult> LessonsLearned(string q = "", string dateFilter = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
-            var lessons = new List<LessonRow>();
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canModify = role == "barangay_admin" || role == "barangay_secretary";
+
+            q = (q ?? "").Trim().ToLower();
+            dateFilter = (dateFilter ?? "").Trim();
+
+            var query = _context.LessonsLearned
+                .Where(l => !l.IsDeleted && l.BarangayId == barangayId);
+
+            // Search by Title/Problem
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                query = query.Where(l => l.Title.ToLower().Contains(q) || l.Problem.ToLower().Contains(q));
+            }
+
+            // Filter by date (month-year)
+            if (!string.IsNullOrWhiteSpace(dateFilter) && dateFilter != "All Dates")
+            {
+                var parts = dateFilter.Split('-');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int year) && int.TryParse(parts[1], out int month))
+                {
+                    query = query.Where(l => l.DateRecorded.Year == year && l.DateRecorded.Month == month);
+                }
+            }
+
+            var lessons = await query
+                .OrderByDescending(l => l.DateRecorded)
+                .Select(l => new LessonRow
+                {
+                    Id = l.Id,
+                    Title = l.Title,
+                    Problem = l.Problem,
+                    ActionTaken = l.ActionTaken,
+                    Result = l.Result,
+                    Recommendation = l.Recommendation ?? "",
+                    DateRecorded = l.DateRecorded,
+                    Summary = l.Summary,
+                    Project = l.ProjectName ?? "",
+                    Status = l.Status,
+                    Date = l.DateRecorded.ToString("MMM dd, yyyy"),
+                    Likes = l.LikesCount,
+                    Comments = l.CommentsCount,
+                    Tags = new List<string>()
+                })
+                .ToListAsync();
+
+            // Parse tags after query
+            foreach (var lesson in lessons)
+            {
+                if (!string.IsNullOrWhiteSpace(lesson.Project))
+                {
+                    // Tags were stored as comma-separated, but we're not using them now
+                }
+            }
+
+            // Available dates for filter
+            var availableDates = await _context.LessonsLearned
+                .Where(l => !l.IsDeleted && l.BarangayId == barangayId)
+                .Select(l => l.DateRecorded)
+                .Distinct()
+                .OrderByDescending(d => d)
+                .Select(d => $"{d.Year}-{d.Month:D2}")
+                .Distinct()
+                .Take(12)
+                .ToListAsync();
+            availableDates.Insert(0, "All Dates");
 
             var projectTypes = new List<string>
             {
-                "All Projects",
-                "Health Program",
-                "Finance Modernization",
-                "Youth Development",
-                "Disaster Risk Reduction",
-                "Education",
-                "Environment"
+                "All Projects", "Health Program", "Finance Modernization", "Youth Development",
+                "Disaster Risk Reduction", "Education", "Environment"
             };
 
             var vm = new LessonsLearnedViewModel
             {
                 CanSubmit = canSubmit,
+                CanModify = canModify,
+                TotalLessons = await _context.LessonsLearned.CountAsync(l => !l.IsDeleted && l.BarangayId == barangayId),
+                RecentLessons = await _context.LessonsLearned.CountAsync(l => !l.IsDeleted && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
+                SearchQuery = q,
+                DateFilter = dateFilter,
+                AvailableDates = availableDates,
                 Lessons = lessons,
                 ProjectTypes = projectTypes
             };
 
+            if (TempData["Success"] != null)
+                vm.SuccessMessage = TempData["Success"]?.ToString();
+            if (TempData["Error"] != null)
+                vm.ErrorMessage = TempData["Error"]?.ToString();
+
             return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> CreateLesson(string title, string problem, string actionTaken, string result, string recommendation)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff")
+                return RedirectToAction(nameof(LessonsLearned));
+
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(problem) ||
+                string.IsNullOrWhiteSpace(actionTaken) || string.IsNullOrWhiteSpace(result))
+            {
+                TempData["Error"] = "Title, Problem, Action Taken, and Result are required.";
+                return RedirectToAction(nameof(LessonsLearned));
+            }
+
+            var lesson = new LessonLearned
+            {
+                Title = title.Trim(),
+                Problem = problem.Trim(),
+                ActionTaken = actionTaken.Trim(),
+                Result = result.Trim(),
+                Recommendation = recommendation?.Trim(),
+                Summary = problem.Trim(),
+                DateRecorded = DateTime.Now,
+                BarangayId = barangayId,
+                SubmittedById = userId,
+                Status = "approved",
+                CreatedAt = DateTime.Now,
+                IsDeleted = false
+            };
+
+            _context.LessonsLearned.Add(lesson);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Lesson learned has been created.";
+            return RedirectToAction(nameof(LessonsLearned));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditLesson(int id, string title, string problem, string actionTaken, string result, string recommendation)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(LessonsLearned));
+
+            var lesson = await _context.LessonsLearned.FindAsync(id);
+            if (lesson == null || lesson.IsDeleted)
+            {
+                TempData["Error"] = "Lesson not found.";
+                return RedirectToAction(nameof(LessonsLearned));
+            }
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(problem) ||
+                string.IsNullOrWhiteSpace(actionTaken) || string.IsNullOrWhiteSpace(result))
+            {
+                TempData["Error"] = "Title, Problem, Action Taken, and Result are required.";
+                return RedirectToAction(nameof(LessonsLearned));
+            }
+
+            lesson.Title = title.Trim();
+            lesson.Problem = problem.Trim();
+            lesson.ActionTaken = actionTaken.Trim();
+            lesson.Result = result.Trim();
+            lesson.Recommendation = recommendation?.Trim();
+            lesson.Summary = problem.Trim();
+            lesson.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Lesson has been updated.";
+            return RedirectToAction(nameof(LessonsLearned));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveLesson(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(LessonsLearned));
+
+            var lesson = await _context.LessonsLearned.FindAsync(id);
+            if (lesson != null)
+            {
+                lesson.IsDeleted = true;
+                lesson.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Lesson has been archived.";
+            }
+
+            return RedirectToAction(nameof(LessonsLearned));
         }
 
         // GET: /Home/BestPractices
         [HttpGet]
-        public IActionResult BestPractices(string q = "", string category = "All Categories")
+        public async Task<IActionResult> BestPractices(string q = "", string status = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
             q = (q ?? "").Trim().ToLower();
-            category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
+            status = (status ?? "").Trim();
 
-            bool canManage = (HttpContext.Session.GetString("Role") ?? "") is "barangay_admin" or "super_admin" or "barangay_secretary";
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            bool canManage = role == "barangay_admin" || role == "barangay_secretary";
+            bool canModify = canManage;
 
-            var allPractices = new List<PracticeItem>();
-            var list = allPractices;
+            var query = _context.BestPractices
+                .Where(p => !p.IsDeleted && p.BarangayId == barangayId);
 
+            // Search by Title
             if (!string.IsNullOrWhiteSpace(q))
             {
-                list = list.Where(p =>
-                        (p.Title ?? "").ToLower().Contains(q) ||
-                        (p.Description ?? "").ToLower().Contains(q))
-                    .ToList();
+                query = query.Where(p => p.Title.ToLower().Contains(q));
             }
 
-            if (category != "All Categories")
-                list = list.Where(p => p.Category == category).ToList();
+            // Filter by Status
+            if (!string.IsNullOrWhiteSpace(status) && status != "All")
+            {
+                query = query.Where(p => p.Status == status);
+            }
 
-            PracticeItem? featured = null;
+            var practices = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new BestPracticeItem
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Description = p.Description,
+                    Purpose = p.Purpose ?? "",
+                    Steps = p.Steps,
+                    ResourcesNeeded = p.ResourcesNeeded ?? "",
+                    OwnerOffice = p.OwnerOffice ?? "",
+                    Category = p.Category,
+                    Status = p.Status,
+                    Rating = p.Rating,
+                    Implementations = p.Implementations,
+                    IsFeatured = p.IsFeatured,
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
 
             var vm = new BestPracticesViewModel
             {
                 SearchQuery = q,
-                SelectedCategory = category,
+                SelectedStatus = status,
                 CanManage = canManage,
+                CanModify = canModify,
+                TotalPractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId),
+                ActivePractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.Status == "Active"),
+                ArchivedPractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.Status == "Archived"),
                 Categories = new List<string> { "All Categories", "Health", "Education", "Governance", "Environment", "Safety", "Finance" },
-                Practices = list,
-                FeaturedPractice = featured
+                Practices = practices
+            };
+
+            if (TempData["Success"] != null)
+                vm.SuccessMessage = TempData["Success"]?.ToString();
+            if (TempData["Error"] != null)
+                vm.ErrorMessage = TempData["Error"]?.ToString();
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> CreatePractice(string title, string purpose, string steps, string resourcesNeeded, string ownerOffice, string category)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(BestPractices));
+
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(steps))
+            {
+                TempData["Error"] = "Title and Steps are required.";
+                return RedirectToAction(nameof(BestPractices));
+            }
+
+            var practice = new BestPractice
+            {
+                Title = title.Trim(),
+                Description = purpose?.Trim() ?? "",
+                Purpose = purpose?.Trim(),
+                Steps = steps.Trim(),
+                ResourcesNeeded = resourcesNeeded?.Trim(),
+                OwnerOffice = ownerOffice?.Trim(),
+                Category = string.IsNullOrWhiteSpace(category) ? "Governance" : category.Trim(),
+                Status = "Active",
+                BarangayId = barangayId,
+                SubmittedById = userId,
+                CreatedAt = DateTime.Now,
+                IsDeleted = false
+            };
+
+            _context.BestPractices.Add(practice);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Best practice has been created.";
+            return RedirectToAction(nameof(BestPractices));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditPractice(int id, string title, string purpose, string steps, string resourcesNeeded, string ownerOffice, string category, string status)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(BestPractices));
+
+            var practice = await _context.BestPractices.FindAsync(id);
+            if (practice == null || practice.IsDeleted)
+            {
+                TempData["Error"] = "Practice not found.";
+                return RedirectToAction(nameof(BestPractices));
+            }
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(steps))
+            {
+                TempData["Error"] = "Title and Steps are required.";
+                return RedirectToAction(nameof(BestPractices));
+            }
+
+            practice.Title = title.Trim();
+            practice.Description = purpose?.Trim() ?? "";
+            practice.Purpose = purpose?.Trim();
+            practice.Steps = steps.Trim();
+            practice.ResourcesNeeded = resourcesNeeded?.Trim();
+            practice.OwnerOffice = ownerOffice?.Trim();
+            practice.Category = string.IsNullOrWhiteSpace(category) ? practice.Category : category.Trim();
+            practice.Status = string.IsNullOrWhiteSpace(status) ? practice.Status : status.Trim();
+            practice.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Best practice has been updated.";
+            return RedirectToAction(nameof(BestPractices));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchivePractice(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(BestPractices));
+
+            var practice = await _context.BestPractices.FindAsync(id);
+            if (practice != null)
+            {
+                practice.IsDeleted = true;
+                practice.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Practice has been archived.";
+            }
+
+            return RedirectToAction(nameof(BestPractices));
+        }
+
+        // =============================================
+        // Portal Posts CRUD
+        // =============================================
+
+        // GET: /Home/PortalPosts
+        [HttpGet]
+        public async Task<IActionResult> PortalPosts(string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            q = (q ?? "").Trim().ToLower();
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            bool canManage = role == "barangay_admin" || role == "barangay_secretary";
+            bool canModify = canManage;
+
+            var query = _context.PortalPosts
+                .Where(p => !p.IsDeleted && p.BarangayId == barangayId);
+
+            // Search by Title/Tags
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                query = query.Where(p => p.Title.ToLower().Contains(q) || (p.Tags != null && p.Tags.ToLower().Contains(q)));
+            }
+
+            var posts = await query
+                .OrderByDescending(p => p.IsPinned)
+                .ThenByDescending(p => p.PostedOn)
+                .Select(p => new PortalPostItem
+                {
+                    Id = p.PortalPostId,
+                    Title = p.Title,
+                    Content = p.Content,
+                    Tags = p.Tags ?? "",
+                    PostedBy = p.PostedBy ?? "",
+                    PostedOn = p.PostedOn,
+                    IsPinned = p.IsPinned,
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+
+            var vm = new PortalPostsViewModel
+            {
+                SearchQuery = q,
+                CanManage = canManage,
+                CanModify = canModify,
+                TotalPosts = await _context.PortalPosts.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId),
+                PinnedPosts = await _context.PortalPosts.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.IsPinned),
+                RecentPosts = await _context.PortalPosts.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.PostedOn >= DateTime.Now.AddDays(-7)),
+                Posts = posts
+            };
+
+            if (TempData["Success"] != null)
+                vm.SuccessMessage = TempData["Success"]?.ToString();
+            if (TempData["Error"] != null)
+                vm.ErrorMessage = TempData["Error"]?.ToString();
+
+            return View(vm);
+        }
+
+        // GET: /Home/PortalPostDetails
+        [HttpGet]
+        public async Task<IActionResult> PortalPostDetails(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            bool canModify = role == "barangay_admin" || role == "barangay_secretary";
+
+            var post = await _context.PortalPosts
+                .Where(p => p.PortalPostId == id && !p.IsDeleted)
+                .Select(p => new PortalPostItem
+                {
+                    Id = p.PortalPostId,
+                    Title = p.Title,
+                    Content = p.Content,
+                    Tags = p.Tags ?? "",
+                    PostedBy = p.PostedBy ?? "",
+                    PostedOn = p.PostedOn,
+                    IsPinned = p.IsPinned,
+                    CreatedAt = p.CreatedAt
+                })
+                .FirstOrDefaultAsync();
+
+            if (post == null)
+            {
+                TempData["Error"] = "Post not found.";
+                return RedirectToAction(nameof(PortalPosts));
+            }
+
+            var vm = new PortalPostsViewModel
+            {
+                CanModify = canModify,
+                SelectedPost = post
             };
 
             return View(vm);
@@ -1175,60 +1678,97 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult CreatePractice(string title, string category, string description, string barangay)
+        public async Task<IActionResult> CreatePortalPost(string title, string content, string tags, bool isPinned = false)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
-                return RedirectToAction(nameof(BestPractices));
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(PortalPosts));
 
-            title = (title ?? "").Trim();
-            category = string.IsNullOrWhiteSpace(category) ? "Governance" : category.Trim();
-            description = (description ?? "").Trim();
-            barangay = string.IsNullOrWhiteSpace(barangay) ? (HttpContext.Session.GetString("Barangay") ?? "Unknown") : barangay.Trim();
+            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            var userName = HttpContext.Session.GetString("UserName") ?? "Unknown";
 
-            if (string.IsNullOrWhiteSpace(title))
-                return RedirectToAction(nameof(BestPractices));
-
-            return RedirectToAction(nameof(BestPractices));
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [DenyViewOnly]
-        public IActionResult EditPractice(string id, string title, string category, string description, string barangay)
-        {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
-                return RedirectToAction(nameof(BestPractices));
-
-            return RedirectToAction(nameof(BestPractices));
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [DenyViewOnly]
-        public async Task<IActionResult> ArchivePractice(string id)
-        {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
-                return RedirectToAction(nameof(BestPractices));
-
-            if (int.TryParse(id, out var practiceId))
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
             {
-                var practice = await _context.BestPractices.FindAsync(practiceId);
-                if (practice != null)
-                {
-                    practice.IsActive = false;
-                    practice.UpdatedAt = DateTime.Now;
-                    await _context.SaveChangesAsync();
-                }
+                TempData["Error"] = "Title and Content are required.";
+                return RedirectToAction(nameof(PortalPosts));
             }
 
-            TempData["Success"] = "Practice archived.";
-            return RedirectToAction(nameof(BestPractices));
+            var post = new PortalPost
+            {
+                Title = title.Trim(),
+                Content = content.Trim(),
+                Tags = tags?.Trim(),
+                PostedBy = userName,
+                PostedOn = DateTime.Now,
+                BarangayId = barangayId,
+                IsPinned = isPinned,
+                CreatedAt = DateTime.Now,
+                IsDeleted = false
+            };
+
+            _context.PortalPosts.Add(post);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Post has been created.";
+            return RedirectToAction(nameof(PortalPosts));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditPortalPost(int id, string title, string content, string tags, bool isPinned = false)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(PortalPosts));
+
+            var post = await _context.PortalPosts.FindAsync(id);
+            if (post == null || post.IsDeleted)
+            {
+                TempData["Error"] = "Post not found.";
+                return RedirectToAction(nameof(PortalPosts));
+            }
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
+            {
+                TempData["Error"] = "Title and Content are required.";
+                return RedirectToAction(nameof(PortalPosts));
+            }
+
+            post.Title = title.Trim();
+            post.Content = content.Trim();
+            post.Tags = tags?.Trim();
+            post.IsPinned = isPinned;
+            post.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Post has been updated.";
+            return RedirectToAction(nameof(PortalPosts));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchivePortalPost(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "barangay_secretary")
+                return RedirectToAction(nameof(PortalPosts));
+
+            var post = await _context.PortalPosts.FindAsync(id);
+            if (post != null)
+            {
+                post.IsDeleted = true;
+                post.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Post has been archived.";
+            }
+
+            return RedirectToAction(nameof(PortalPosts));
         }
 
         // GET: /Home/KnowledgeSharing
@@ -1237,10 +1777,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
             var role = HttpContext.Session.GetString("Role") ?? "";
 
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
-            bool canAnnounce = role == "barangay_admin" || role == "super_admin";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canAnnounce = role == "barangay_admin";
 
             var vm = new KnowledgeSharingViewModel
             {
@@ -1264,7 +1807,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
 
             content = (content ?? "").Trim();
@@ -1763,6 +2306,229 @@ namespace JAS_MINE_IT15.Controllers
             return View();
         }
 
+        // =============================================
+        // ORDINANCES MANAGEMENT (barangay module)
+        // =============================================
+
+        [HttpGet]
+        public async Task<IActionResult> Ordinances(string q = "", string status = "all", int? year = null)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary";
+
+            var query = _context.Ordinances
+                .Where(o => !o.IsDeleted)
+                .Where(o => o.BarangayId == barangayId)
+                .Include(o => o.Barangay)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var searchTerm = q.ToLower().Trim();
+                query = query.Where(o =>
+                    o.OrdinanceNo.ToLower().Contains(searchTerm) ||
+                    o.Title.ToLower().Contains(searchTerm)
+                );
+            }
+
+            if (status != "all" && !string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(o => o.Status == status);
+            }
+
+            if (year.HasValue)
+            {
+                query = query.Where(o => o.SeriesYear == year.Value);
+            }
+
+            var ordinances = await query
+                .OrderByDescending(o => o.SeriesYear)
+                .ThenByDescending(o => o.CreatedAt)
+                .Select(o => new OrdinanceItem
+                {
+                    OrdinanceId = o.OrdinanceId,
+                    OrdinanceNo = o.OrdinanceNo,
+                    SeriesYear = o.SeriesYear,
+                    Title = o.Title,
+                    Summary = o.Summary,
+                    DateApproved = o.DateApproved,
+                    EffectiveDate = o.EffectiveDate,
+                    Category = o.Category,
+                    BarangayId = o.BarangayId,
+                    BarangayName = o.Barangay != null ? o.Barangay.Name : "",
+                    Status = o.Status,
+                    CreatedAt = o.CreatedAt
+                })
+                .ToListAsync();
+
+            // Get available years for filter
+            var availableYears = await _context.Ordinances
+                .Where(o => !o.IsDeleted && o.BarangayId == barangayId)
+                .Select(o => o.SeriesYear)
+                .Distinct()
+                .OrderByDescending(y => y)
+                .ToListAsync();
+
+            var vm = new OrdinancesViewModel
+            {
+                Ordinances = ordinances,
+                SearchQuery = q,
+                StatusFilter = status,
+                YearFilter = year,
+                AvailableYears = availableYears,
+                CanCreate = canModify,
+                CanEdit = canModify,
+                CanArchive = canModify,
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> CreateOrdinance(string ordinanceNo, int seriesYear, string title, string? summary,
+            DateTime? dateApproved, DateTime? effectiveDate, string? category, string q = "", string status = "all", int? year = null)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary";
+            if (!canModify)
+            {
+                TempData["Error"] = "You don't have permission to create ordinances.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            var barangayId = GetCurrentBarangayId();
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "Barangay not found. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            if (string.IsNullOrWhiteSpace(ordinanceNo) || string.IsNullOrWhiteSpace(title))
+            {
+                TempData["Error"] = "Ordinance No. and Title are required.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            var ordinance = new Ordinance
+            {
+                OrdinanceNo = ordinanceNo.Trim(),
+                SeriesYear = seriesYear > 0 ? seriesYear : DateTime.Now.Year,
+                Title = title.Trim(),
+                Summary = summary?.Trim(),
+                DateApproved = dateApproved,
+                EffectiveDate = effectiveDate,
+                Category = category?.Trim(),
+                BarangayId = barangayId.Value,
+                Status = "Active",
+                IsDeleted = false,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Ordinances.Add(ordinance);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Ordinance \"{ordinanceNo}\" created successfully.";
+            return RedirectToAction(nameof(Ordinances), new { q, status, year });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditOrdinance(int id, string ordinanceNo, int seriesYear, string title, string? summary,
+            DateTime? dateApproved, DateTime? effectiveDate, string? category, string newStatus, string q = "", string status = "all", int? year = null)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary";
+            if (!canModify)
+            {
+                TempData["Error"] = "You don't have permission to edit ordinances.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            var ordinance = await _context.Ordinances.FindAsync(id);
+            if (ordinance == null || ordinance.IsDeleted)
+            {
+                TempData["Error"] = "Ordinance not found.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            // Validate ownership
+            var barangayId = GetCurrentBarangayId();
+            if (ordinance.BarangayId != barangayId)
+            {
+                TempData["Error"] = "You cannot edit ordinances from another barangay.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            ordinance.OrdinanceNo = ordinanceNo.Trim();
+            ordinance.SeriesYear = seriesYear > 0 ? seriesYear : ordinance.SeriesYear;
+            ordinance.Title = title.Trim();
+            ordinance.Summary = summary?.Trim();
+            ordinance.DateApproved = dateApproved;
+            ordinance.EffectiveDate = effectiveDate;
+            ordinance.Category = category?.Trim();
+            ordinance.Status = string.IsNullOrWhiteSpace(newStatus) ? ordinance.Status : newStatus;
+            ordinance.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Ordinance \"{ordinanceNo}\" updated successfully.";
+            return RedirectToAction(nameof(Ordinances), new { q, status, year });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveOrdinance(int id, string q = "", string status = "all", int? year = null)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary";
+            if (!canModify)
+            {
+                TempData["Error"] = "You don't have permission to archive ordinances.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            var ordinance = await _context.Ordinances.FindAsync(id);
+            if (ordinance == null)
+            {
+                TempData["Error"] = "Ordinance not found.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            // Validate ownership
+            var barangayId = GetCurrentBarangayId();
+            if (ordinance.BarangayId != barangayId)
+            {
+                TempData["Error"] = "You cannot archive ordinances from another barangay.";
+                return RedirectToAction(nameof(Ordinances), new { q, status, year });
+            }
+
+            ordinance.IsDeleted = true;
+            ordinance.UpdatedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Ordinance archived successfully.";
+            return RedirectToAction(nameof(Ordinances), new { q, status, year });
+        }
+
         // GET: /Home/ForgotPassword
         [HttpGet]
         public IActionResult ForgotPassword()
@@ -1794,6 +2560,386 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.Clear();
             await _signInManager.SignOutAsync();
             return RedirectToAction(nameof(Index));
+        }
+
+        // =============================================
+        // BARANGAYS MANAGEMENT (super_admin only)
+        // =============================================
+
+        [HttpGet]
+        public async Task<IActionResult> BarangaysManagement(string q = "")
+        {
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var role = GetCurrentRole();
+            var canModify = role == "super_admin";
+
+            var barangays = await _context.Barangays
+                .Where(b => b.IsActive)
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                barangays = barangays
+                    .Where(b => b.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                (b.Code ?? "").Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                (b.Municipality ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            var vm = new BarangaysManagementViewModel
+            {
+                SearchQuery = q,
+                CanCreate = canModify,
+                CanEdit = canModify,
+                CanArchive = canModify,
+                Barangays = barangays.Select(b => new BarangayItem
+                {
+                    Id = b.Id,
+                    Name = b.Name,
+                    Code = b.Code,
+                    Municipality = b.Municipality,
+                    Province = b.Province,
+                    Region = b.Region,
+                    ContactEmail = b.ContactEmail,
+                    ContactPhone = b.ContactPhone,
+                    Address = b.Address,
+                    IsActive = b.IsActive,
+                    CreatedAt = b.CreatedAt,
+                    UpdatedAt = b.UpdatedAt
+                }).ToList()
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateBarangay(string name, string? code, string? municipality,
+            string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
+        {
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var barangay = new Barangay
+            {
+                Name = name,
+                Code = code,
+                Municipality = municipality,
+                Province = province,
+                Region = region,
+                ContactEmail = contactEmail,
+                ContactPhone = contactPhone,
+                Address = address,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Barangays.Add(barangay);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("BarangaysManagement", new { q });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> EditBarangay(int id, string name, string? code, string? municipality,
+            string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
+        {
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var barangay = await _context.Barangays.FindAsync(id);
+            if (barangay != null)
+            {
+                barangay.Name = name;
+                barangay.Code = code;
+                barangay.Municipality = municipality;
+                barangay.Province = province;
+                barangay.Region = region;
+                barangay.ContactEmail = contactEmail;
+                barangay.ContactPhone = contactPhone;
+                barangay.Address = address;
+                barangay.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("BarangaysManagement", new { q });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ArchiveBarangay(int id, string q = "")
+        {
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var barangay = await _context.Barangays.FindAsync(id);
+            if (barangay != null)
+            {
+                barangay.IsActive = false;
+                barangay.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("BarangaysManagement", new { q });
+        }
+
+        // =============================================
+        // SHARED DOCUMENTS (barangay module)
+        // =============================================
+
+        [HttpGet]
+        public async Task<IActionResult> SharedDocuments(string q = "")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+
+            var documents = await _context.SharedDocuments
+                .Include(d => d.SharedBy)
+                .Where(d => d.IsActive)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+
+            // Filter by barangay if not super_admin
+            if (barangayId.HasValue)
+            {
+                documents = documents.Where(d => d.SharedBy != null && d.SharedBy.BarangayId == barangayId.Value).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                documents = documents
+                    .Where(d => d.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                (d.FileName ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            var vm = new SharedDocumentsViewModel
+            {
+                SearchQuery = q,
+                CanCreate = canModify,
+                CanEdit = canModify,
+                CanArchive = canModify,
+                Documents = documents.Select(d => new SharedDocumentItem
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    FileUrl = d.FileUrl,
+                    FileName = d.FileName,
+                    SharedById = d.SharedById,
+                    SharedByName = d.SharedBy?.FullName ?? "Unknown",
+                    DownloadCount = d.DownloadCount,
+                    IsActive = d.IsActive,
+                    CreatedAt = d.CreatedAt
+                }).ToList()
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> CreateSharedDocument(string title, string? fileUrl, string? fileName, string q = "")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var userId = GetCurrentUserId();
+            if (!userId.HasValue) return RedirectToAction("Login");
+
+            var document = new SharedDocument
+            {
+                Title = title,
+                FileUrl = fileUrl,
+                FileName = fileName,
+                SharedById = userId.Value,
+                DownloadCount = 0,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.SharedDocuments.Add(document);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("SharedDocuments", new { q });
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditSharedDocument(int id, string title, string? fileUrl, string? fileName, string q = "")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var document = await _context.SharedDocuments.FindAsync(id);
+            if (document != null)
+            {
+                document.Title = title;
+                document.FileUrl = fileUrl;
+                document.FileName = fileName;
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("SharedDocuments", new { q });
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveSharedDocument(int id, string q = "")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var document = await _context.SharedDocuments.FindAsync(id);
+            if (document != null)
+            {
+                document.IsActive = false;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("SharedDocuments", new { q });
+        }
+
+        // =============================================
+        // KNOWLEDGE DISCUSSIONS (barangay module)
+        // =============================================
+
+        [HttpGet]
+        public async Task<IActionResult> KnowledgeDiscussions(string q = "", string category = "All Categories")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+            var canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+
+            var discussions = await _context.KnowledgeDiscussions
+                .Include(d => d.Author)
+                .Where(d => d.IsActive)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+
+            // Filter by barangay
+            if (barangayId.HasValue)
+            {
+                discussions = discussions.Where(d => d.BarangayId == barangayId.Value).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                discussions = discussions
+                    .Where(d => d.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                d.Content.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            if (category != "All Categories")
+            {
+                discussions = discussions.Where(d => d.Category == category).ToList();
+            }
+
+            var vm = new KnowledgeDiscussionsViewModel
+            {
+                SearchQuery = q,
+                CategoryFilter = category,
+                CanCreate = canModify,
+                CanEdit = canModify,
+                CanArchive = canModify,
+                Discussions = discussions.Select(d => new DiscussionItem
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    Content = d.Content,
+                    Category = d.Category,
+                    AuthorId = d.AuthorId,
+                    AuthorName = d.Author?.FullName ?? "Unknown",
+                    BarangayId = d.BarangayId,
+                    LikesCount = d.LikesCount,
+                    RepliesCount = d.RepliesCount,
+                    IsActive = d.IsActive,
+                    CreatedAt = d.CreatedAt,
+                    UpdatedAt = d.UpdatedAt
+                }).ToList()
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> CreateDiscussion(string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var userId = GetCurrentUserId();
+            var barangayId = GetCurrentBarangayId();
+            if (!userId.HasValue) return RedirectToAction("Login");
+
+            var discussion = new KnowledgeDiscussion
+            {
+                Title = title,
+                Content = content,
+                Category = category,
+                AuthorId = userId.Value,
+                BarangayId = barangayId,
+                LikesCount = 0,
+                RepliesCount = 0,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.KnowledgeDiscussions.Add(discussion);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditDiscussion(int id, string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
+            if (discussion != null)
+            {
+                discussion.Title = title;
+                discussion.Content = content;
+                discussion.Category = category;
+                discussion.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveDiscussion(int id, string q = "", string categoryFilter = "All Categories")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
+            if (discussion != null)
+            {
+                discussion.IsActive = false;
+                discussion.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> LikeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
+        {
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
+            if (discussion != null)
+            {
+                discussion.LikesCount++;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
         }
 
         private static string GetRoleLabel(string role)
