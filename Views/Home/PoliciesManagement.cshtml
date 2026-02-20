@@ -241,7 +241,7 @@
 
         @if (canCreate)
         {
-            <button class="btn btn-primary-custom" type="button">
+            <button class="btn btn-primary-custom" type="button" data-bs-toggle="modal" data-bs-target="#createModal">
                 <i class="bi bi-plus-lg me-2"></i>Create Policy
             </button>
         }
@@ -320,26 +320,53 @@
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow">
                                     <li>
-                                        <a class="dropdown-item" href="javascript:void(0)">
+                                        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                onclick="openView('@p.Id','@js(p.Title)','@js(p.Description)','@p.Status','@p.Version','@p.Author','@p.LastUpdated')">
                                             <i class="bi bi-eye me-2"></i>View
-                                        </a>
+                                        </button>
                                     </li>
                                     @if (canCreate)
                                     {
                                         <li>
-                                            <a class="dropdown-item" href="javascript:void(0)">
+                                            <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editModal"
+                                                    onclick="openEdit('@p.Id','@js(p.Title)','@js(p.Description)')">
                                                 <i class="bi bi-pencil-square me-2"></i>Edit
-                                            </a>
+                                            </button>
+                                        </li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li>
+                                            <button class="dropdown-item text-warning" type="button" data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                                    onclick="openArchive('@p.Id','@js(p.Title)')">
+                                                <i class="bi bi-archive me-2"></i>Archive
+                                            </button>
                                         </li>
                                     }
                                     @if (canApprove && p.Status == "pending")
                                     {
                                         <li><hr class="dropdown-divider" /></li>
                                         <li>
-                                            <a class="dropdown-item text-success" href="javascript:void(0)">Approve</a>
+                                            <form method="post" asp-action="SetPolicyStatus" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@p.Id" />
+                                                <input type="hidden" name="newStatus" value="approved" />
+                                                <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                                                <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                                                <button class="dropdown-item text-success" type="submit">
+                                                    <i class="bi bi-check-circle me-2"></i>Approve
+                                                </button>
+                                            </form>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item text-danger" href="javascript:void(0)">Reject</a>
+                                            <form method="post" asp-action="SetPolicyStatus" style="display:inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@p.Id" />
+                                                <input type="hidden" name="newStatus" value="rejected" />
+                                                <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                                                <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                                                <button class="dropdown-item text-danger" type="submit">
+                                                    <i class="bi bi-x-circle me-2"></i>Reject
+                                                </button>
+                                            </form>
                                         </li>
                                     }
                                 </ul>
@@ -363,7 +390,155 @@
     </div>
 </div>
 
+@functions {
+    public string js(string? s)
+    {
+        s ??= "";
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+    }
+}
+
+<!-- CREATE MODAL -->
+<div class="modal fade" id="createModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-action="CreatePolicy">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Create Policy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="title" required placeholder="Enter policy title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Description</label>
+                        <textarea class="form-control" name="description" rows="4" placeholder="Enter policy description"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Policy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-action="EditPolicy">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="eId" />
+                <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Policy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="title" id="eTitle" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Description</label>
+                        <textarea class="form-control" name="description" id="eDesc" rows="4"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vTitle">Policy Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3" id="vStatusBadge"></div>
+                <div class="mb-3">
+                    <div class="small text-muted">Description</div>
+                    <p id="vDesc" style="white-space:pre-wrap;"></p>
+                </div>
+                <hr />
+                <div class="row small text-muted">
+                    <div class="col-6"><b>Version:</b> <span id="vVersion"></span></div>
+                    <div class="col-6"><b>Author:</b> <span id="vAuthor"></span></div>
+                    <div class="col-6 mt-2"><b>Last Updated:</b> <span id="vDate"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ARCHIVE MODAL -->
+<div class="modal fade" id="archiveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-action="ArchivePolicy">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="aId" />
+                <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                <div class="modal-header">
+                    <h5 class="modal-title text-warning"><i class="bi bi-archive me-2"></i>Archive Policy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to archive "<span id="aTitle" class="fw-bold"></span>"?
+                    <div class="text-muted small mt-2">This policy will be removed from the active list.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Archive</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+    function openEdit(id, title, desc) {
+        document.getElementById('eId').value = id;
+        document.getElementById('eTitle').value = title;
+        document.getElementById('eDesc').value = desc;
+    }
+
+    function openView(id, title, desc, status, version, author, date) {
+        document.getElementById('vTitle').textContent = title;
+        document.getElementById('vDesc').textContent = desc || 'No description provided.';
+        document.getElementById('vVersion').textContent = version;
+        document.getElementById('vAuthor').textContent = author;
+        document.getElementById('vDate').textContent = date;
+        
+        var badge = '';
+        if (status === 'approved') badge = '<span class="badge-approved">Approved</span>';
+        else if (status === 'pending') badge = '<span class="badge-pending">Pending Approval</span>';
+        else if (status === 'rejected') badge = '<span class="badge bg-danger">Rejected</span>';
+        else badge = '<span class="badge-draft">Draft</span>';
+        document.getElementById('vStatusBadge').innerHTML = badge;
+    }
+
+    function openArchive(id, title) {
+        document.getElementById('aId').value = id;
+        document.getElementById('aTitle').textContent = title;
+    }
+
     (function () {
         const tabs = Array.from(document.querySelectorAll(".tab-btn"));
         const search = document.getElementById("policySearch");
@@ -375,7 +550,6 @@
         function setActiveTab(tab) {
             activeTab = tab;
             tabs.forEach(b => b.classList.toggle("active", b.getAttribute("data-tab") === tab));
-            // sync dropdown filter if user clicks tabs
             if (statusSelect) statusSelect.value = tab === "all" ? "all" : tab;
             applyFilters();
         }
@@ -383,8 +557,6 @@
         function applyFilters() {
             const q = (search.value || "").toLowerCase().trim();
             const dropdownStatus = statusSelect.value || "all";
-
-            // tab filter has priority, but keep it same as dropdown (we sync above)
             const status = dropdownStatus;
 
             items.forEach(it => {
@@ -402,12 +574,10 @@
         tabs.forEach(b => b.addEventListener("click", () => setActiveTab(b.getAttribute("data-tab"))));
         search && search.addEventListener("input", applyFilters);
         statusSelect && statusSelect.addEventListener("change", function () {
-            // when dropdown changes, update active tab UI
             const v = statusSelect.value;
             setActiveTab(v === "all" ? "all" : v);
         });
 
-        // init
         setActiveTab("all");
     })();
 </script>

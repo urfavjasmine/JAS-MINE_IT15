@@ -331,8 +331,11 @@
                                                         data-id="@p.Id"
                                                         data-title="@p.Title"
                                                         data-category="@p.Category"
-                                                        data-desc="@p.Description"
-                                                        data-barangay="@p.Barangay">
+                                                        data-purpose="@p.Purpose"
+                                                        data-steps="@p.Steps"
+                                                        data-resources="@p.ResourcesNeeded"
+                                                        data-owner="@p.OwnerOffice"
+                                                        data-status="@p.Status">
                                                     <i class="bi bi-pencil me-2"></i>Edit
                                                 </button>
                                             </li>
@@ -628,11 +631,12 @@
 
                 document.getElementById('bpEditId').value = btn.getAttribute('data-id') || '';
                 document.getElementById('bpEditTitle').value = btn.getAttribute('data-title') || '';
-                document.getElementById('bpEditDesc').value = btn.getAttribute('data-desc') || '';
-                document.getElementById('bpEditBarangay').value = btn.getAttribute('data-barangay') || '';
-
-                const cat = btn.getAttribute('data-category') || '';
-                document.getElementById('bpEditCategory').value = cat;
+                document.getElementById('bpEditPurpose').value = btn.getAttribute('data-purpose') || '';
+                document.getElementById('bpEditSteps').value = btn.getAttribute('data-steps') || '';
+                document.getElementById('bpEditResources').value = btn.getAttribute('data-resources') || '';
+                document.getElementById('bpEditOwner').value = btn.getAttribute('data-owner') || '';
+                document.getElementById('bpEditCategory').value = btn.getAttribute('data-category') || '';
+                document.getElementById('bpEditStatus').value = btn.getAttribute('data-status') || 'Active';
             });
         }
 
