@@ -1,4 +1,5 @@
 using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
+
+// Tenant Service for multi-tenant filtering
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantService, TenantService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
