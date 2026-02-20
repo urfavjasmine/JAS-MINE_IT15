@@ -221,17 +221,46 @@
 
     @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
     {
-        <div class="alert alert-success">@Model.SuccessMessage</div>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     }
     @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
     {
-        <div class="alert alert-danger">@Model.ErrorMessage</div>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>@Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     }
+
+    <!-- Archive Status Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "active" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "active" })">
+                <i class="bi bi-check-circle me-1"></i> Active (@Model.TotalDocuments)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "archived" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "archived" })">
+                <i class="bi bi-archive me-1"></i> Archived (@Model.ArchivedDocuments)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "all" ? "active" : "")"
+               href="@Url.Action("KnowledgeRepository", "Home", new { q = Model.SearchQuery, category = Model.SelectedCategory, status = Model.SelectedStatus, archiveStatus = "all" })">
+                <i class="bi bi-list-ul me-1"></i> All
+            </a>
+        </li>
+    </ul>
 
     <!-- Filters Card -->
     <div class="soft-card mb-4">
         <div class="filter-wrap">
             <form method="get" action="@Url.Action("KnowledgeRepository","Home")">
+                <input type="hidden" name="archiveStatus" value="@Model.ArchiveStatus" />
                 <div class="row g-3 align-items-center">
                     <div class="col-12 col-lg-6 position-relative">
                         <i class="bi bi-search input-icon-left"></i>
@@ -309,14 +338,20 @@
                                     _ => "<span class=\"badge-draft\">Draft</span>"
                                 };
 
-                                <tr>
+                                <tr class="@(doc.IsArchived ? "opacity-75" : "")">
                                     <td>
                                         <div class="d-flex align-items-center gap-3">
                                             <div class="doc-icon">
                                                 <i class="bi bi-file-earmark-text"></i>
                                             </div>
                                             <div>
-                                                <p class="doc-title">@doc.Title</p>
+                                                <p class="doc-title">
+                                                    @if (doc.IsArchived)
+                                                    {
+                                                        <span class="badge bg-secondary me-2">Archived</span>
+                                                    }
+                                                    @doc.Title
+                                                </p>
                                                 <div class="doc-tags">
                                                     <i class="bi bi-tag"></i>
                                                     @doc.TagsCsv
@@ -347,58 +382,78 @@
                                                     </button>
                                                 </li>
 
-                                                <!-- EDIT (only if canUpload) -->
-                                                @if (canUpload)
+                                                @if (!doc.IsArchived)
                                                 {
-                                                    <li>
-                                                        <button type="button" class="dropdown-item"
-                                                                data-bs-toggle="modal" data-bs-target="#editModal"
-                                                                onclick="openEdit('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.FileName)','@js(doc.FilePath)')">
-                                                            <i class="bi bi-pencil me-2"></i>Edit
-                                                        </button>
-                                                    </li>
-                                                }
+                                                    <!-- EDIT (only if canUpload) -->
+                                                    @if (canUpload)
+                                                    {
+                                                        <li>
+                                                            <button type="button" class="dropdown-item"
+                                                                    data-bs-toggle="modal" data-bs-target="#editModal"
+                                                                    onclick="openEdit('@doc.Id','@js(doc.Title)','@js(doc.Category)','@js(doc.TagsCsv)','@js(doc.Description)','@js(doc.FileName)','@js(doc.FilePath)')">
+                                                                <i class="bi bi-pencil me-2"></i>Edit
+                                                            </button>
+                                                        </li>
+                                                    }
 
-                                                @if (!string.IsNullOrEmpty(doc.FilePath))
-                                                {
-                                                    <li>
-                                                        <a class="dropdown-item" href="@doc.FilePath" target="_blank" download>
-                                                            <i class="bi bi-download me-2"></i>Download
-                                                        </a>
-                                                    </li>
-                                                }
+                                                    @if (!string.IsNullOrEmpty(doc.FilePath))
+                                                    {
+                                                        <li>
+                                                            <a class="dropdown-item" href="@doc.FilePath" target="_blank" download>
+                                                                <i class="bi bi-download me-2"></i>Download
+                                                            </a>
+                                                        </li>
+                                                    }
 
-                                                <!-- APPROVE/REJECT (only if canApprove and pending) -->
-                                                @if (canApprove && doc.Status == "pending")
-                                                {
-                                                    <li><hr class="dropdown-divider"></li>
-                                                    <li>
-                                                        <form method="post" action="@Url.Action("ApproveDoc","Home")" class="m-0">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="id" value="@doc.Id" />
-                                                            <button class="dropdown-item text-success" type="submit">Approve</button>
-                                                        </form>
-                                                    </li>
-                                                    <li>
-                                                        <form method="post" action="@Url.Action("RejectDoc","Home")" class="m-0">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="id" value="@doc.Id" />
-                                                            <button class="dropdown-item text-danger" type="submit">Reject</button>
-                                                        </form>
-                                                    </li>
-                                                }
+                                                    <!-- APPROVE/REJECT (only if canApprove and pending) -->
+                                                    @if (canApprove && doc.Status == "pending")
+                                                    {
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <form method="post" action="@Url.Action("ApproveDoc","Home")" class="m-0">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="id" value="@doc.Id" />
+                                                                <button class="dropdown-item text-success" type="submit">Approve</button>
+                                                            </form>
+                                                        </li>
+                                                        <li>
+                                                            <form method="post" action="@Url.Action("RejectDoc","Home")" class="m-0">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="id" value="@doc.Id" />
+                                                                <button class="dropdown-item text-danger" type="submit">Reject</button>
+                                                            </form>
+                                                        </li>
+                                                    }
 
-                                                <!-- ARCHIVE (only if canUpload) -->
-                                                @if (canUpload)
+                                                    <!-- ARCHIVE (only if canArchive) -->
+                                                    @if (Model.CanArchive)
+                                                    {
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <button type="button" class="dropdown-item text-warning"
+                                                                    data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                                                    onclick="openArchive('@doc.Id','@js(doc.Title)')">
+                                                                <i class="bi bi-archive me-2"></i>Archive
+                                                            </button>
+                                                        </li>
+                                                    }
+                                                }
+                                                else
                                                 {
-                                                    <li><hr class="dropdown-divider"></li>
-                                                    <li>
-                                                        <button type="button" class="dropdown-item text-warning"
-                                                                data-bs-toggle="modal" data-bs-target="#archiveModal"
-                                                                onclick="openArchive('@doc.Id','@js(doc.Title)')">
-                                                            <i class="bi bi-archive me-2"></i>Archive
-                                                        </button>
-                                                    </li>
+                                                    <!-- RESTORE (only if canArchive and archived) -->
+                                                    @if (Model.CanArchive)
+                                                    {
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <form method="post" action="@Url.Action("RestoreDoc","Home")" class="m-0">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="id" value="@doc.Id" />
+                                                                <button class="dropdown-item text-success" type="submit">
+                                                                    <i class="bi bi-arrow-counterclockwise me-2"></i>Restore
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    }
                                                 }
                                             </ul>
                                         </div>

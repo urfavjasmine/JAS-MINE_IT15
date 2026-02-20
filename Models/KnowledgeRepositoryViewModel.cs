@@ -16,6 +16,7 @@ namespace JAS_MINE_IT15.Models
         public string Description { get; set; } = "";
         public string FileName { get; set; } = "";
         public string FilePath { get; set; } = "";
+        public bool IsArchived { get; set; }
     }
 
     public class KnowledgeRepositoryViewModel
@@ -23,6 +24,7 @@ namespace JAS_MINE_IT15.Models
         public string SearchQuery { get; set; } = "";
         public string SelectedCategory { get; set; } = "";
         public string SelectedStatus { get; set; } = "all";
+        public string ArchiveStatus { get; set; } = "active";
 
         // TODO: Load categories from database
         public List<string> Categories { get; set; } = new();
@@ -31,6 +33,11 @@ namespace JAS_MINE_IT15.Models
 
         public bool CanUpload { get; set; }
         public bool CanApprove { get; set; }
+        public bool CanArchive { get; set; }
+
+        // Stats
+        public int TotalDocuments { get; set; }
+        public int ArchivedDocuments { get; set; }
 
         // For modal/form
         public string? SuccessMessage { get; set; }

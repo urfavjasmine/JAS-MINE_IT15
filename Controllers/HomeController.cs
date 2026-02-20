@@ -656,7 +656,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/KnowledgeRepository
         [HttpGet]
-        public async Task<IActionResult> KnowledgeRepository(string q = "", string category = "All Categories", string status = "all")
+        public async Task<IActionResult> KnowledgeRepository(string q = "", string category = "All Categories", string status = "all", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -666,10 +666,12 @@ namespace JAS_MINE_IT15.Controllers
             var role = HttpContext.Session.GetString("Role") ?? "";
             var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             var canApprove = role == "barangay_admin";
+            var canArchive = role == "barangay_admin" || role == "super_admin";
 
             q = (q ?? "").Trim().ToLower();
             category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
             status = string.IsNullOrWhiteSpace(status) ? "all" : status.Trim().ToLower();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             // TENANT FILTERING: filter by user's barangay only
             var barangayId = GetCurrentBarangayId();
@@ -678,6 +680,13 @@ namespace JAS_MINE_IT15.Controllers
                 .Where(d => d.BarangayId == barangayId)
                 .Include(d => d.UploadedBy)
                 .AsQueryable();
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(d => !d.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(d => d.IsArchived);
+            // "all" shows everything
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -707,7 +716,8 @@ namespace JAS_MINE_IT15.Controllers
                     Version = d.Version,
                     Description = d.Description ?? "",
                     FileName = d.FileName ?? "",
-                    FilePath = d.FileUrl ?? ""
+                    FilePath = d.FileUrl ?? "",
+                    IsArchived = d.IsArchived
                 })
                 .ToListAsync();
 
@@ -716,10 +726,14 @@ namespace JAS_MINE_IT15.Controllers
                 SearchQuery = q,
                 SelectedCategory = category,
                 SelectedStatus = status,
+                ArchiveStatus = archiveStatus,
                 Categories = new List<string> { "All Categories", "Resolutions", "Ordinances", "Memorandums", "Policies", "Reports" },
                 Documents = docs,
                 CanUpload = canUpload,
                 CanApprove = canApprove,
+                CanArchive = canArchive,
+                TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
+                ArchivedDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string,
             };
@@ -880,8 +894,8 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
-            if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
+            var canArchive = role == "barangay_admin" || role == "super_admin";
+            if (!canArchive) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (int.TryParse(id, out var docId))
             {
@@ -895,7 +909,7 @@ namespace JAS_MINE_IT15.Controllers
                         return RedirectToAction(nameof(KnowledgeRepository));
                     }
 
-                    doc.IsActive = false;
+                    doc.IsArchived = true;
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
                 }
@@ -903,6 +917,39 @@ namespace JAS_MINE_IT15.Controllers
 
             TempData["Success"] = "Document archived.";
             return RedirectToAction(nameof(KnowledgeRepository));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestoreDoc(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canArchive = role == "barangay_admin" || role == "super_admin";
+            if (!canArchive) return RedirectToAction(nameof(KnowledgeRepository));
+
+            if (int.TryParse(id, out var docId))
+            {
+                var doc = await _context.KnowledgeDocuments.FindAsync(docId);
+                if (doc != null)
+                {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot restore documents from another barangay.";
+                        return RedirectToAction(nameof(KnowledgeRepository));
+                    }
+
+                    doc.IsArchived = false;
+                    doc.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Document restored.";
+            return RedirectToAction(nameof(KnowledgeRepository), new { archiveStatus = "active" });
         }
 
         [HttpPost]
@@ -1680,7 +1727,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/KnowledgeSharing
         [HttpGet]
-        public IActionResult KnowledgeSharing()
+        public async Task<IActionResult> KnowledgeSharing(string q = "", string category = "All Categories", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -1688,39 +1735,286 @@ namespace JAS_MINE_IT15.Controllers
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
+            var barangayId = GetCurrentBarangayId();
 
             bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
             bool canAnnounce = role == "barangay_admin";
+            bool canArchive = role == "barangay_admin" || role == "super_admin";
+
+            q = (q ?? "").Trim().ToLower();
+            category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
+
+            // Query discussions
+            var query = _context.KnowledgeDiscussions
+                .Where(d => d.IsActive)
+                .Where(d => d.BarangayId == barangayId)
+                .Include(d => d.Author)
+                .AsQueryable();
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(d => !d.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(d => d.IsArchived);
+            // "all" shows everything
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                query = query.Where(d =>
+                    d.Title.ToLower().Contains(q) ||
+                    d.Content.ToLower().Contains(q)
+                );
+            }
+
+            if (category != "All Categories")
+                query = query.Where(d => d.Category == category);
+
+            var discussions = await query
+                .OrderByDescending(d => d.CreatedAt)
+                .Select(d => new KnowledgeDiscussionItem
+                {
+                    Id = d.Id.ToString(),
+                    Title = d.Title,
+                    Content = d.Content,
+                    Author = d.Author != null ? d.Author.FullName : "Unknown",
+                    Avatar = "",
+                    Date = d.CreatedAt.ToString("MMM dd, yyyy"),
+                    Category = d.Category ?? "",
+                    Replies = d.RepliesCount,
+                    Likes = d.LikesCount,
+                    IsArchived = d.IsArchived
+                })
+                .ToListAsync();
 
             var vm = new KnowledgeSharingViewModel
             {
                 CanPost = canPost,
                 CanAnnounce = canAnnounce,
-                Discussions = new List<KnowledgeDiscussionItem>(),
+                CanArchive = canArchive,
+                SearchQuery = q,
+                SelectedCategory = category,
+                ArchiveStatus = archiveStatus,
+                Discussions = discussions,
                 Announcements = new List<KnowledgeAnnouncementItem>(),
                 SharedDocuments = new List<KnowledgeSharedDocItem>(),
                 ActiveMembers = new List<string>(),
-                MembersOnline = 0
+                Categories = new List<string> { "All Categories", "Health", "Environment", "Youth", "Education", "Governance", "Finance" },
+                MembersOnline = 0,
+                TotalDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
+                ArchivedDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
             };
 
             return View(vm);
         }
 
-        // POST: Quick Post
+        // POST: Create Discussion
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult QuickPostKnowledge(string content)
+        [DenyViewOnly]
+        public async Task<IActionResult> CreateDiscussion(string title, string content, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
+
+            title = (title ?? "").Trim();
+            content = (content ?? "").Trim();
+            category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();
+
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
+            {
+                TempData["Error"] = "Title and content are required.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            // Get author ID from session
+            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+            var authorId = await _context.BusinessUsers
+                .Where(u => u.Email == userEmail)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (authorId == 0) authorId = 1;
+
+            var discussion = new KnowledgeDiscussion
+            {
+                Title = title,
+                Content = content,
+                Category = category,
+                AuthorId = authorId,
+                BarangayId = GetCurrentBarangayId(),
+                IsActive = true,
+                IsArchived = false,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.KnowledgeDiscussions.Add(discussion);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Discussion \"{title}\" created successfully.";
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
+        // POST: Edit Discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> EditDiscussion(string id, string title, string content, string category)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            bool canEdit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            if (!canEdit) return RedirectToAction(nameof(KnowledgeSharing));
+
+            if (!int.TryParse(id, out var discussionId))
+            {
+                TempData["Error"] = "Invalid discussion ID.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(discussionId);
+            if (discussion == null || !discussion.IsActive)
+            {
+                TempData["Error"] = "Discussion not found.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            // TENANT OWNERSHIP VALIDATION
+            if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot edit discussions from another barangay.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            discussion.Title = (title ?? discussion.Title).Trim();
+            discussion.Content = (content ?? discussion.Content).Trim();
+            discussion.Category = string.IsNullOrWhiteSpace(category) ? discussion.Category : category.Trim();
+            discussion.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Discussion updated successfully.";
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
+        // POST: Archive Discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveDiscussion(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(KnowledgeSharing));
+
+            if (int.TryParse(id, out var discussionId))
+            {
+                var discussion = await _context.KnowledgeDiscussions.FindAsync(discussionId);
+                if (discussion != null)
+                {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot archive discussions from another barangay.";
+                        return RedirectToAction(nameof(KnowledgeSharing));
+                    }
+
+                    discussion.IsArchived = true;
+                    discussion.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = "Discussion archived.";
+                }
+            }
+
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
+        // POST: Restore Discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestoreDiscussion(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(KnowledgeSharing));
+
+            if (int.TryParse(id, out var discussionId))
+            {
+                var discussion = await _context.KnowledgeDiscussions.FindAsync(discussionId);
+                if (discussion != null)
+                {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot restore discussions from another barangay.";
+                        return RedirectToAction(nameof(KnowledgeSharing));
+                    }
+
+                    discussion.IsArchived = false;
+                    discussion.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = "Discussion restored.";
+                }
+            }
+
+            return RedirectToAction(nameof(KnowledgeSharing), new { archiveStatus = "active" });
+        }
+
+        // POST: Quick Post (simplified create)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> QuickPostKnowledge(string content)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
             if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
 
             content = (content ?? "").Trim();
             if (string.IsNullOrWhiteSpace(content))
+            {
+                TempData["Error"] = "Content is required.";
                 return RedirectToAction(nameof(KnowledgeSharing));
+            }
 
+            // Get author ID from session
+            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+            var authorId = await _context.BusinessUsers
+                .Where(u => u.Email == userEmail)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (authorId == 0) authorId = 1;
+
+            // Create a quick discussion with auto-generated title
+            var discussion = new KnowledgeDiscussion
+            {
+                Title = content.Length > 50 ? content.Substring(0, 50) + "..." : content,
+                Content = content,
+                Category = "General",
+                AuthorId = authorId,
+                BarangayId = GetCurrentBarangayId(),
+                IsActive = true,
+                IsArchived = false,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.KnowledgeDiscussions.Add(discussion);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Post created successfully.";
             return RedirectToAction(nameof(KnowledgeSharing));
         }
 
@@ -1870,23 +2164,77 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/Announcements
         [HttpGet]
-        public IActionResult Announcements(string filter = "all")
+        public async Task<IActionResult> Announcements(string filter = "all", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+
+            // Super_admin cannot access barangay modules - redirect to system dashboard
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var barangayId = GetCurrentBarangayId();
+
+            bool canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             filter = (filter ?? "all").Trim().ToLower();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
-            var allAnnouncements = new List<AnnouncementItem>();
-            var list = allAnnouncements;
+            var query = _context.Announcements
+                .Where(a => a.IsActive)
+                .Where(a => a.BarangayId == barangayId)
+                .Include(a => a.Author)
+                .AsQueryable();
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(a => !a.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(a => a.IsArchived);
+            // "all" shows everything
 
             if (filter != "all")
-                list = list.Where(a => a.Status == filter).ToList();
+                query = query.Where(a => a.Status.ToLower() == filter);
+
+            var announcements = await query
+                .OrderByDescending(a => a.IsPinned)
+                .ThenByDescending(a => a.CreatedAt)
+                .Select(a => new AnnouncementItem
+                {
+                    Id = a.Id.ToString(),
+                    Title = a.Title,
+                    Content = a.Content,
+                    Priority = a.Priority,
+                    Status = a.Status,
+                    Date = a.CreatedAt.ToString("yyyy-MM-dd"),
+                    Author = a.Author != null ? a.Author.FullName : "Unknown",
+                    Views = a.ViewCount,
+                    Pinned = a.IsPinned,
+                    IsArchived = a.IsArchived
+                })
+                .ToListAsync();
+
+            // Get counts from all active announcements for this barangay
+            var allAnnouncements = await _context.Announcements
+                .Where(a => a.IsActive && a.BarangayId == barangayId)
+                .ToListAsync();
 
             var vm = new AnnouncementsViewModel
             {
                 Filter = filter,
-                Announcements = list
+                ArchiveStatus = archiveStatus,
+                CanCreate = canCreate,
+                CanArchive = canArchive,
+                Announcements = announcements,
+
+                Total = allAnnouncements.Count(x => !x.IsArchived),
+                Published = allAnnouncements.Count(x => !x.IsArchived && x.Status == "published"),
+                Drafts = allAnnouncements.Count(x => !x.IsArchived && x.Status == "draft"),
+                Pinned = allAnnouncements.Count(x => !x.IsArchived && x.IsPinned),
+                Archived = allAnnouncements.Count(x => x.IsArchived),
+
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
             };
 
             return View(vm);
@@ -1895,10 +2243,13 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
+        public async Task<IActionResult> CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            if (!canCreate) return RedirectToAction(nameof(Announcements), new { filter });
 
             title = (title ?? "").Trim();
             content = (content ?? "").Trim();
@@ -1906,19 +2257,88 @@ namespace JAS_MINE_IT15.Controllers
             status = string.IsNullOrWhiteSpace(status) ? "draft" : status.Trim().ToLower();
 
             if (string.IsNullOrWhiteSpace(title))
+            {
+                TempData["Error"] = "Title is required.";
                 return RedirectToAction(nameof(Announcements), new { filter });
+            }
 
+            // Get author ID from session
+            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+            var authorId = await _context.BusinessUsers
+                .Where(u => u.Email == userEmail)
+                .Select(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (authorId == 0) authorId = 1;
+
+            var announcement = new Announcement
+            {
+                Title = title,
+                Content = content,
+                Priority = priority,
+                Status = status,
+                AuthorId = authorId,
+                BarangayId = GetCurrentBarangayId(),
+                IsPinned = false,
+                IsActive = true,
+                IsArchived = false,
+                PublishedAt = status == "published" ? DateTime.Now : null,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Announcements.Add(announcement);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Announcement \"{title}\" created successfully.";
             return RedirectToAction(nameof(Announcements), new { filter });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult EditAnnouncement(string id, string title, string content, string priority, string status, string filter = "all")
+        public async Task<IActionResult> EditAnnouncement(string id, string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
 
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            if (!canEdit) return RedirectToAction(nameof(Announcements), new { filter });
+
+            if (!int.TryParse(id, out var announcementId))
+            {
+                TempData["Error"] = "Invalid announcement ID.";
+                return RedirectToAction(nameof(Announcements), new { filter });
+            }
+
+            var announcement = await _context.Announcements.FindAsync(announcementId);
+            if (announcement == null || !announcement.IsActive)
+            {
+                TempData["Error"] = "Announcement not found.";
+                return RedirectToAction(nameof(Announcements), new { filter });
+            }
+
+            // TENANT OWNERSHIP VALIDATION
+            if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot edit announcements from another barangay.";
+                return RedirectToAction(nameof(Announcements), new { filter });
+            }
+
+            announcement.Title = (title ?? announcement.Title).Trim();
+            announcement.Content = (content ?? "").Trim();
+            announcement.Priority = string.IsNullOrWhiteSpace(priority) ? announcement.Priority : priority.Trim().ToLower();
+            
+            // If changing to published, set PublishedAt
+            if (status == "published" && announcement.Status != "published")
+            {
+                announcement.PublishedAt = DateTime.Now;
+            }
+            announcement.Status = string.IsNullOrWhiteSpace(status) ? announcement.Status : status.Trim().ToLower();
+            announcement.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Announcement updated successfully.";
             return RedirectToAction(nameof(Announcements), new { filter });
         }
 
@@ -1937,6 +2357,13 @@ namespace JAS_MINE_IT15.Controllers
                 var announcement = await _context.Announcements.FindAsync(announcementId);
                 if (announcement != null)
                 {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot archive announcements from another barangay.";
+                        return RedirectToAction(nameof(Announcements), new { filter });
+                    }
+
                     announcement.IsArchived = true;
                     announcement.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
@@ -1962,6 +2389,13 @@ namespace JAS_MINE_IT15.Controllers
                 var announcement = await _context.Announcements.FindAsync(announcementId);
                 if (announcement != null)
                 {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot restore announcements from another barangay.";
+                        return RedirectToAction(nameof(Announcements), new { filter });
+                    }
+
                     announcement.IsArchived = false;
                     announcement.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
@@ -1974,20 +2408,44 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult TogglePinAnnouncement(string id, string filter = "all")
+        public async Task<IActionResult> TogglePinAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canPin = role == "barangay_admin";
+            if (!canPin) return RedirectToAction(nameof(Announcements), new { filter });
+
+            if (int.TryParse(id, out var announcementId))
+            {
+                var announcement = await _context.Announcements.FindAsync(announcementId);
+                if (announcement != null && announcement.IsActive && !announcement.IsArchived)
+                {
+                    announcement.IsPinned = !announcement.IsPinned;
+                    announcement.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    TempData["Success"] = announcement.IsPinned ? "Announcement pinned." : "Announcement unpinned.";
+                }
+            }
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult IncrementAnnouncementViews(string id, string filter = "all")
+        public async Task<IActionResult> IncrementAnnouncementViews(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+
+            if (int.TryParse(id, out var announcementId))
+            {
+                var announcement = await _context.Announcements.FindAsync(announcementId);
+                if (announcement != null && announcement.IsActive)
+                {
+                    announcement.ViewCount++;
+                    await _context.SaveChangesAsync();
+                }
+            }
 
             return RedirectToAction(nameof(Announcements), new { filter });
         }

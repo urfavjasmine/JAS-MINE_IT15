@@ -10,14 +10,15 @@
     var initials = string.Join("", userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(x => x[0])).ToUpper();
     if (initials.Length > 2) { initials = initials[..2]; }
 
-    // TODO: Load from database via controller
+    // Load from ViewModel
     var announcements = Model?.Announcements ?? new List<JAS_MINE_IT15.Models.KnowledgeAnnouncementItem>();
     var discussions = Model?.Discussions ?? new List<JAS_MINE_IT15.Models.KnowledgeDiscussionItem>();
     var sharedDocuments = Model?.SharedDocuments ?? new List<JAS_MINE_IT15.Models.KnowledgeSharedDocItem>();
 
-    // UI-only permissions (from controller)
+    // Permissions (from controller)
     var canPost = Model?.CanPost ?? false;
     var canAnnounce = Model?.CanAnnounce ?? false;
+    var canArchive = Model?.CanArchive ?? false;
 
     // Active members
     var activeMembers = Model?.ActiveMembers ?? new List<string>();
@@ -180,47 +181,97 @@
 
 <div class="container-fluid">
 
-    <!-- Header -->
-    <div class="mb-4">
-        <div class="page-title">
-            <i class="bi bi-chat-left-text"></i>
-            Knowledge Sharing Portal
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(Model?.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@Model!.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-        <div class="page-subtitle">Connect, share, and learn from the community</div>
+    }
+    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>@Model!.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row align-items-md-start justify-content-between gap-3 mb-4">
+        <div>
+            <div class="page-title">
+                <i class="bi bi-chat-left-text"></i>
+                Knowledge Sharing Portal
+            </div>
+            <div class="page-subtitle">Connect, share, and learn from the community</div>
+        </div>
+
+        @if (canPost)
+        {
+            <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#createDiscussionModal">
+                <i class="bi bi-plus-lg me-2"></i>New Discussion
+            </button>
+        }
     </div>
+
+    <!-- Archive Status Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link @(Model?.ArchiveStatus == "active" ? "active" : "")"
+               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "active" })">
+                <i class="bi bi-check-circle me-1"></i> Active (@(Model?.TotalDiscussions ?? 0))
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model?.ArchiveStatus == "archived" ? "active" : "")"
+               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "archived" })">
+                <i class="bi bi-archive me-1"></i> Archived (@(Model?.ArchivedDiscussions ?? 0))
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model?.ArchiveStatus == "all" ? "active" : "")"
+               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "all" })">
+                <i class="bi bi-list-ul me-1"></i> All
+            </a>
+        </li>
+    </ul>
 
     <div class="row g-4">
 
         <!-- Main -->
         <div class="col-12 col-lg-8">
 
-            <!-- New Post -->
+            <!-- Quick Post -->
             @if (canPost)
             {
                 <div class="soft-card mb-4">
-                    <div class="p-4">
-                        <div class="d-flex gap-3">
-                            <div class="avatar-circle">@initials</div>
+                    <form method="post" action="@Url.Action("QuickPostKnowledge", "Home")">
+                        @Html.AntiForgeryToken()
+                        <div class="p-4">
+                            <div class="d-flex gap-3">
+                                <div class="avatar-circle">@initials</div>
 
-                            <div class="flex-grow-1">
-                                <textarea class="w-100 post-textarea" rows="3"
-                                      placeholder="Share knowledge, ask questions, or start a discussion..."></textarea>
+                                <div class="flex-grow-1">
+                                    <textarea class="w-100 post-textarea" name="content" rows="3"
+                                          placeholder="Share knowledge, ask questions, or start a discussion..."></textarea>
 
-                                <div class="d-flex justify-content-end mt-3">
-                                    <button class="btn btn-primary-custom px-4" disabled>
-                                        <i class="bi bi-plus-lg me-2"></i>Post
-                                    </button>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <button class="btn btn-primary-custom px-4" type="submit">
+                                            <i class="bi bi-plus-lg me-2"></i>Quick Post
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </form>
                 </div>
             }
 
             <!-- Tabs -->
             <div class="mb-3">
                 <div class="tab-pill">
-                    <button id="tabDiscussions" class="active" type="button" onclick="showTab('discussions')">Discussions</button>
+                    <button id="tabDiscussions" class="active" type="button" onclick="showTab('discussions')">Discussions (@discussions.Count)</button>
                     <button id="tabAnnouncements" type="button" onclick="showTab('announcements')">Announcements</button>
                 </div>
             </div>
@@ -229,27 +280,79 @@
             <div id="panelDiscussions" class="d-block">
                 @if (discussions.Count == 0)
                 {
-                    <div class="soft-card p-4 text-center text-muted">No discussions yet. Start a new discussion!</div>
+                    <div class="soft-card p-4 text-center text-muted">
+                        <i class="bi bi-chat-square-text fs-1 d-block mb-2"></i>
+                        No discussions yet. Start a new discussion!
+                    </div>
                 }
                 else
                 {
                     foreach (var d in discussions)
                     {
-                        <div class="soft-card discussion-card mb-3" style="border:1px solid #e6edf5;">
+                        <div class="soft-card discussion-card mb-3 @(d.IsArchived ? "opacity-75" : "")" style="border:1px solid #e6edf5;">
                             <div class="p-4">
                                 <div class="d-flex gap-3">
-                                    <div class="avatar-circle" style="background:#2f7d32;">@d.Avatar</div>
+                                    <div class="avatar-circle" style="background:#2f7d32;">@(d.Avatar ?? d.Author.Substring(0, 1))</div>
 
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="d-flex align-items-start justify-content-between gap-2">
                                             <div>
+                                                @if (d.IsArchived)
+                                                {
+                                                    <span class="badge bg-secondary me-1">Archived</span>
+                                                }
                                                 <span class="@CatBadge(d.Category)">@d.Category</span>
                                                 <div class="fw-bold mt-2" style="color:#1f2d3d;">@d.Title</div>
                                             </div>
 
-                                            <button class="btn-ghost" type="button" title="More">
-                                                <i class="bi bi-three-dots"></i>
-                                            </button>
+                                            <div class="dropdown">
+                                                <button class="btn-ghost" type="button" data-bs-toggle="dropdown" title="More">
+                                                    <i class="bi bi-three-dots"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    @if (!d.IsArchived)
+                                                    {
+                                                        @if (canPost)
+                                                        {
+                                                            <li>
+                                                                <button type="button" class="dropdown-item"
+                                                                        data-bs-toggle="modal" data-bs-target="#editDiscussionModal"
+                                                                        onclick="openEditDiscussion('@d.Id','@Html.Raw(d.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(d.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@d.Category')">
+                                                                    <i class="bi bi-pencil me-2"></i>Edit
+                                                                </button>
+                                                            </li>
+                                                        }
+                                                        @if (canArchive)
+                                                        {
+                                                            <li><hr class="dropdown-divider"></li>
+                                                            <li>
+                                                                <form method="post" action="@Url.Action("ArchiveDiscussion","Home")" class="m-0">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="id" value="@d.Id" />
+                                                                    <button class="dropdown-item text-warning" type="submit">
+                                                                        <i class="bi bi-archive me-2"></i>Archive
+                                                                    </button>
+                                                                </form>
+                                                            </li>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        @if (canArchive)
+                                                        {
+                                                            <li>
+                                                                <form method="post" action="@Url.Action("RestoreDiscussion","Home")" class="m-0">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="id" value="@d.Id" />
+                                                                    <button class="dropdown-item text-success" type="submit">
+                                                                        <i class="bi bi-arrow-counterclockwise me-2"></i>Restore
+                                                                    </button>
+                                                                </form>
+                                                            </li>
+                                                        }
+                                                    }
+                                                </ul>
+                                            </div>
                                         </div>
 
                                         <div class="muted-sm mt-1" style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
@@ -429,4 +532,94 @@
             discPanel.classList.add("d-block");
         }
     }
+
+    function openEditDiscussion(id, title, content, category) {
+        document.getElementById('editDiscussionId').value = id;
+        document.getElementById('editDiscussionTitle').value = title;
+        document.getElementById('editDiscussionContent').value = content;
+        document.getElementById('editDiscussionCategory').value = category;
+    }
 </script>
+
+<!-- CREATE DISCUSSION MODAL -->
+<div class="modal fade" id="createDiscussionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="@Url.Action("CreateDiscussion", "Home")">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">New Discussion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" name="title" required placeholder="Discussion title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category">
+                            @foreach (var c in Model?.Categories ?? new List<string>())
+                            {
+                                @if (c != "All Categories")
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" name="content" rows="5" required placeholder="Share your knowledge, ask questions, or start a discussion..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Discussion</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT DISCUSSION MODAL -->
+<div class="modal fade" id="editDiscussionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="@Url.Action("EditDiscussion", "Home")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="editDiscussionId" name="id" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Discussion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" id="editDiscussionTitle" name="title" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" id="editDiscussionCategory" name="category">
+                            @foreach (var c in Model?.Categories ?? new List<string>())
+                            {
+                                @if (c != "All Categories")
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" id="editDiscussionContent" name="content" rows="5" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

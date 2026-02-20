@@ -17,6 +17,8 @@
         : "badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle";
 
     string CardPinnedClass(bool pinned) => pinned ? "border-primary-subtle bg-primary bg-opacity-10" : "";
+    
+    var isViewingArchived = Model.ArchiveStatus == "archived";
 }
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -53,18 +55,36 @@
 
 <div class="page-wrap">
 
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>@Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="mb-0">Announcements</h3>
             <div class="muted">Manage and publish announcements across barangays.</div>
         </div>
 
-        <button class="btn btn-primary d-flex align-items-center gap-2"
-                data-bs-toggle="modal" data-bs-target="#createEditModal"
-                onclick="openCreate()">
-            <i class="bi bi-plus-lg"></i>
-            New Announcement
-        </button>
+        @if (Model.CanCreate)
+        {
+            <button class="btn btn-primary d-flex align-items-center gap-2"
+                    data-bs-toggle="modal" data-bs-target="#createEditModal"
+                    onclick="openCreate()">
+                <i class="bi bi-plus-lg"></i>
+                New Announcement
+            </button>
+        }
     </div>
 
     <div class="row g-3 mb-3">
@@ -92,33 +112,59 @@
         <div class="col-12 col-md-3">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-info">@Model.Pinned</div><div class="small muted">Pinned</div>
+                    <div class="fs-2 fw-bold text-secondary">@Model.Archived</div><div class="small muted">Archived</div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Archive Status Tabs -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "active" ? "active" : "")"
+               href="@Url.Action("Announcements", "Home", new { filter = Model.Filter, archiveStatus = "active" })">
+                <i class="bi bi-check-circle me-1"></i> Active (@Model.Total)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "archived" ? "active" : "")"
+               href="@Url.Action("Announcements", "Home", new { filter = Model.Filter, archiveStatus = "archived" })">
+                <i class="bi bi-archive me-1"></i> Archived (@Model.Archived)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.ArchiveStatus == "all" ? "active" : "")"
+               href="@Url.Action("Announcements", "Home", new { filter = Model.Filter, archiveStatus = "all" })">
+                <i class="bi bi-list-ul me-1"></i> All
+            </a>
+        </li>
+    </ul>
+
     <div class="d-flex gap-2 mb-3">
         <a class="btn pill-btn @(Model.Filter == "all" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "all" })">All</a>
+           href="@Url.Action("Announcements", "Home", new { filter = "all", archiveStatus = Model.ArchiveStatus })">All</a>
 
         <a class="btn pill-btn @(Model.Filter == "published" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "published" })">Published</a>
+           href="@Url.Action("Announcements", "Home", new { filter = "published", archiveStatus = Model.ArchiveStatus })">Published</a>
 
         <a class="btn pill-btn @(Model.Filter == "draft" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "draft" })">Draft</a>
+           href="@Url.Action("Announcements", "Home", new { filter = "draft", archiveStatus = Model.ArchiveStatus })">Draft</a>
     </div>
 
     <div class="d-flex flex-column gap-3">
         @foreach (var a in Model.Announcements)
         {
-            <div class="ann-card p-4 @CardPinnedClass(a.Pinned)">
+            <div class="ann-card p-4 @CardPinnedClass(a.Pinned) @(a.IsArchived ? "opacity-75" : "")">
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div class="flex-grow-1">
                         <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
                             @if (a.Pinned)
                             {
                                 <i class="bi bi-pin-angle-fill text-primary"></i>
+                            }
+                            @if (a.IsArchived)
+                            {
+                                <span class="badge bg-secondary">Archived</span>
                             }
                             <div class="fw-semibold fs-6">@a.Title</div>
                             <span class="@PriorityClass(a.Priority)">@a.Priority</span>
@@ -135,41 +181,70 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <!-- VIEW: increments views -->
-                        <form method="post" action="@Url.Action("IncrementAnnouncementViews","Home")" class="m-0">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@a.Id" />
-                            <input type="hidden" name="filter" value="@Model.Filter" />
-                            <button class="btn btn-light action-btn" title="View" type="submit">
-                                <i class="bi bi-eye"></i>
+                        @if (!a.IsArchived)
+                        {
+                            <!-- VIEW: increments views -->
+                            <form method="post" action="@Url.Action("IncrementAnnouncementViews","Home")" class="m-0">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <input type="hidden" name="filter" value="@Model.Filter" />
+                                <button class="btn btn-light action-btn" title="View" type="submit">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </form>
+
+                            <!-- EDIT -->
+                            <button class="btn btn-light action-btn" title="Edit"
+                                    data-bs-toggle="modal" data-bs-target="#createEditModal"
+                                    onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(a.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@a.Priority','@a.Status')">
+                                <i class="bi bi-pencil"></i>
                             </button>
-                        </form>
 
-                        <!-- EDIT -->
-                        <button class="btn btn-light action-btn" title="Edit"
-                                data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))','@Html.Raw(a.Content.Replace("'", "\\'"))','@a.Priority','@a.Status')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                            <!-- PIN -->
+                            <form method="post" action="@Url.Action("TogglePinAnnouncement","Home")" class="m-0">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <input type="hidden" name="filter" value="@Model.Filter" />
+                                <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
+                                    <i class="bi bi-pin@(a.Pinned ? "-fill text-primary" : "")"></i>
+                                </button>
+                            </form>
 
-                        <!-- PIN -->
-                        <form method="post" action="@Url.Action("TogglePinAnnouncement","Home")" class="m-0">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@a.Id" />
-                            <input type="hidden" name="filter" value="@Model.Filter" />
-                            <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
-                                <i class="bi bi-pin"></i>
-                            </button>
-                        </form>
-
-                        <!-- ARCHIVE -->
-                        <button class="btn btn-light action-btn" title="Archive"
-                                data-bs-toggle="modal" data-bs-target="#archiveModal"
-                                onclick="openArchive('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
-                            <i class="bi bi-archive text-warning"></i>
-                        </button>
+                            @if (Model.CanArchive)
+                            {
+                                <!-- ARCHIVE -->
+                                <button class="btn btn-light action-btn" title="Archive"
+                                        data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                        onclick="openArchive('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
+                                    <i class="bi bi-archive text-warning"></i>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            @if (Model.CanArchive)
+                            {
+                                <!-- RESTORE -->
+                                <form method="post" action="@Url.Action("RestoreAnnouncement","Home")" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
+                                    <button class="btn btn-success action-btn" title="Restore" type="submit">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                            }
+                        }
                     </div>
                 </div>
+            </div>
+        }
+
+        @if (!Model.Announcements.Any())
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-megaphone fs-1 mb-3 d-block"></i>
+                <p>No announcements found.</p>
             </div>
         }
     </div>

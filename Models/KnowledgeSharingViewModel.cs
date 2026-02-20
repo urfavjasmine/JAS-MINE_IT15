@@ -6,13 +6,27 @@ namespace JAS_MINE_IT15.Models
     {
         public bool CanPost { get; set; }
         public bool CanAnnounce { get; set; }
+        public bool CanArchive { get; set; }
+
+        public string ArchiveStatus { get; set; } = "active";
+        public string SearchQuery { get; set; } = "";
+        public string SelectedCategory { get; set; } = "All Categories";
 
         public List<KnowledgeDiscussionItem> Discussions { get; set; } = new();
         public List<KnowledgeAnnouncementItem> Announcements { get; set; } = new();
         public List<KnowledgeSharedDocItem> SharedDocuments { get; set; } = new();
 
         public List<string> ActiveMembers { get; set; } = new();
+        public List<string> Categories { get; set; } = new();
         public int MembersOnline { get; set; }
+
+        // Stats
+        public int TotalDiscussions { get; set; }
+        public int ArchivedDiscussions { get; set; }
+
+        // Messages
+        public string? SuccessMessage { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 
     public class KnowledgeDiscussionItem
@@ -26,6 +40,7 @@ namespace JAS_MINE_IT15.Models
         public string Category { get; set; } = "";
         public int Replies { get; set; }
         public int Likes { get; set; }
+        public bool IsArchived { get; set; }
     }
 
     public class KnowledgeAnnouncementItem

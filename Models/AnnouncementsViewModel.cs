@@ -14,16 +14,28 @@ namespace JAS_MINE_IT15.Models
         public string Author { get; set; } = "";
         public int Views { get; set; }
         public bool Pinned { get; set; }
+        public bool IsArchived { get; set; }
     }
 
     public class AnnouncementsViewModel
     {
         public List<AnnouncementItem> Announcements { get; set; } = new();
         public string Filter { get; set; } = "all";
+        public string ArchiveStatus { get; set; } = "active";
 
-        public int Total => Announcements.Count;
-        public int Published => Announcements.Count(a => a.Status == "published");
-        public int Drafts => Announcements.Count(a => a.Status == "draft");
-        public int Pinned => Announcements.Count(a => a.Pinned);
+        // Permission flags
+        public bool CanCreate { get; set; }
+        public bool CanArchive { get; set; }
+
+        // Stats
+        public int Total { get; set; }
+        public int Published { get; set; }
+        public int Drafts { get; set; }
+        public int Pinned { get; set; }
+        public int Archived { get; set; }
+
+        // Messages
+        public string? SuccessMessage { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }
