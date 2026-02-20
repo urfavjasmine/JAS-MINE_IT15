@@ -4,6 +4,20 @@
 @{
     ViewData["Title"] = "Best Practices";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    
+    // Null-safe properties
+    var totalPractices = Model?.TotalPractices ?? 0;
+    var archivedPractices = Model?.ArchivedPractices ?? 0;
+    var searchQuery = Model?.SearchQuery ?? "";
+    var selectedCategory = Model?.SelectedCategory ?? "All Categories";
+    var archiveStatus = Model?.ArchiveStatus ?? "active";
+    var categories = Model?.Categories ?? new List<string> { "All Categories" };
+    var practices = Model?.Practices ?? new List<JAS_MINE_IT15.Models.BestPracticeItem>();
+    var canManage = Model?.CanManage ?? false;
+    var canModify = Model?.CanModify ?? false;
+    var canArchive = Model?.CanArchive ?? false;
+    var successMessage = Model?.SuccessMessage ?? "";
+    var errorMessage = Model?.ErrorMessage ?? "";
 }
 
 <style>
@@ -191,9 +205,7 @@
         _ => "cat-badge cat-default"
     };
 
-    var featured = Model.FeaturedPractice;
-    var archiveStatus = Model.ArchiveStatus ?? "active";
-    var canArchive = Model.CanArchive;
+    var featured = Model?.FeaturedPractice;
 }
 
 <div class="container-fluid">
@@ -209,7 +221,7 @@
         </div>
 
         <div class="d-flex gap-2">
-            @if (Model.CanManage)
+            @if (canManage)
             {
                 <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#bpCreateModal">
                     <i class="bi bi-plus-lg me-2"></i>Add Practice
@@ -257,13 +269,13 @@
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="soft-card p-3 text-center">
-                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@Model.TotalPractices</div>
+                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@totalPractices</div>
                 <div class="text-muted" style="font-size: 13px;">Active Practices</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="soft-card p-3 text-center">
-                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@Model.ArchivedPractices</div>
+                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@archivedPractices</div>
                 <div class="text-muted" style="font-size: 13px;">Archived</div>
             </div>
         </div>
@@ -299,7 +311,7 @@
                     <div class="col-12 col-lg-8 position-relative">
                         <i class="bi bi-search input-icon-left"></i>
                         <input name="q"
-                               value="@Model.SearchQuery"
+                               value="@searchQuery"
                                class="form-control input-soft input-with-icon"
                                placeholder="Search best practices..." />
                     </div>
@@ -311,9 +323,9 @@
                                 <i class="bi bi-funnel"></i>
                             </span>
                             <select name="status" class="form-select select-soft border-start-0" style="border-radius:0 10px 10px 0;" onchange="this.form.submit()">
-                                <option value="" selected="@(string.IsNullOrEmpty(Model.SelectedStatus))">All Status</option>
-                                <option value="Active" selected="@(Model.SelectedStatus == "Active")">Active</option>
-                                <option value="Archived" selected="@(Model.SelectedStatus == "Archived")">Archived</option>
+                                <option value="" selected="@(string.IsNullOrEmpty(Model?.SelectedStatus))">All Status</option>
+                                <option value="Active" selected="@(Model?.SelectedStatus == "Active")">Active</option>
+                                <option value="Archived" selected="@(Model?.SelectedStatus == "Archived")">Archived</option>
                             </select>
                         </div>
                     </div>
@@ -324,7 +336,7 @@
 
     <!-- Practices Grid -->
     <div class="row g-4">
-        @foreach (var p in Model.Practices)
+        @foreach (var p in practices)
         {
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card practice-card">
@@ -362,7 +374,7 @@
                                             </button>
                                         </li>
 
-                                        @if (Model.CanManage && !p.IsArchived)
+                                        @if (canManage && !p.IsArchived)
                                         {
                                             <li>
                                                 <button type="button" class="dropdown-item"
@@ -450,7 +462,7 @@
 <!-- =========================
      CREATE MODAL
 ========================= -->
-@if (Model.CanManage)
+@if (canManage)
 {
     <div class="modal fade" id="bpCreateModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -492,7 +504,7 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Category</label>
                             <select name="category" class="form-select select-soft">
-                                @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
+                                @foreach (var c in categories.Where(x => x != "All Categories"))
                                 {
                                     <option value="@c">@c</option>
                                 }
@@ -513,7 +525,7 @@
 <!-- =========================
      EDIT MODAL
 ========================= -->
-@if (Model.CanManage)
+@if (canManage)
 {
     <div class="modal fade" id="bpEditModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -559,7 +571,7 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-semibold">Category</label>
                                 <select name="category" id="bpEditCategory" class="form-select select-soft">
-                                    @foreach (var c in Model.Categories.Where(x => x != "All Categories"))
+                                    @foreach (var c in categories.Where(x => x != "All Categories"))
                                     {
                                         <option value="@c">@c</option>
                                     }
@@ -621,7 +633,7 @@
 <!-- =========================
      ARCHIVE MODAL
 ========================= -->
-@if (Model.CanManage)
+@if (canManage)
 {
     <div class="modal fade" id="bpArchiveModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -637,8 +649,8 @@
                     <div class="modal-body">
                         <input type="hidden" name="id" id="bpArchiveId" />
                         Are you sure you want to archive "<span class="fw-bold" id="bpArchiveTitle"></span>"?
-                        <input type="hidden" name="q" value="@Model.SearchQuery" />
-                        <input type="hidden" name="cat" value="@Model.SelectedCategory" />
+                        <input type="hidden" name="q" value="@searchQuery" />
+                        <input type="hidden" name="cat" value="@selectedCategory" />
                     </div>
 
                     <div class="modal-footer">
