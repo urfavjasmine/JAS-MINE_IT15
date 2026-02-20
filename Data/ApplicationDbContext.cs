@@ -27,9 +27,6 @@ namespace JAS_MINE_IT15.Data
         public DbSet<SubscriptionPayment> SubscriptionPayments { get; set; } = null!;
         public DbSet<KnowledgeDiscussion> KnowledgeDiscussions { get; set; } = null!;
         public DbSet<PasswordResetRequest> PasswordResetRequests { get; set; } = null!;
-        public DbSet<SharedDocument> SharedDocuments { get; set; } = null!;
-        public DbSet<Ordinance> Ordinances { get; set; } = null!;
-        public DbSet<PortalPost> PortalPosts { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -259,21 +256,6 @@ namespace JAS_MINE_IT15.Data
                 entity.HasOne(e => e.ProcessedBy)
                       .WithMany()
                       .HasForeignKey(e => e.ProcessedById)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            // =============================================
-            // SharedDocument entity configuration
-            // =============================================
-            builder.Entity<SharedDocument>(entity =>
-            {
-                entity.Property(e => e.DownloadCount).HasDefaultValue(0);
-                entity.Property(e => e.IsActive).HasDefaultValue(true);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-
-                entity.HasOne(e => e.SharedBy)
-                      .WithMany()
-                      .HasForeignKey(e => e.SharedById)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }
