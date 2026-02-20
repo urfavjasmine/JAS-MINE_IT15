@@ -7,9 +7,7 @@
     ViewData["Title"] = "Dashboard";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
-    // Display only (no backend)
-    var userName = Context.Session.GetString("UserName") ?? "Jasminetampus30";
-    var barangay = Context.Session.GetString("Barangay") ?? "Barangay San Antonio";
+
     var role = Context.Session.GetString("Role");
 
     var roleLabel = role switch
