@@ -237,28 +237,56 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult EditSubscription(string id, string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
+        public async Task<IActionResult> EditSubscription(string id, string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
-            SubscriptionItem? item = null;
+            if (!int.TryParse(id, out var subscriptionId))
+            {
+                TempData["Error"] = "Invalid subscription ID.";
+                return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+            }
 
-            if (item == null)
+            var subscription = await _context.BarangaySubscriptions
+                .Include(s => s.Barangay)
+                .Include(s => s.Plan)
+                .FirstOrDefaultAsync(s => s.Id == subscriptionId);
+
+            if (subscription == null)
             {
                 TempData["Error"] = "Subscription not found.";
                 return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
             }
 
-            item.BarangayName = (barangayName ?? item.BarangayName).Trim();
-            item.PlanName = (planName ?? item.PlanName).Trim();
-            item.StartDate = (startDate ?? item.StartDate).Trim();
-            item.EndDate = (endDate ?? item.EndDate).Trim();
+            // Update barangay if name changed
+            if (!string.IsNullOrWhiteSpace(barangayName))
+            {
+                var barangay = await _context.Barangays.FirstOrDefaultAsync(b => b.Name == barangayName.Trim());
+                if (barangay != null) subscription.BarangayId = barangay.Id;
+            }
 
-            if (item.Status != "Cancelled")
-                item.Status = ComputeStatus(item.EndDate);
+            // Update plan if name changed
+            if (!string.IsNullOrWhiteSpace(planName))
+            {
+                var plan = await _context.SubscriptionPlans.FirstOrDefaultAsync(p => p.Name == planName.Trim());
+                if (plan != null) subscription.PlanId = plan.Id;
+            }
 
-            TempData["Success"] = $"Subscription for {item.BarangayName} updated.";
+            // Update dates
+            if (DateTime.TryParse(startDate, out var start)) subscription.StartDate = start;
+            if (DateTime.TryParse(endDate, out var end)) subscription.EndDate = end;
+
+            // Recompute status if not cancelled
+            if (subscription.Status != "Cancelled")
+            {
+                subscription.Status = subscription.EndDate < DateTime.Today ? "Expired" : "Active";
+            }
+
+            subscription.UpdatedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Subscription updated successfully.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
         }
 
@@ -372,27 +400,49 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult EditPayment(string id, string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
+        public async Task<IActionResult> EditPayment(string id, string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
-            PaymentItem? p = null;
+            if (!int.TryParse(id, out var paymentId))
+            {
+                TempData["Error"] = "Invalid payment ID.";
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
+            }
 
-            if (p == null)
+            var payment = await _context.SubscriptionPayments
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Barangay)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+            if (payment == null)
             {
                 TempData["Error"] = "Payment record not found.";
                 return RedirectToAction(nameof(SubscriptionPayments), new { q });
             }
 
-            p.BarangayName = (barangayName ?? p.BarangayName).Trim();
-            p.PlanName = (planName ?? p.PlanName).Trim();
-            p.Amount = amount <= 0 ? p.Amount : amount;
-            p.PaymentDate = string.IsNullOrWhiteSpace(paymentDate) ? p.PaymentDate : paymentDate.Trim();
-            p.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? p.PaymentMethod : paymentMethod.Trim();
-            p.Status = string.IsNullOrWhiteSpace(status) ? p.Status : status.Trim();
+            // Update subscription if barangay/plan changed
+            if (!string.IsNullOrWhiteSpace(barangayName) && !string.IsNullOrWhiteSpace(planName))
+            {
+                var subscription = await _context.BarangaySubscriptions
+                    .Include(s => s.Barangay)
+                    .Include(s => s.Plan)
+                    .FirstOrDefaultAsync(s => s.Barangay!.Name == barangayName.Trim() && s.Plan!.Name == planName.Trim());
+                if (subscription != null) payment.SubscriptionId = subscription.Id;
+            }
 
-            TempData["Success"] = "Payment record has been updated.";
+            if (amount > 0) payment.Amount = amount;
+            if (DateTime.TryParse(paymentDate, out var date)) payment.PaymentDate = date;
+            if (!string.IsNullOrWhiteSpace(paymentMethod)) payment.PaymentMethod = paymentMethod.Trim();
+            if (!string.IsNullOrWhiteSpace(status)) payment.Status = status.Trim();
+
+            payment.UpdatedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Payment record updated successfully.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
         }
 
@@ -484,14 +534,20 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult EditPlan(string id, string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
+        public async Task<IActionResult> EditPlan(string id, string name, decimal price, int durationMonths, string description, string isActive, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
-            PlanItem? p = null;
+            if (!int.TryParse(id, out var planId))
+            {
+                TempData["Error"] = "Invalid plan ID.";
+                return RedirectToAction(nameof(SubscriptionPlans), new { q });
+            }
 
-            if (p == null)
+            var plan = await _context.SubscriptionPlans.FindAsync(planId);
+
+            if (plan == null)
             {
                 TempData["Error"] = "Plan not found.";
                 return RedirectToAction(nameof(SubscriptionPlans), new { q });
@@ -500,13 +556,16 @@ namespace JAS_MINE_IT15.Controllers
             name = (name ?? "").Trim();
             description = (description ?? "").Trim();
 
-            if (!string.IsNullOrWhiteSpace(name)) p.Name = name;
-            if (price >= 0) p.Price = price;
-            if (durationMonths > 0) p.DurationMonths = durationMonths;
-            p.Description = description;
-            p.IsActive = isActive;
+            if (!string.IsNullOrWhiteSpace(name)) plan.Name = name;
+            if (price >= 0) plan.Price = price;
+            if (durationMonths > 0) plan.DurationMonths = durationMonths;
+            plan.Description = description;
+            plan.IsActive = isActive == "true";
+            plan.UpdatedAt = DateTime.Now;
 
-            TempData["Success"] = $"\"{p.Name}\" has been updated.";
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"\"{plan.Name}\" has been updated.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
         }
 
