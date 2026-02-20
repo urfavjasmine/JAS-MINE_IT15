@@ -67,15 +67,28 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=LandingPage}/{id?}");
 
-app.MapRazorPages();
-
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 
-    await IdentitySeeder.SeedRoles(services);
-    await IdentitySeeder.SeedSuperAdmin(services);
-    await IdentitySeeder.SeedDefaultUsers(services);
+    try
+    {
+        var db = services.GetRequiredService<ApplicationDbContext>();
+        await db.Database.MigrateAsync();
+
+        await IdentitySeeder.SeedRoles(services);
+        await IdentitySeeder.SeedSuperAdmin(services);
+        await IdentitySeeder.SeedDefaultUsers(services);
+    }
+    catch (Exception ex)
+    {
+        // ✅ Prevent 500.30 from killing the whole app
+        logger.LogError(ex, "Startup migration/seed failed.");
+
+        // OPTIONAL: Comment this out to allow the site to start even if DB is failing
+        // throw;
+    }
 }
 
 app.Run();
