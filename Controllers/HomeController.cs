@@ -972,7 +972,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/PoliciesProcedures
         [HttpGet]
-        public async Task<IActionResult> PoliciesManagement(string status = "all", string q = "")
+        public async Task<IActionResult> PoliciesManagement(string status = "all", string q = "", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -982,14 +982,23 @@ namespace JAS_MINE_IT15.Controllers
             var role = HttpContext.Session.GetString("Role") ?? "";
             var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
             var canApprove = role == "barangay_admin";
+            var canArchive = role == "barangay_admin" || role == "super_admin";
 
             status = (status ?? "all").Trim().ToLower();
             q = (q ?? "").Trim();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             var query = _context.Policies
                 .Where(p => p.IsActive)
                 .Include(p => p.Author)
                 .AsQueryable();
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(p => !p.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(p => p.IsArchived);
+            // "all" shows everything
 
             if (status != "all")
                 query = query.Where(p => p.Status.ToLower() == status);
@@ -1013,7 +1022,8 @@ namespace JAS_MINE_IT15.Controllers
                     Status = p.Status,
                     LastUpdated = (p.UpdatedAt ?? p.CreatedAt).ToString("yyyy-MM-dd"),
                     Author = p.Author != null ? p.Author.FullName : "Unknown",
-                    Version = p.Version
+                    Version = p.Version,
+                    IsArchived = p.IsArchived
                 })
                 .ToListAsync();
 
@@ -1024,13 +1034,16 @@ namespace JAS_MINE_IT15.Controllers
             {
                 StatusFilter = status,
                 SearchQuery = q,
+                ArchiveStatus = archiveStatus,
                 CanCreate = canCreate,
                 CanApprove = canApprove,
+                CanArchive = canArchive,
 
-                CountAll = allPolicies.Count,
-                CountApproved = allPolicies.Count(x => x.Status == "approved"),
-                CountPending = allPolicies.Count(x => x.Status == "pending"),
-                CountDraft = allPolicies.Count(x => x.Status == "draft"),
+                CountAll = allPolicies.Count(x => !x.IsArchived),
+                CountApproved = allPolicies.Count(x => !x.IsArchived && x.Status == "approved"),
+                CountPending = allPolicies.Count(x => !x.IsArchived && x.Status == "pending"),
+                CountDraft = allPolicies.Count(x => !x.IsArchived && x.Status == "draft"),
+                CountArchived = allPolicies.Count(x => x.IsArchived),
 
                 Policies = policies
             };
@@ -1125,7 +1138,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canArchive = role == "barangay_admin";
+            var canArchive = role == "barangay_admin" || role == "super_admin";
             if (!canArchive) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (int.TryParse(id, out var policyId))
@@ -1133,7 +1146,7 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(policyId);
                 if (policy != null)
                 {
-                    policy.IsActive = false;
+                    policy.IsArchived = true;
                     policy.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
                 }
@@ -1141,6 +1154,32 @@ namespace JAS_MINE_IT15.Controllers
 
             TempData["Success"] = "Policy archived.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestorePolicy(string id, string status = "all", string q = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canArchive = role == "barangay_admin" || role == "super_admin";
+            if (!canArchive) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+
+            if (int.TryParse(id, out var policyId))
+            {
+                var policy = await _context.Policies.FindAsync(policyId);
+                if (policy != null)
+                {
+                    policy.IsArchived = false;
+                    policy.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Policy restored.";
+            return RedirectToAction(nameof(PoliciesManagement), new { status, q, archiveStatus = "active" });
         }
 
         [HttpPost]
@@ -1188,7 +1227,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: /Home/LessonsLearned
-        public async Task<IActionResult> LessonsLearned(string q = "", string dateFilter = "")
+        public async Task<IActionResult> LessonsLearned(string q = "", string dateFilter = "", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -1199,12 +1238,21 @@ namespace JAS_MINE_IT15.Controllers
             var barangayId = HttpContext.Session.GetInt32("BarangayId");
             bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
             bool canModify = role == "barangay_admin" || role == "barangay_secretary";
+            bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             q = (q ?? "").Trim().ToLower();
             dateFilter = (dateFilter ?? "").Trim();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             var query = _context.LessonsLearned
-                .Where(l => !l.IsDeleted && l.BarangayId == barangayId);
+                .Where(l => l.BarangayId == barangayId);
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(l => !l.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(l => l.IsArchived);
+            // "all" shows everything
 
             // Search by Title/Problem
             if (!string.IsNullOrWhiteSpace(q))
@@ -1237,6 +1285,7 @@ namespace JAS_MINE_IT15.Controllers
                     Project = l.ProjectName ?? "",
                     Status = l.Status,
                     Date = l.DateRecorded.ToString("MMM dd, yyyy"),
+                    IsArchived = l.IsArchived,
                     Likes = l.LikesCount,
                     Comments = l.CommentsCount,
                     Tags = new List<string>()
@@ -1254,7 +1303,7 @@ namespace JAS_MINE_IT15.Controllers
 
             // Available dates for filter
             var availableDates = await _context.LessonsLearned
-                .Where(l => !l.IsDeleted && l.BarangayId == barangayId)
+                .Where(l => !l.IsArchived && l.BarangayId == barangayId)
                 .Select(l => l.DateRecorded)
                 .Distinct()
                 .OrderByDescending(d => d)
@@ -1274,10 +1323,13 @@ namespace JAS_MINE_IT15.Controllers
             {
                 CanSubmit = canSubmit,
                 CanModify = canModify,
-                TotalLessons = await _context.LessonsLearned.CountAsync(l => !l.IsDeleted && l.BarangayId == barangayId),
-                RecentLessons = await _context.LessonsLearned.CountAsync(l => !l.IsDeleted && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
+                CanArchive = canArchive,
+                TotalLessons = await _context.LessonsLearned.CountAsync(l => !l.IsArchived && l.BarangayId == barangayId),
+                RecentLessons = await _context.LessonsLearned.CountAsync(l => !l.IsArchived && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
+                ArchivedLessons = await _context.LessonsLearned.CountAsync(l => l.IsArchived && l.BarangayId == barangayId),
                 SearchQuery = q,
                 DateFilter = dateFilter,
+                ArchiveStatus = archiveStatus,
                 AvailableDates = availableDates,
                 Lessons = lessons,
                 ProjectTypes = projectTypes
@@ -1324,7 +1376,7 @@ namespace JAS_MINE_IT15.Controllers
                 SubmittedById = userId,
                 Status = "approved",
                 CreatedAt = DateTime.Now,
-                IsDeleted = false
+                IsArchived = false
             };
 
             _context.LessonsLearned.Add(lesson);
@@ -1345,7 +1397,7 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(LessonsLearned));
 
             var lesson = await _context.LessonsLearned.FindAsync(id);
-            if (lesson == null || lesson.IsDeleted)
+            if (lesson == null || lesson.IsArchived)
             {
                 TempData["Error"] = "Lesson not found.";
                 return RedirectToAction(nameof(LessonsLearned));
@@ -1379,13 +1431,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary")
+            if (role != "barangay_admin" && role != "super_admin")
                 return RedirectToAction(nameof(LessonsLearned));
 
             var lesson = await _context.LessonsLearned.FindAsync(id);
             if (lesson != null)
             {
-                lesson.IsDeleted = true;
+                lesson.IsArchived = true;
                 lesson.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Lesson has been archived.";
@@ -1394,9 +1446,31 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(LessonsLearned));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestoreLesson(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(LessonsLearned));
+
+            var lesson = await _context.LessonsLearned.FindAsync(id);
+            if (lesson != null)
+            {
+                lesson.IsArchived = false;
+                lesson.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Lesson has been restored.";
+            }
+
+            return RedirectToAction(nameof(LessonsLearned), new { archiveStatus = "active" });
+        }
+
         // GET: /Home/BestPractices
         [HttpGet]
-        public async Task<IActionResult> BestPractices(string q = "", string status = "")
+        public async Task<IActionResult> BestPractices(string q = "", string status = "", string archiveStatus = "active")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -1405,14 +1479,23 @@ namespace JAS_MINE_IT15.Controllers
 
             q = (q ?? "").Trim().ToLower();
             status = (status ?? "").Trim();
+            archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = HttpContext.Session.GetInt32("BarangayId");
             bool canManage = role == "barangay_admin" || role == "barangay_secretary";
             bool canModify = canManage;
+            bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             var query = _context.BestPractices
-                .Where(p => !p.IsDeleted && p.BarangayId == barangayId);
+                .Where(p => p.BarangayId == barangayId);
+
+            // Filter by archive status
+            if (archiveStatus == "active")
+                query = query.Where(p => !p.IsArchived);
+            else if (archiveStatus == "archived")
+                query = query.Where(p => p.IsArchived);
+            // "all" shows everything
 
             // Search by Title
             if (!string.IsNullOrWhiteSpace(q))
@@ -1442,6 +1525,7 @@ namespace JAS_MINE_IT15.Controllers
                     Rating = p.Rating,
                     Implementations = p.Implementations,
                     IsFeatured = p.IsFeatured,
+                    IsArchived = p.IsArchived,
                     CreatedAt = p.CreatedAt
                 })
                 .ToListAsync();
@@ -1450,11 +1534,13 @@ namespace JAS_MINE_IT15.Controllers
             {
                 SearchQuery = q,
                 SelectedStatus = status,
+                ArchiveStatus = archiveStatus,
                 CanManage = canManage,
                 CanModify = canModify,
-                TotalPractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId),
-                ActivePractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.Status == "Active"),
-                ArchivedPractices = await _context.BestPractices.CountAsync(p => !p.IsDeleted && p.BarangayId == barangayId && p.Status == "Archived"),
+                CanArchive = canArchive,
+                TotalPractices = await _context.BestPractices.CountAsync(p => !p.IsArchived && p.BarangayId == barangayId),
+                ActivePractices = await _context.BestPractices.CountAsync(p => !p.IsArchived && p.BarangayId == barangayId && p.Status == "Active"),
+                ArchivedPractices = await _context.BestPractices.CountAsync(p => p.IsArchived && p.BarangayId == barangayId),
                 Categories = new List<string> { "All Categories", "Health", "Education", "Governance", "Environment", "Safety", "Finance" },
                 Practices = practices
             };
@@ -1499,7 +1585,7 @@ namespace JAS_MINE_IT15.Controllers
                 BarangayId = barangayId,
                 SubmittedById = userId,
                 CreatedAt = DateTime.Now,
-                IsDeleted = false
+                IsArchived = false
             };
 
             _context.BestPractices.Add(practice);
@@ -1520,7 +1606,7 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(BestPractices));
 
             var practice = await _context.BestPractices.FindAsync(id);
-            if (practice == null || practice.IsDeleted)
+            if (practice == null || practice.IsArchived)
             {
                 TempData["Error"] = "Practice not found.";
                 return RedirectToAction(nameof(BestPractices));
@@ -1555,19 +1641,41 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary")
+            if (role != "barangay_admin" && role != "super_admin")
                 return RedirectToAction(nameof(BestPractices));
 
             var practice = await _context.BestPractices.FindAsync(id);
             if (practice != null)
             {
-                practice.IsDeleted = true;
+                practice.IsArchived = true;
                 practice.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Practice has been archived.";
             }
 
             return RedirectToAction(nameof(BestPractices));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestorePractice(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(BestPractices));
+
+            var practice = await _context.BestPractices.FindAsync(id);
+            if (practice != null)
+            {
+                practice.IsArchived = false;
+                practice.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Practice has been restored.";
+            }
+
+            return RedirectToAction(nameof(BestPractices), new { archiveStatus = "active" });
         }
 
         // GET: /Home/KnowledgeSharing
@@ -1820,14 +1928,16 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ArchiveAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(Announcements), new { filter });
 
             if (int.TryParse(id, out var announcementId))
             {
                 var announcement = await _context.Announcements.FindAsync(announcementId);
                 if (announcement != null)
                 {
-                    announcement.IsActive = false;
+                    announcement.IsArchived = true;
                     announcement.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
                 }
@@ -1835,6 +1945,31 @@ namespace JAS_MINE_IT15.Controllers
 
             TempData["Success"] = "Announcement archived.";
             return RedirectToAction(nameof(Announcements), new { filter });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestoreAnnouncement(string id, string filter = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction(nameof(Announcements), new { filter });
+
+            if (int.TryParse(id, out var announcementId))
+            {
+                var announcement = await _context.Announcements.FindAsync(announcementId);
+                if (announcement != null)
+                {
+                    announcement.IsArchived = false;
+                    announcement.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Announcement restored.";
+            return RedirectToAction(nameof(Announcements), new { filter, archiveStatus = "active" });
         }
 
         [HttpPost]
@@ -2377,15 +2512,40 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+
             var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
             if (discussion != null)
             {
-                discussion.IsActive = false;
+                discussion.IsArchived = true;
                 discussion.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
             }
 
             return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+        }
+
+        [HttpPost]
+        [DenyViewOnly]
+        public async Task<IActionResult> RestoreDiscussion(int id, string q = "", string categoryFilter = "All Categories")
+        {
+            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            if (role != "barangay_admin" && role != "super_admin")
+                return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
+            if (discussion != null)
+            {
+                discussion.IsArchived = false;
+                discussion.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter, archiveStatus = "active" });
         }
 
         [HttpPost]

@@ -192,6 +192,8 @@
     };
 
     var featured = Model.FeaturedPractice;
+    var archiveStatus = Model.ArchiveStatus ?? "active";
+    var canArchive = Model.CanArchive;
 }
 
 <div class="container-fluid">
@@ -251,8 +253,46 @@
         </div>
     }
 
+    <!-- Stats & Archive Tabs -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="soft-card p-3 text-center">
+                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@Model.TotalPractices</div>
+                <div class="text-muted" style="font-size: 13px;">Active Practices</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="soft-card p-3 text-center">
+                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@Model.ArchivedPractices</div>
+                <div class="text-muted" style="font-size: 13px;">Archived</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Status Tabs -->
+    <div class="mb-4">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "active" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="active">
+                    <i class="bi bi-check-circle me-1"></i>Active
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "archived" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="archived">
+                    <i class="bi bi-archive me-1"></i>Archived
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "all" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="all">
+                    <i class="bi bi-list me-1"></i>All
+                </a>
+            </li>
+        </ul>
+    </div>
+
     <!-- Filters -->
     <form method="get" asp-action="BestPractices">
+        <input type="hidden" name="archiveStatus" value="@archiveStatus" />
         <div class="soft-card mb-4">
             <div class="p-3 p-md-4">
                 <div class="row g-3 align-items-center">
@@ -322,7 +362,7 @@
                                             </button>
                                         </li>
 
-                                        @if (Model.CanManage)
+                                        @if (Model.CanManage && !p.IsArchived)
                                         {
                                             <li>
                                                 <button type="button" class="dropdown-item"
@@ -339,16 +379,34 @@
                                                     <i class="bi bi-pencil me-2"></i>Edit
                                                 </button>
                                             </li>
+                                        }
+                                        @if (canArchive)
+                                        {
                                             <li><hr class="dropdown-divider" /></li>
-                                            <li>
-                                                <button type="button" class="dropdown-item text-warning"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#bpArchiveModal"
-                                                        data-id="@p.Id"
-                                                        data-title="@p.Title">
-                                                    <i class="bi bi-archive me-2"></i>Archive
-                                                </button>
-                                            </li>
+                                            @if (p.IsArchived)
+                                            {
+                                                <li>
+                                                    <form asp-action="RestorePractice" method="post" onsubmit="return confirm('Restore this practice?');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@p.Id" />
+                                                        <button type="submit" class="dropdown-item text-success">
+                                                            <i class="bi bi-arrow-counterclockwise me-2"></i>Restore
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            }
+                                            else
+                                            {
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-warning"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#bpArchiveModal"
+                                                            data-id="@p.Id"
+                                                            data-title="@p.Title">
+                                                        <i class="bi bi-archive me-2"></i>Archive
+                                                    </button>
+                                                </li>
+                                            }
                                         }
                                     </ul>
                                 </div>

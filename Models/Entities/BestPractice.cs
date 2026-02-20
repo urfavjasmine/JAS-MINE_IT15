@@ -78,9 +78,9 @@ namespace JAS_MINE_IT15.Models.Entities
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Soft delete flag
+        /// Soft delete flag for archive functionality
         /// </summary>
-        public bool IsDeleted { get; set; } = false;
+        public bool IsArchived { get; set; } = false;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

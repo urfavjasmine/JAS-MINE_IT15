@@ -8,6 +8,8 @@
     // Permissions from controller
     var canCreate = Model?.CanCreate ?? false;
     var canApprove = Model?.CanApprove ?? false;
+    var canArchive = Model?.CanArchive ?? false;
+    var archiveStatus = Model?.ArchiveStatus ?? "active";
 
     // TODO: Load from database via controller
     var policies = Model?.Policies ?? new List<JAS_MINE_IT15.Models.PolicyItem>();
@@ -247,6 +249,27 @@
         }
     </div>
 
+    <!-- Archive Status Tabs -->
+    <div class="mb-4">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "active" ? "active" : "")" asp-action="PoliciesManagement" asp-route-archiveStatus="active">
+                    <i class="bi bi-check-circle me-1"></i>Active (@(Model?.CountAll ?? 0))
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "archived" ? "active" : "")" asp-action="PoliciesManagement" asp-route-archiveStatus="archived">
+                    <i class="bi bi-archive me-1"></i>Archived (@(Model?.CountArchived ?? 0))
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "all" ? "active" : "")" asp-action="PoliciesManagement" asp-route-archiveStatus="all">
+                    <i class="bi bi-list me-1"></i>All
+                </a>
+            </li>
+        </ul>
+    </div>
+
     <!-- Status Tabs -->
     <div class="mb-3">
         <div class="status-tabs" role="tablist" aria-label="Policy Status Tabs">
@@ -333,13 +356,33 @@
                                                 <i class="bi bi-pencil-square me-2"></i>Edit
                                             </button>
                                         </li>
+                                    }
+                                    @if (canArchive)
+                                    {
                                         <li><hr class="dropdown-divider" /></li>
-                                        <li>
-                                            <button class="dropdown-item text-warning" type="button" data-bs-toggle="modal" data-bs-target="#archiveModal"
-                                                    onclick="openArchive('@p.Id','@js(p.Title)')">
-                                                <i class="bi bi-archive me-2"></i>Archive
-                                            </button>
-                                        </li>
+                                        @if (p.IsArchived)
+                                        {
+                                            <li>
+                                                <form method="post" asp-action="RestorePolicy" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@p.Id" />
+                                                    <input type="hidden" name="status" value="@(Model?.StatusFilter ?? "")" />
+                                                    <input type="hidden" name="q" value="@(Model?.SearchQuery ?? "")" />
+                                                    <button class="dropdown-item text-success" type="submit" onclick="return confirm('Restore this policy?');">
+                                                        <i class="bi bi-arrow-counterclockwise me-2"></i>Restore
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        }
+                                        else
+                                        {
+                                            <li>
+                                                <button class="dropdown-item text-warning" type="button" data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                                        onclick="openArchive('@p.Id','@js(p.Title)')">
+                                                    <i class="bi bi-archive me-2"></i>Archive
+                                                </button>
+                                            </li>
+                                        }
                                     }
                                     @if (canApprove && p.Status == "pending")
                                     {

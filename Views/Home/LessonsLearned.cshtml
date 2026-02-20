@@ -8,6 +8,8 @@
     var userName = Context.Session.GetString("UserName") ?? "User";
     var canSubmit = Model?.CanSubmit ?? false;
     var canModify = Model?.CanModify ?? false;
+    var canArchive = Model?.CanArchive ?? false;
+    var archiveStatus = Model?.ArchiveStatus ?? "active";
     var lessons = Model?.Lessons ?? new List<JAS_MINE_IT15.Models.LessonRow>();
 }
 
@@ -63,7 +65,7 @@
         <div class="col-6 col-md-3">
             <div class="soft-card stat-card">
                 <div class="stat-value">@Model?.TotalLessons</div>
-                <div class="stat-label">Total Lessons</div>
+                <div class="stat-label">Active Lessons</div>
             </div>
         </div>
         <div class="col-6 col-md-3">
@@ -72,6 +74,33 @@
                 <div class="stat-label">Recent (30 days)</div>
             </div>
         </div>
+        <div class="col-6 col-md-3">
+            <div class="soft-card stat-card">
+                <div class="stat-value">@Model?.ArchivedLessons</div>
+                <div class="stat-label">Archived</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Status Tabs -->
+    <div class="mb-4">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "active" ? "active" : "")" asp-action="LessonsLearned" asp-route-archiveStatus="active">
+                    <i class="bi bi-check-circle me-1"></i>Active
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "archived" ? "active" : "")" asp-action="LessonsLearned" asp-route-archiveStatus="archived">
+                    <i class="bi bi-archive me-1"></i>Archived
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(archiveStatus == "all" ? "active" : "")" asp-action="LessonsLearned" asp-route-archiveStatus="all">
+                    <i class="bi bi-list me-1"></i>All
+                </a>
+            </li>
+        </ul>
     </div>
 
     <!-- Filters -->
@@ -105,38 +134,65 @@
                         <th>Title</th>
                         <th>Problem</th>
                         <th>Date Recorded</th>
+                        <th>Status</th>
                         <th style="width: 100px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (lessons.Count == 0)
                     {
-                        <tr><td colspan="4" class="text-center text-muted py-4">No lessons found.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted py-4">No lessons found.</td></tr>
                     }
                     else
                     {
                         foreach (var lesson in lessons)
                         {
-                            <tr>
+                            <tr class="@(lesson.IsArchived ? "table-secondary" : "")">
                                 <td><strong>@lesson.Title</strong></td>
                                 <td>@(lesson.Problem.Length > 80 ? lesson.Problem.Substring(0, 80) + "..." : lesson.Problem)</td>
                                 <td>@lesson.Date</td>
+                                <td>
+                                    @if (lesson.IsArchived)
+                                    {
+                                        <span class="badge bg-secondary"><i class="bi bi-archive me-1"></i>Archived</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                    }
+                                </td>
                                 <td>
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-light" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li><a class="dropdown-item" href="#" onclick="viewLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-eye me-2"></i>View</a></li>
-                                            @if (canModify)
+                                            @if (canModify && !lesson.IsArchived)
                                             {
                                                 <li><a class="dropdown-item" href="#" onclick="editLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            }
+                                            @if (canArchive)
+                                            {
                                                 <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <form asp-action="ArchiveLesson" method="post" onsubmit="return confirm('Archive this lesson?');">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="id" value="@lesson.Id" />
-                                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-archive me-2"></i>Archive</button>
-                                                    </form>
-                                                </li>
+                                                @if (lesson.IsArchived)
+                                                {
+                                                    <li>
+                                                        <form asp-action="RestoreLesson" method="post" onsubmit="return confirm('Restore this lesson?');">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@lesson.Id" />
+                                                            <button type="submit" class="dropdown-item text-success"><i class="bi bi-arrow-counterclockwise me-2"></i>Restore</button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                else
+                                                {
+                                                    <li>
+                                                        <form asp-action="ArchiveLesson" method="post" onsubmit="return confirm('Archive this lesson?');">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="id" value="@lesson.Id" />
+                                                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-archive me-2"></i>Archive</button>
+                                                        </form>
+                                                    </li>
+                                                }
                                             }
                                         </ul>
                                     </div>

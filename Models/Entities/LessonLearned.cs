@@ -75,9 +75,9 @@ namespace JAS_MINE_IT15.Models.Entities
         public int? BarangayId { get; set; }
 
         /// <summary>
-        /// Soft delete flag
+        /// Soft delete flag for archive functionality
         /// </summary>
-        public bool IsDeleted { get; set; } = false;
+        public bool IsArchived { get; set; } = false;
 
         public int LikesCount { get; set; } = 0;
 

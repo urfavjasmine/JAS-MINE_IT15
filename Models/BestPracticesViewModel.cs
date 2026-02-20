@@ -8,8 +8,10 @@ namespace JAS_MINE_IT15.Models
         public string SearchQuery { get; set; } = "";
         public string SelectedCategory { get; set; } = "";
         public string SelectedStatus { get; set; } = "";
+        public string ArchiveStatus { get; set; } = "active";
         public bool CanManage { get; set; }
         public bool CanModify { get; set; }
+        public bool CanArchive { get; set; }
 
         // Stats
         public int TotalPractices { get; set; }
@@ -44,6 +46,7 @@ namespace JAS_MINE_IT15.Models
         public string SubmittedBy { get; set; } = "";
         public DateTime CreatedAt { get; set; }
         public bool IsFeatured { get; set; }
+        public bool IsArchived { get; set; }
         public bool Featured => IsFeatured;
     }
 }

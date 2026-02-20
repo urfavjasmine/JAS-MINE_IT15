@@ -8,14 +8,17 @@ namespace JAS_MINE_IT15.Models
         // Permissions
         public bool CanSubmit { get; set; }
         public bool CanModify { get; set; }
+        public bool CanArchive { get; set; }
 
         // Stats
         public int TotalLessons { get; set; }
         public int RecentLessons { get; set; }
+        public int ArchivedLessons { get; set; }
 
         // Filters
         public string SearchQuery { get; set; } = "";
         public string DateFilter { get; set; } = "";
+        public string ArchiveStatus { get; set; } = "active";
         public List<string> AvailableDates { get; set; } = new();
 
         // TODO: Load from database
@@ -42,6 +45,7 @@ namespace JAS_MINE_IT15.Models
         public string SubmittedBy { get; set; } = "";
         public string Date { get; set; } = "";
         public string Status { get; set; } = "";  // approved, pending, draft
+        public bool IsArchived { get; set; }
         public List<string> Tags { get; set; } = new();
         public int Likes { get; set; }
         public int Comments { get; set; }

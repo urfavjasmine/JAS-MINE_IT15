@@ -12,5 +12,6 @@
         public string LastUpdated { get; set; } = "";
         public string Author { get; set; } = "";
         public string Version { get; set; } = "1.0";
+        public bool IsArchived { get; set; }
     }
 }
