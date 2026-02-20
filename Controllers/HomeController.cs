@@ -309,15 +309,25 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
         }
 
-        // POST: Delete
+        // POST: Archive
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeletePayment(string id, string q = "")
+        public async Task<IActionResult> ArchivePayment(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            TempData["Success"] = "Payment deleted.";
+            if (int.TryParse(id, out var paymentId))
+            {
+                var payment = await _context.SubscriptionPayments.FindAsync(paymentId);
+                if (payment != null)
+                {
+                    payment.IsActive = false;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Payment archived.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
         }
 
@@ -410,15 +420,26 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
         }
 
-        // POST: Delete Plan
+        // POST: Archive Plan
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeletePlan(string id, string q = "")
+        public async Task<IActionResult> ArchivePlan(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
-            TempData["Success"] = "Plan removed.";
+            if (int.TryParse(id, out var planId))
+            {
+                var plan = await _context.SubscriptionPlans.FindAsync(planId);
+                if (plan != null)
+                {
+                    plan.IsActive = false;
+                    plan.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Plan archived.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
         }
 
@@ -657,7 +678,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteDoc(string id)
+        public async Task<IActionResult> ArchiveDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
@@ -877,13 +898,13 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeletePolicy(string id, string status = "all", string q = "")
+        public async Task<IActionResult> ArchivePolicy(string id, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canDelete = role == "barangay_admin" || role == "super_admin";
-            if (!canDelete) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+            var canArchive = role == "barangay_admin" || role == "super_admin";
+            if (!canArchive) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (int.TryParse(id, out var policyId))
             {
@@ -1049,13 +1070,25 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeletePractice(string id)
+        public async Task<IActionResult> ArchivePractice(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
             if (role != "barangay_admin" && role != "super_admin" && role != "barangay_secretary")
                 return RedirectToAction(nameof(BestPractices));
 
+            if (int.TryParse(id, out var practiceId))
+            {
+                var practice = await _context.BestPractices.FindAsync(practiceId);
+                if (practice != null)
+                {
+                    practice.IsActive = false;
+                    practice.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Practice archived.";
             return RedirectToAction(nameof(BestPractices));
         }
 
@@ -1299,11 +1332,23 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteAnnouncement(string id, string filter = "all")
+        public async Task<IActionResult> ArchiveAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
+            if (int.TryParse(id, out var announcementId))
+            {
+                var announcement = await _context.Announcements.FindAsync(announcementId);
+                if (announcement != null)
+                {
+                    announcement.IsActive = false;
+                    announcement.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Announcement archived.";
             return RedirectToAction(nameof(Announcements), new { filter });
         }
 
@@ -1366,11 +1411,22 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteLog(string id, string q = "", string module = "all")
+        public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToAction(nameof(DashboardHome));
 
+            if (long.TryParse(id, out var logId))
+            {
+                var log = await _context.AuditLogs.FindAsync(logId);
+                if (log != null)
+                {
+                    log.IsActive = false;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            TempData["Success"] = "Log entry archived.";
             return RedirectToAction(nameof(AuditLogs), new { q, module });
         }
 

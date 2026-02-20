@@ -339,12 +339,12 @@
                                             </li>
                                             <li><hr class="dropdown-divider" /></li>
                                             <li>
-                                                <button type="button" class="dropdown-item text-danger"
+                                                <button type="button" class="dropdown-item text-warning"
                                                         data-bs-toggle="modal"
-                                                        data-bs-target="#bpDeleteModal"
+                                                        data-bs-target="#bpArchiveModal"
                                                         data-id="@p.Id"
                                                         data-title="@p.Title">
-                                                    <i class="bi bi-trash me-2"></i>Delete
+                                                    <i class="bi bi-archive me-2"></i>Archive
                                                 </button>
                                             </li>
                                         }
@@ -535,31 +535,31 @@
 </div>
 
 <!-- =========================
-     DELETE MODAL
+     ARCHIVE MODAL
 ========================= -->
 @if (Model.CanManage)
 {
-    <div class="modal fade" id="bpDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="bpArchiveModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius:12px;">
-                <form method="post" asp-action="DeletePractice">
+                <form method="post" asp-action="ArchivePractice">
                     @Html.AntiForgeryToken()
 
                     <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Delete Practice</h5>
+                        <h5 class="modal-title fw-bold">Archive Practice</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
 
                     <div class="modal-body">
-                        <input type="hidden" name="id" id="bpDeleteId" />
-                        Are you sure you want to delete "<span class="fw-bold" id="bpDeleteTitle"></span>"?
+                        <input type="hidden" name="id" id="bpArchiveId" />
+                        Are you sure you want to archive "<span class="fw-bold" id="bpArchiveTitle"></span>"?
                         <input type="hidden" name="q" value="@Model.SearchQuery" />
                         <input type="hidden" name="cat" value="@Model.SelectedCategory" />
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-soft px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger px-4">Delete</button>
+                        <button type="submit" class="btn btn-warning px-4">Archive</button>
                     </div>
                 </form>
             </div>
@@ -613,15 +613,15 @@
             });
         }
 
-        // Populate DELETE modal
-        const bpDeleteModal = document.getElementById('bpDeleteModal');
-        if (bpDeleteModal) {
-            bpDeleteModal.addEventListener('show.bs.modal', function (event) {
+        // Populate ARCHIVE modal
+        const bpArchiveModal = document.getElementById('bpArchiveModal');
+        if (bpArchiveModal) {
+            bpArchiveModal.addEventListener('show.bs.modal', function (event) {
                 const btn = event.relatedTarget;
                 if (!btn) return;
 
-                document.getElementById('bpDeleteId').value = btn.getAttribute('data-id') || '';
-                document.getElementById('bpDeleteTitle').textContent = btn.getAttribute('data-title') || '';
+                document.getElementById('bpArchiveId').value = btn.getAttribute('data-id') || '';
+                document.getElementById('bpArchiveTitle').textContent = btn.getAttribute('data-title') || '';
             });
         }
     </script>

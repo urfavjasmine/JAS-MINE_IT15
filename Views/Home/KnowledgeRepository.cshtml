@@ -375,15 +375,15 @@
                                                     </li>
                                                 }
 
-                                                <!-- DELETE (only if canUpload) -->
+                                                <!-- ARCHIVE (only if canUpload) -->
                                                 @if (canUpload)
                                                 {
                                                     <li><hr class="dropdown-divider"></li>
                                                     <li>
-                                                        <button type="button" class="dropdown-item text-danger"
-                                                                data-bs-toggle="modal" data-bs-target="#deleteModal"
-                                                                onclick="openDelete('@doc.Id','@js(doc.Title)')">
-                                                            <i class="bi bi-trash me-2"></i>Delete
+                                                        <button type="button" class="dropdown-item text-warning"
+                                                                data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                                                onclick="openArchive('@doc.Id','@js(doc.Title)')">
+                                                            <i class="bi bi-archive me-2"></i>Archive
                                                         </button>
                                                     </li>
                                                 }
@@ -518,23 +518,23 @@
     </div>
 </div>
 
-<!-- DELETE MODAL -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+<!-- ARCHIVE MODAL -->
+<div class="modal fade" id="archiveModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="post" action="@Url.Action("DeleteDoc","Home")">
+            <form method="post" action="@Url.Action("ArchiveDoc","Home")">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" id="dId" />
                 <div class="modal-header">
-                    <h5 class="modal-title text-danger">Delete Document</h5>
+                    <h5 class="modal-title text-warning">Archive Document</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    Are you sure you want to delete "<span id="dTitle"></span>"?
+                    Are you sure you want to archive "<span id="dTitle"></span>"?
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-danger" type="submit">Delete</button>
+                    <button class="btn btn-warning" type="submit">Archive</button>
                 </div>
             </form>
         </div>
@@ -578,7 +578,7 @@
         document.getElementById('vMeta').innerText = "Status: " + status + " • v" + version;
     }
 
-    function openDelete(id, title) {
+    function openArchive(id, title) {
         document.getElementById('dId').value = id;
         document.getElementById('dTitle').innerText = title;
     }

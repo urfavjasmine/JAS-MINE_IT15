@@ -162,11 +162,11 @@
                             </button>
                         </form>
 
-                        <!-- DELETE -->
-                        <button class="btn btn-light action-btn" title="Delete"
-                                data-bs-toggle="modal" data-bs-target="#deleteModal"
-                                onclick="openDelete('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
-                            <i class="bi bi-trash text-danger"></i>
+                        <!-- ARCHIVE -->
+                        <button class="btn btn-light action-btn" title="Archive"
+                                data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                onclick="openArchive('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
+                            <i class="bi bi-archive text-warning"></i>
                         </button>
                     </div>
                 </div>
@@ -231,28 +231,28 @@
     </div>
 </div>
 
-<!-- DELETE MODAL -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+<!-- ARCHIVE MODAL -->
+<div class="modal fade" id="archiveModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
 
-            <form method="post" action="@Url.Action("DeleteAnnouncement","Home")">
+            <form method="post" action="@Url.Action("ArchiveAnnouncement","Home")">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="filter" value="@Model.Filter" />
-                <input type="hidden" id="deleteId" name="id" />
+                <input type="hidden" id="archiveId" name="id" />
 
                 <div class="modal-header">
-                    <h5 class="modal-title text-danger">Delete Announcement</h5>
+                    <h5 class="modal-title text-warning">Archive Announcement</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
-                    Are you sure you want to delete "<span class="fw-semibold" id="deleteName"></span>"?
+                    Are you sure you want to archive "<span class="fw-semibold" id="archiveName"></span>"?
                 </div>
 
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-danger" type="submit">Delete</button>
+                    <button class="btn btn-warning" type="submit">Archive</button>
                 </div>
             </form>
 
@@ -291,8 +291,8 @@
         document.getElementById('formStatus').value = status;
     }
 
-    function openDelete(id, title) {
-        document.getElementById('deleteId').value = id;
-        document.getElementById('deleteName').innerText = title;
+    function openArchive(id, title) {
+        document.getElementById('archiveId').value = id;
+        document.getElementById('archiveName').innerText = title;
     }
 </script>
