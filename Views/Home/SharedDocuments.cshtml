@@ -1,0 +1,242 @@
+@model JAS_MINE_IT15.Models.SharedDocumentsViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Shared Documents";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+<style>
+    .page-wrap { padding: 18px; }
+    .stat-card { border-radius: 12px; }
+    .table-wrap { border: 1px solid #e5e7eb; border-radius: 12px; overflow: visible; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(13,110,253,.10); color: #0d6efd; font-size: 12px; font-weight: 700; }
+    .muted { color: #6b7280; }
+    .kebab { width: 38px; height: 38px; border-radius: 10px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; position: relative; z-index: 10; }
+    .dropdown .dropdown-menu { z-index: 1050; }
+    .doc-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(13,110,253,.10); display: flex; align-items: center; justify-content: center; color: #0d6efd; }
+</style>
+
+<div class="page-wrap">
+
+    <!-- Page title + Add Document -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="mb-0">Shared Documents</h3>
+            <div class="muted">Share and manage documents with your barangay.</div>
+        </div>
+        @if (Model.CanCreate)
+        {
+            <button class="btn btn-primary d-flex align-items-center gap-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createEditModal"
+                    onclick="openCreate()">
+                <span style="font-weight:900;">+</span>
+                Share Document
+            </button>
+        }
+    </div>
+
+    <!-- Stat cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-primary">@Model.TotalDocuments</div>
+                    <div class="small muted">Total Documents</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card stat-card">
+                <div class="card-body text-center py-4">
+                    <div class="fs-2 fw-bold text-success">@Model.TotalDownloads</div>
+                    <div class="small muted">Total Downloads</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">Documents</div>
+
+            <!-- Search -->
+            <div class="d-flex gap-2 mb-3">
+                <form method="get" class="d-flex gap-2 w-100">
+                    <input name="q" class="form-control" placeholder="Search by title or filename..." value="@Model.SearchQuery" />
+                    <button type="submit" class="btn btn-outline-primary">Search</button>
+                </form>
+            </div>
+
+            <div class="table-wrap">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Document</th>
+                            <th class="d-none d-md-table-cell">Shared By</th>
+                            <th class="d-none d-md-table-cell">Downloads</th>
+                            <th class="d-none d-md-table-cell">Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model.Documents)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="doc-icon"><i class="bi bi-file-earmark-text"></i></div>
+                                        <div>
+                                            <div class="fw-semibold">@d.Title</div>
+                                            <div class="small muted">@d.FileName</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="d-none d-md-table-cell muted">@d.SharedByName</td>
+                                <td class="d-none d-md-table-cell">
+                                    <span class="badge bg-light text-dark border">@d.DownloadCount</span>
+                                </td>
+                                <td class="d-none d-md-table-cell muted">@d.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-light kebab dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">⋯</button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewModal"
+                                                        onclick="openView('@d.Id','@d.Title','@d.FileName','@d.FileUrl','@d.SharedByName','@d.DownloadCount','@d.CreatedAt.ToString("yyyy-MM-dd")')">
+                                                    View
+                                                </button>
+                                            </li>
+                                            @if (!string.IsNullOrEmpty(d.FileUrl))
+                                            {
+                                                <li><a class="dropdown-item" href="@d.FileUrl" target="_blank">Download</a></li>
+                                            }
+                                            @if (Model.CanEdit)
+                                            {
+                                                <li>
+                                                    <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createEditModal"
+                                                            onclick="openEdit('@d.Id','@d.Title','@d.FileUrl','@d.FileName')">
+                                                        Edit
+                                                    </button>
+                                                </li>
+                                            }
+                                            @if (Model.CanArchive)
+                                            {
+                                                <li><hr class="dropdown-divider" /></li>
+                                                <li>
+                                                    <form method="post" asp-action="ArchiveSharedDocument" asp-route-id="@d.Id" asp-route-q="@Model.SearchQuery">
+                                                        <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Archive this document?')">Archive</button>
+                                                    </form>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Documents.Any())
+                        {
+                            <tr><td colspan="5" class="text-center text-muted py-4">No shared documents found.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Document Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Title</dt><dd class="col-sm-8" id="vTitle"></dd>
+                    <dt class="col-sm-4">File Name</dt><dd class="col-sm-8" id="vFileName"></dd>
+                    <dt class="col-sm-4">Shared By</dt><dd class="col-sm-8" id="vSharedBy"></dd>
+                    <dt class="col-sm-4">Downloads</dt><dd class="col-sm-8" id="vDownloads"></dd>
+                    <dt class="col-sm-4">Date</dt><dd class="col-sm-8" id="vDate"></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="createEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="docForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Share Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="fId" />
+                    <input type="hidden" name="q" value="@Model.SearchQuery" />
+                    <div class="mb-3">
+                        <label class="form-label">Title *</label>
+                        <input type="text" name="title" id="fTitle" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File URL</label>
+                        <input type="url" name="fileUrl" id="fFileUrl" class="form-control" placeholder="https://..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File Name</label>
+                        <input type="text" name="fileName" id="fFileName" class="form-control" placeholder="document.pdf" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openCreate() {
+        document.getElementById('modalTitle').textContent = 'Share Document';
+        document.getElementById('docForm').action = '@Url.Action("CreateSharedDocument")';
+        document.getElementById('fId').value = '';
+        document.getElementById('fTitle').value = '';
+        document.getElementById('fFileUrl').value = '';
+        document.getElementById('fFileName').value = '';
+    }
+
+    function openEdit(id, title, fileUrl, fileName) {
+        document.getElementById('modalTitle').textContent = 'Edit Document';
+        document.getElementById('docForm').action = '@Url.Action("EditSharedDocument")';
+        document.getElementById('fId').value = id;
+        document.getElementById('fTitle').value = title;
+        document.getElementById('fFileUrl').value = fileUrl;
+        document.getElementById('fFileName').value = fileName;
+    }
+
+    function openView(id, title, fileName, fileUrl, sharedBy, downloads, date) {
+        document.getElementById('vTitle').textContent = title;
+        document.getElementById('vFileName').textContent = fileName || '-';
+        document.getElementById('vSharedBy').textContent = sharedBy;
+        document.getElementById('vDownloads').textContent = downloads;
+        document.getElementById('vDate').textContent = date;
+    }
+
+    // Ensure Bootstrap dropdowns are initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.kebab[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
+</script>

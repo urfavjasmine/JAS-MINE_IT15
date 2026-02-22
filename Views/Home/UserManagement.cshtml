@@ -47,7 +47,7 @@
     .table-wrap {
         border: 1px solid #e5e7eb;
         border-radius: 12px;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .avatar {
@@ -71,7 +71,15 @@
         width: 38px;
         height: 38px;
         border-radius: 10px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        z-index: 10;
     }
+    .dropdown .dropdown-menu { z-index: 1050; }
 </style>
 
 <div class="page-wrap">
@@ -215,8 +223,8 @@
                                 <td class="text-end">
                                     <div class="dropdown">
 
-                                        <button class="btn btn-light kebab dropdown-toggle"
-                                                data-bs-toggle="dropdown">
+                                        <button class="btn btn-light kebab dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false">
                                             ⋯
                                         </button>
 
@@ -405,5 +413,14 @@
         });
 
     }
+
+    // Ensure Bootstrap dropdowns are initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.kebab[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
 
 </script>

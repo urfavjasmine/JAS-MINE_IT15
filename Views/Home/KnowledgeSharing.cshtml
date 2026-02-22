@@ -97,17 +97,24 @@
 
     .btn-ghost {
         background: transparent;
-        border: 0;
+        border: 1px solid transparent;
         padding: 6px 10px;
         border-radius: 10px;
         color: #6c7a89;
         font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        z-index: 10;
     }
 
-        .btn-ghost:hover {
+        .btn-ghost:hover, .btn-ghost:focus {
             background: #f1f5f9;
             color: #163a5f;
+            border-color: #e6edf5;
         }
+    .discussion-card .dropdown { position: relative; z-index: 10; }
+    .discussion-card .dropdown-menu { z-index: 1050; }
+    .discussion-card { overflow: visible !important; }
 
     .tab-pill {
         border: 1px solid #e6edf5;
@@ -306,7 +313,7 @@
                                             </div>
 
                                             <div class="dropdown">
-                                                <button class="btn-ghost" type="button" data-bs-toggle="dropdown" title="More">
+                                                <button class="btn-ghost" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More">
                                                     <i class="bi bi-three-dots"></i>
                                                 </button>
                                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -623,3 +630,14 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Ensure Bootstrap dropdowns are initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.btn-ghost[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
+</script>

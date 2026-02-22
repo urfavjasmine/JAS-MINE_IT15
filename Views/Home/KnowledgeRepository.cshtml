@@ -181,16 +181,26 @@
 
     /* Actions button */
     .btn-actions {
-        border: 0;
-        background: transparent;
+        border: 1px solid #e6edf5;
+        background: #fff;
         width: 40px;
         height: 40px;
         border-radius: 10px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        z-index: 10;
+        flex-shrink: 0;
     }
 
-        .btn-actions:hover {
+        .btn-actions:hover, .btn-actions:focus {
             background: #f2f6fb;
+            border-color: #cdd8e5;
         }
+    .dropdown .dropdown-menu { z-index: 1050; }
 
     /* Responsive hide columns like screenshot */
     @@media (max-width: 991.98px) { /* lg down */
@@ -726,4 +736,13 @@
         document.getElementById('dId').value = id;
         document.getElementById('dTitle').innerText = title;
     }
+
+    // Ensure Bootstrap dropdowns are initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.btn-actions[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
 </script>

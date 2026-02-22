@@ -659,8 +659,25 @@ namespace JAS_MINE_IT15.Controllers
             var businessUser = await _context.BusinessUsers
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower() && u.IsActive);
 
-            int? barangayId = businessUser?.BarangayId;
-            string barangayName = businessUser?.BarangayName ?? "";
+            // Auto-create BusinessUser record if it doesn't exist (Identity user exists but BusinessUser doesn't)
+            if (businessUser == null)
+            {
+                businessUser = new Models.Entities.User
+                {
+                    Email = user.Email ?? model.Email,
+                    FullName = user.UserName ?? model.Email,
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = role,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                _context.BusinessUsers.Add(businessUser);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[Login] Auto-created BusinessUser for: {model.Email}, Id: {businessUser.Id}");
+            }
+
+            int? barangayId = businessUser.BarangayId;
+            string barangayName = businessUser.BarangayName ?? "";
 
             // Add BarangayId as claim
             await AddBarangayClaimAsync(user, barangayId);
@@ -831,20 +848,30 @@ namespace JAS_MINE_IT15.Controllers
             {
                 uploaderId = parsedId;
             }
-            else
+
+            if (uploaderId == 0)
             {
-                // Fallback: Try to find user by email
-                var userEmail = HttpContext.Session.GetString("UserName") ?? "";
-                uploaderId = await _context.BusinessUsers
-                    .Where(u => u.Email == userEmail && u.IsActive)
-                    .Select(u => u.Id)
-                    .FirstOrDefaultAsync();
+                // Fallback: Try to find user by email (case-insensitive)
+                var userEmail = (HttpContext.Session.GetString("UserName") ?? "").ToLower();
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    uploaderId = await _context.BusinessUsers
+                        .Where(u => u.Email.ToLower() == userEmail && u.IsActive)
+                        .Select(u => u.Id)
+                        .FirstOrDefaultAsync();
+
+                    // Update session so future requests don't need fallback
+                    if (uploaderId > 0)
+                    {
+                        HttpContext.Session.SetString("UserId", uploaderId.ToString());
+                    }
+                }
             }
 
             if (uploaderId == 0)
             {
-                TempData["Error"] = "User session expired. Please login again.";
-                return RedirectToAction(nameof(Login));
+                TempData["Error"] = "Your account is not linked to a user profile. Please contact the administrator.";
+                return RedirectToAction(nameof(KnowledgeRepository));
             }
 
             // Handle file upload

@@ -25,6 +25,9 @@
     .table-container { padding: 0; }
     .table thead th { background: #f8fafc; font-weight: 700; color: #344054; border-bottom: 2px solid #e6edf5; }
     .table tbody td { vertical-align: middle; }
+    .table-responsive { overflow: visible !important; }
+    .soft-card.table-container { overflow: visible !important; }
+    .dropdown .dropdown-menu { z-index: 1050; }
     .modal .form-label { font-weight: 700; color: #1f2d3d; }
     .modal .form-control, .modal .form-select { border-radius: 10px; border: 1px solid #d9e3ef; }
     .alert { border-radius: 10px; }
@@ -163,7 +166,7 @@
                                 </td>
                                 <td>
                                     <div class="dropdown">
-                                        <button class="btn btn-sm btn-light" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                                        <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="cursor:pointer; position:relative; z-index:10;"><i class="bi bi-three-dots"></i></button>
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li><a class="dropdown-item" href="#" onclick="viewLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-eye me-2"></i>View</a></li>
                                             @if (canModify && !lesson.IsArchived)
@@ -295,4 +298,13 @@
         document.getElementById('editRecommendation').value = recommendation;
         new bootstrap.Modal(document.getElementById('editModal')).show();
     }
+
+    // Ensure Bootstrap dropdowns are initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
 </script>

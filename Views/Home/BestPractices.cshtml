@@ -184,13 +184,25 @@
         width: 36px;
         height: 36px;
         border-radius: 10px;
-        border: 0;
-        background: transparent;
+        border: 1px solid #e6edf5;
+        background: #fff;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        z-index: 10;
+        flex-shrink: 0;
     }
 
-        .btn-kebab:hover {
+        .btn-kebab:hover, .btn-kebab:focus {
             background: #f2f6fb;
+            border-color: #cdd8e5;
         }
+    .practice-card .dropdown { position: relative; z-index: 10; flex-shrink: 0; }
+    .practice-card .dropdown-menu { z-index: 1050; }
+    .practice-card { overflow: visible !important; }
 </style>
 
 @{
@@ -352,7 +364,7 @@
                                 }
 
                                 <div class="dropdown">
-                                    <button class="btn-kebab" data-bs-toggle="dropdown" type="button">
+                                    <button class="btn-kebab" data-bs-toggle="dropdown" type="button" aria-expanded="false">
                                         <i class="bi bi-three-dots-vertical"></i>
                                     </button>
 
@@ -721,5 +733,12 @@
                 document.getElementById('bpArchiveTitle').textContent = btn.getAttribute('data-title') || '';
             });
         }
+
+        // Ensure Bootstrap dropdowns are initialized for kebab buttons
+        document.querySelectorAll('.btn-kebab[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
     </script>
 }

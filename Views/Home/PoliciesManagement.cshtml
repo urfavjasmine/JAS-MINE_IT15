@@ -225,6 +225,7 @@
     .kebab-btn {
         width: 34px;
         height: 34px;
+        min-width: 34px;
         border-radius: 10px;
         padding: 0;
         display: inline-flex;
@@ -234,16 +235,24 @@
         background: #fff;
         cursor: pointer;
         position: relative;
-        z-index: 2;
+        z-index: 10;
+        flex-shrink: 0;
     }
-    .kebab-btn:hover {
+    .kebab-btn:hover, .kebab-btn:focus {
         background: #f0f3f8;
+        border-color: #cdd8e5;
     }
-    .kebab-btn + .dropdown-menu {
+    .policy-card .dropdown {
+        position: relative;
+        z-index: 10;
+        flex-shrink: 0;
+    }
+    .policy-card .dropdown-menu {
         z-index: 1050;
     }
     .soft-card.policy-card {
         overflow: visible;
+        position: relative;
     }
 </style>
 
@@ -346,17 +355,17 @@
                      data-title="@p.Title.ToLower()"
                      data-desc="@p.Description.ToLower()">
                     <div class="soft-card policy-card">
-                        <div class="d-flex align-items-start justify-content-between gap-2">
-                            <div class="d-flex align-items-start gap-2">
+                        <div class="d-flex align-items-start justify-content-between gap-2" style="position: relative;">
+                            <div class="d-flex align-items-start gap-2" style="flex: 1; min-width: 0;">
                                 @Html.Raw(StatusIcon(p.Status))
-                                <div>
+                                <div style="min-width: 0;">
                                     <h3 class="policy-title">@p.Title</h3>
                                 </div>
                             </div>
 
                             <!-- 3 dots dropdown -->
-                            <div class="dropdown">
-                                <button class="btn btn-light kebab-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true">
+                            <div class="dropdown" style="flex-shrink: 0;">
+                                <button class="btn btn-light kebab-btn" type="button" id="policyMenu_@p.Id" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="bi bi-three-dots-vertical"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -641,4 +650,13 @@
 
         setActiveTab("all");
     })();
+
+    // Ensure Bootstrap dropdowns are initialized for kebab buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.kebab-btn[data-bs-toggle="dropdown"]').forEach(function(btn) {
+            if (!bootstrap.Dropdown.getInstance(btn)) {
+                new bootstrap.Dropdown(btn);
+            }
+        });
+    });
 </script>
