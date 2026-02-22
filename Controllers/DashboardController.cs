@@ -209,6 +209,115 @@ namespace JAS_MINE_IT15.Controllers
                 })
                 .ToListAsync();
 
+            // Get current user ID for "My" queries
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            int.TryParse(userIdStr, out var currentUserId);
+
+            // ========== ROLE-SPECIFIC DATA ==========
+
+            // ADMIN: Team Overview
+            if (role == "barangay_admin")
+            {
+                vm.StaffCount = await _context.BusinessUsers
+                    .CountAsync(u => u.IsActive && u.BarangayId == barangayId);
+
+                // Recent logins (users who logged in within last 7 days)
+                var sevenDaysAgo = DateTime.Now.AddDays(-7);
+                vm.RecentLoginsCount = await _context.AuditLogs
+                    .Where(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= sevenDaysAgo)
+                    .Join(_context.BusinessUsers.Where(u => u.BarangayId == barangayId),
+                        log => log.UserId,
+                        user => user.Id,
+                        (log, user) => log)
+                    .Select(a => a.UserId)
+                    .Distinct()
+                    .CountAsync();
+            }
+
+            // SECRETARY: My Submissions
+            if (role == "barangay_secretary")
+            {
+                vm.MySubmittedDocuments = await _context.KnowledgeDocuments
+                    .CountAsync(d => d.IsActive && d.BarangayId == barangayId && d.UploadedById == currentUserId);
+
+                vm.MySubmittedPolicies = await _context.Policies
+                    .CountAsync(p => p.IsActive && p.BarangayId == barangayId && p.AuthorId == currentUserId);
+            }
+
+            // STAFF: My Contributions
+            if (role == "barangay_staff")
+            {
+                vm.MyDocuments = await _context.KnowledgeDocuments
+                    .CountAsync(d => d.IsActive && d.BarangayId == barangayId && d.UploadedById == currentUserId);
+
+                vm.MyBestPractices = await _context.BestPractices
+                    .CountAsync(bp => bp.IsActive && bp.BarangayId == barangayId && bp.SubmittedById == currentUserId);
+
+                vm.MyLessonsLearned = await _context.LessonsLearned
+                    .CountAsync(ll => ll.IsActive && ll.BarangayId == barangayId && ll.SubmittedById == currentUserId);
+            }
+
+            // STAFF & COUNCIL: Recent Announcements (to stay informed)
+            if (role == "barangay_staff" || role == "council_member")
+            {
+                vm.RecentAnnouncements = await _context.Announcements
+                    .Include(a => a.Author)
+                    .Where(a => a.IsActive && !a.IsArchived && a.BarangayId == barangayId && a.Status == "published")
+                    .OrderByDescending(a => a.IsPinned)
+                    .ThenByDescending(a => a.CreatedAt)
+                    .Take(5)
+                    .Select(a => new DashboardAnnouncementItem
+                    {
+                        Id = a.Id,
+                        Title = a.Title,
+                        Content = a.Content.Length > 100 ? a.Content.Substring(0, 100) + "..." : a.Content,
+                        Priority = a.Priority,
+                        PostedBy = a.Author != null ? a.Author.FullName : "Admin",
+                        PostedAt = a.CreatedAt.ToString("MMM dd, yyyy"),
+                        IsPinned = a.IsPinned
+                    })
+                    .ToListAsync();
+            }
+
+            // COUNCIL: Recently Approved Items (transparency)
+            if (role == "council_member")
+            {
+                var approvedDocs = await _context.KnowledgeDocuments
+                    .Include(d => d.ApprovedBy)
+                    .Where(d => d.IsActive && d.BarangayId == barangayId && d.Status == "approved" && d.ApprovedAt != null)
+                    .OrderByDescending(d => d.ApprovedAt)
+                    .Take(5)
+                    .Select(d => new ApprovedItem
+                    {
+                        Id = d.Id,
+                        Title = d.Title,
+                        Type = "Document",
+                        ApprovedBy = d.ApprovedBy != null ? d.ApprovedBy.FullName : "Admin",
+                        ApprovedAt = d.ApprovedAt!.Value.ToString("MMM dd, yyyy")
+                    })
+                    .ToListAsync();
+
+                var approvedPolicies = await _context.Policies
+                    .Include(p => p.ApprovedBy)
+                    .Where(p => p.IsActive && p.BarangayId == barangayId && p.Status == "approved" && p.ApprovedAt != null)
+                    .OrderByDescending(p => p.ApprovedAt)
+                    .Take(5)
+                    .Select(p => new ApprovedItem
+                    {
+                        Id = p.Id,
+                        Title = p.Title,
+                        Type = "Policy",
+                        ApprovedBy = p.ApprovedBy != null ? p.ApprovedBy.FullName : "Admin",
+                        ApprovedAt = p.ApprovedAt!.Value.ToString("MMM dd, yyyy")
+                    })
+                    .ToListAsync();
+
+                vm.RecentlyApproved = approvedDocs.Concat(approvedPolicies)
+                    .OrderByDescending(x => x.ApprovedAt)
+                    .Take(5)
+                    .ToList();
+            }
+
             return View(vm);
         }
 
@@ -280,7 +389,7 @@ namespace JAS_MINE_IT15.Controllers
         public int TotalLessonsLearned { get; set; }
         public int TotalAnnouncements { get; set; }
 
-        // Pending items
+        // Pending items (admin/secretary only)
         public int PendingDocuments { get; set; }
         public int PendingPolicies { get; set; }
 
@@ -289,8 +398,47 @@ namespace JAS_MINE_IT15.Controllers
         public string? SubscriptionStatus { get; set; }
         public string? SubscriptionEndDate { get; set; }
 
+        // Role-specific: My Contributions (staff)
+        public int MyDocuments { get; set; }
+        public int MyBestPractices { get; set; }
+        public int MyLessonsLearned { get; set; }
+
+        // Role-specific: My Submissions (secretary)
+        public int MySubmittedDocuments { get; set; }
+        public int MySubmittedPolicies { get; set; }
+
+        // Role-specific: Team Overview (admin only)
+        public int StaffCount { get; set; }
+        public int RecentLoginsCount { get; set; }
+
+        // Role-specific: Recent Announcements (staff/council)
+        public List<DashboardAnnouncementItem> RecentAnnouncements { get; set; } = new();
+
+        // Role-specific: Recently Approved Items (council)
+        public List<ApprovedItem> RecentlyApproved { get; set; } = new();
+
         // Recent activity
         public List<ActivityItem> RecentActivity { get; set; } = new();
+    }
+
+    public class DashboardAnnouncementItem
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string PostedBy { get; set; } = "";
+        public string PostedAt { get; set; } = "";
+        public bool IsPinned { get; set; }
+    }
+
+    public class ApprovedItem
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Type { get; set; } = "";  // Document or Policy
+        public string ApprovedBy { get; set; } = "";
+        public string ApprovedAt { get; set; } = "";
     }
 
     public class ActivityItem
