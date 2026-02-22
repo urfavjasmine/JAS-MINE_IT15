@@ -17,6 +17,7 @@
     var documents = Model?.Documents ?? new List<JAS_MINE_IT15.Models.RepoDocument>();
     var totalDocuments = Model?.TotalDocuments ?? 0;
     var archivedDocuments = Model?.ArchivedDocuments ?? 0;
+    var pendingDocuments = Model?.PendingDocuments ?? 0;
     var successMessage = Model?.SuccessMessage ?? "";
     var errorMessage = Model?.ErrorMessage ?? "";
 }
@@ -242,6 +243,20 @@
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @* Admin Notification: Pending Files Need Review *@
+    @if (canApprove && pendingDocuments > 0)
+    {
+        <div class="alert alert-warning d-flex align-items-center justify-content-between" role="alert">
+            <div>
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>@pendingDocuments document(s) pending review.</strong> Please review and approve or reject uploaded files.
+            </div>
+            <a href="@Url.Action("KnowledgeRepository", "Home", new { status = "pending", archiveStatus = "active" })" class="btn btn-warning btn-sm">
+                <i class="bi bi-eye me-1"></i> View Pending
+            </a>
         </div>
     }
 

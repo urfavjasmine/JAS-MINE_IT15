@@ -796,6 +796,7 @@ namespace JAS_MINE_IT15.Controllers
                 CanArchive = canArchive,
                 TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
                 ArchivedDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
+                PendingDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId && d.Status == "pending"),
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string,
             };
@@ -820,17 +821,27 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(KnowledgeRepository));
             }
 
-            // Get uploading user ID from session email
-            var userEmail = HttpContext.Session.GetString("UserName") ?? "";
-            var uploaderId = await _context.BusinessUsers
-                .Where(u => u.Email == userEmail)
-                .Select(u => u.Id)
-                .FirstOrDefaultAsync();
+            // Get uploading user ID from session
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            int uploaderId = 0;
+            if (!string.IsNullOrEmpty(userIdStr) && int.TryParse(userIdStr, out var parsedId))
+            {
+                uploaderId = parsedId;
+            }
+            else
+            {
+                // Fallback: Try to find user by email
+                var userEmail = HttpContext.Session.GetString("UserName") ?? "";
+                uploaderId = await _context.BusinessUsers
+                    .Where(u => u.Email == userEmail && u.IsActive)
+                    .Select(u => u.Id)
+                    .FirstOrDefaultAsync();
+            }
 
             if (uploaderId == 0)
             {
-                // Create a default entry if user not found
-                uploaderId = 1;
+                TempData["Error"] = "User session expired. Please login again.";
+                return RedirectToAction(nameof(Login));
             }
 
             // Handle file upload
@@ -1038,6 +1049,7 @@ namespace JAS_MINE_IT15.Controllers
 
                     doc.Status = "approved";
                     doc.ApprovedAt = DateTime.Now;
+                    doc.ApprovedById = GetCurrentUserId();
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
                 }
@@ -1070,6 +1082,7 @@ namespace JAS_MINE_IT15.Controllers
                     }
 
                     doc.Status = "rejected";
+                    doc.ApprovedById = GetCurrentUserId(); // Track who rejected
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
                 }

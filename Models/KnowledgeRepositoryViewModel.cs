@@ -38,6 +38,7 @@ namespace JAS_MINE_IT15.Models
         // Stats
         public int TotalDocuments { get; set; }
         public int ArchivedDocuments { get; set; }
+        public int PendingDocuments { get; set; }
 
         // For modal/form
         public string? SuccessMessage { get; set; }
