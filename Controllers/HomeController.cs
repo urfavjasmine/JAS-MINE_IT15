@@ -1133,10 +1133,17 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
+            // Filter by BarangayId for barangay roles
+            var barangayIdStr = HttpContext.Session.GetString("BarangayId");
+            int.TryParse(barangayIdStr ?? "", out var bgyId);
+
             var query = _context.Policies
                 .Where(p => p.IsActive)
                 .Include(p => p.Author)
                 .AsQueryable();
+
+            if (bgyId > 0)
+                query = query.Where(p => p.BarangayId == bgyId);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -1172,8 +1179,11 @@ namespace JAS_MINE_IT15.Controllers
                 })
                 .ToListAsync();
 
-            // Get counts from all active policies
-            var allPolicies = await _context.Policies.Where(p => p.IsActive).ToListAsync();
+            // Get counts from active policies in this barangay
+            var allPoliciesQuery = _context.Policies.Where(p => p.IsActive);
+            if (bgyId > 0)
+                allPoliciesQuery = allPoliciesQuery.Where(p => p.BarangayId == bgyId);
+            var allPolicies = await allPoliciesQuery.ToListAsync();
 
             var vm = new PoliciesManagementViewModel
             {
@@ -1224,16 +1234,31 @@ namespace JAS_MINE_IT15.Controllers
 
             if (authorId == 0) authorId = 1;
 
+            // Get BarangayId from session
+            var barangayIdStr = HttpContext.Session.GetString("BarangayId");
+            int.TryParse(barangayIdStr, out var bgyId);
+
+            // If admin creates it, auto-approve; otherwise set to pending for admin approval
+            var initialStatus = (role == "barangay_admin") ? "approved" : "pending";
+
             var policy = new Policy
             {
                 Title = title,
                 Description = description,
-                Status = "draft",
+                Status = initialStatus,
                 Version = "1.0",
                 AuthorId = authorId,
+                BarangayId = bgyId > 0 ? bgyId : null,
                 IsActive = true,
                 CreatedAt = DateTime.Now
             };
+
+            // If admin auto-approved, set approval fields
+            if (initialStatus == "approved")
+            {
+                policy.ApprovedById = authorId;
+                policy.ApprovedAt = DateTime.Now;
+            }
 
             _context.Policies.Add(policy);
             await _context.SaveChangesAsync();

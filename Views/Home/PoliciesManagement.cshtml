@@ -226,6 +226,24 @@
         width: 34px;
         height: 34px;
         border-radius: 10px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e6edf5;
+        background: #fff;
+        cursor: pointer;
+        position: relative;
+        z-index: 2;
+    }
+    .kebab-btn:hover {
+        background: #f0f3f8;
+    }
+    .kebab-btn + .dropdown-menu {
+        z-index: 1050;
+    }
+    .soft-card.policy-card {
+        overflow: visible;
     }
 </style>
 
@@ -338,7 +356,7 @@
 
                             <!-- 3 dots dropdown -->
                             <div class="dropdown">
-                                <button class="btn btn-light kebab-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-light kebab-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true">
                                     <i class="bi bi-three-dots-vertical"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -384,7 +402,7 @@
                                             </li>
                                         }
                                     }
-                                    @if (canApprove && p.Status == "pending")
+                                    @if (canApprove && (p.Status == "pending" || p.Status == "draft"))
                                     {
                                         <li><hr class="dropdown-divider" /></li>
                                         <li>
@@ -420,7 +438,7 @@
 
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="meta">
-                                <span>v@p.Version</span>
+                                <span>v@(p.Version)</span>
                                 <span class="dot">•</span>
                                 <span>@p.LastUpdated</span>
                             </div>
