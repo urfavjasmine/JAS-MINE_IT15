@@ -6,16 +6,6 @@
     var barangay = Context.Session.GetString("Barangay") ?? "Barangay Office";
 
     var firstName = userName.Split(' ')[0];
-
-    // ===== MOCK NOTIFICATIONS =====
-    var notifications = new[]
-    {
-        new { Id = 1, Title = "New document uploaded", Time = "5 min ago", Unread = true },
-        new { Id = 2, Title = "Policy approved", Time = "1 hour ago", Unread = true },
-        new { Id = 3, Title = "Comment on your submission", Time = "2 hours ago", Unread = false },
-    };
-
-    var unreadCount = notifications.Count(n => n.Unread);
 }
 
 <header class="dashboard-header d-flex align-items-center justify-content-between px-4 border-bottom bg-white" style="height:64px;">
@@ -37,55 +27,8 @@
     <!-- RIGHT SIDE -->
     <div class="d-flex align-items-center gap-2">
 
-        <!-- Notifications Dropdown -->
-        <div class="dropdown">
-            <button type="button"
-                    class="btn btn-outline-secondary position-relative"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                    title="Notifications">
-
-                <i class="bi bi-bell"></i>
-
-                @if (unreadCount > 0)
-                {
-                    <span class="badge bg-success position-absolute top-0 start-100 translate-middle rounded-pill">
-                        @unreadCount
-                    </span>
-                }
-            </button>
-
-            <div class="dropdown-menu dropdown-menu-end shadow p-2" style="width:320px;">
-                <div class="d-flex justify-content-between align-items-center px-2">
-                    <strong>Notifications</strong>
-                    <button type="button" class="btn btn-link p-0 small text-primary text-decoration-none">
-                        Mark all read
-                    </button>
-                </div>
-
-                <hr class="my-2" />
-
-                @foreach (var n in notifications)
-                {
-                    <div class="dropdown-item small py-2" style="white-space: normal;">
-                        <div class="d-flex align-items-center gap-2">
-                            @if (n.Unread)
-                            {
-                                <span class="bg-success rounded-circle" style="width:8px;height:8px;"></span>
-                            }
-                            <span class="fw-medium">@n.Title</span>
-                        </div>
-                        <div class="text-muted ms-3">@n.Time</div>
-                    </div>
-                }
-
-                <hr class="my-2" />
-
-                <div class="text-center">
-                    <a href="#" class="small text-primary text-decoration-none">View all notifications</a>
-                </div>
-            </div>
-        </div>
+        <!-- Notifications Dropdown (ViewComponent) -->
+        @await Component.InvokeAsync("Notifications")
     </div>
 
 </header>

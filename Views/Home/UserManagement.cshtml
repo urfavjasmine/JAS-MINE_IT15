@@ -259,7 +259,130 @@
 
 </div>
 
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">User Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Full Name</label>
+                    <div id="vName" class="fw-semibold"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Email</label>
+                    <div id="vEmail"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Role</label>
+                    <div id="vRole"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Barangay</label>
+                    <div id="vBarangay"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Status</label>
+                    <div id="vStatus"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="createEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="userForm" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="fId" />
+                    <div class="mb-3">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" name="name" id="fName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email Address *</label>
+                        <input type="email" name="email" id="fEmail" class="form-control" required />
+                    </div>
+                    <div class="mb-3" id="passwordGroup">
+                        <label class="form-label">Password *</label>
+                        <input type="password" name="password" id="fPassword" class="form-control" />
+                        <small class="text-muted">Leave blank to keep existing password (Edit mode)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role *</label>
+                        <select name="role" id="fRole" class="form-select" required>
+                            @foreach (var role in Model.RoleLabels)
+                            {
+                                <option value="@role.Key">@role.Value</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Barangay</label>
+                        <select name="barangay" id="fBarangay" class="form-select">
+                            <option value="">-- Select Barangay --</option>
+                            @foreach (var b in Model.Barangays)
+                            {
+                                <option value="@b">@b</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+
+    function openCreate() {
+        document.getElementById('modalTitle').textContent = 'Add User';
+        document.getElementById('userForm').action = '@Url.Action("CreateUser", "Home")';
+        document.getElementById('fId').value = '';
+        document.getElementById('fName').value = '';
+        document.getElementById('fEmail').value = '';
+        document.getElementById('fPassword').value = '';
+        document.getElementById('fPassword').required = true;
+        document.getElementById('fRole').value = 'barangay_staff';
+        document.getElementById('fBarangay').value = '';
+    }
+
+    function openEdit(id, name, email, role, barangay) {
+        document.getElementById('modalTitle').textContent = 'Edit User';
+        document.getElementById('userForm').action = '@Url.Action("EditUser", "Home")';
+        document.getElementById('fId').value = id;
+        document.getElementById('fName').value = name;
+        document.getElementById('fEmail').value = email;
+        document.getElementById('fPassword').value = '';
+        document.getElementById('fPassword').required = false;
+        document.getElementById('fRole').value = role;
+        document.getElementById('fBarangay').value = barangay || '';
+    }
+
+    function openView(id, name, email, role, status, barangay) {
+        document.getElementById('vName').textContent = name;
+        document.getElementById('vEmail').textContent = email;
+        document.getElementById('vRole').textContent = '@Model.RoleLabels'.includes(role) ? role : role;
+        document.getElementById('vStatus').textContent = status;
+        document.getElementById('vBarangay').textContent = barangay || 'N/A';
+    }
 
     function applyFilter() {
 

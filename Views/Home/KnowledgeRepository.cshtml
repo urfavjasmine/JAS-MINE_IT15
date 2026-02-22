@@ -394,7 +394,27 @@
                                     </td>
                                     <td>@Html.Raw(badgeHtml)</td>
                                     <td class="text-end">
-                                        <div class="dropdown">
+                                        @* Quick approve/reject buttons for pending documents *@
+                                        @if (canApprove && doc.Status.Equals("pending", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <div class="d-inline-flex gap-1 me-2">
+                                                <form method="post" action="@Url.Action("ApproveDoc","Home")" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@doc.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Approve">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" action="@Url.Action("RejectDoc","Home")" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@doc.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Reject">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        <div class="dropdown d-inline-block">
                                             <button class="btn-actions" data-bs-toggle="dropdown">
                                                 <i class="bi bi-three-dots-vertical"></i>
                                             </button>
@@ -407,6 +427,7 @@
                                                         <i class="bi bi-eye me-2"></i>View
                                                     </button>
                                                 </li>
+
 
                                                 @if (!doc.IsArchived)
                                                 {
@@ -432,7 +453,7 @@
                                                     }
 
                                                     <!-- APPROVE/REJECT (only if canApprove and pending) -->
-                                                    @if (canApprove && doc.Status == "pending")
+                                                    @if (canApprove && doc.Status.Equals("pending", StringComparison.OrdinalIgnoreCase))
                                                     {
                                                         <li><hr class="dropdown-divider"></li>
                                                         <li>

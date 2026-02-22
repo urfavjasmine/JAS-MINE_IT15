@@ -2122,9 +2122,17 @@ namespace JAS_MINE_IT15.Controllers
                 Barangay = u.BarangayName ?? ""
             }).ToList();
 
+            // Get list of barangays for dropdown
+            var barangays = await _context.Barangays
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.Name)
+                .Select(b => b.Name)
+                .ToListAsync();
+
             var vm = new UserManagementViewModel
             {
-                Users = users
+                Users = users,
+                Barangays = barangays
             };
 
             return View(vm);

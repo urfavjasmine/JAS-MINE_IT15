@@ -35,6 +35,9 @@ namespace JAS_MINE_IT15.Models
         public int InactiveUsers => Users.Count(u => u.Status == "inactive");
         public int BarangayCount => Users.Select(u => u.Barangay).Distinct().Count();
 
+        // List of barangays for dropdown
+        public List<string> Barangays { get; set; } = new();
+
         // Role labels for dropdowns
         public Dictionary<string, string> RoleLabels { get; } = new()
         {
