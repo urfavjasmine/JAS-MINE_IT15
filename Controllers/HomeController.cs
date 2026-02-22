@@ -23,15 +23,18 @@ namespace JAS_MINE_IT15.Controllers
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly ApplicationDbContext _context;
+        private readonly INotificationService _notificationService;
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
             UserManager<IdentityUser> userManager,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            INotificationService notificationService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _context = context;
+            _notificationService = notificationService;
         }
 
         #region Helper Methods
@@ -891,6 +894,14 @@ namespace JAS_MINE_IT15.Controllers
             _context.KnowledgeDocuments.Add(doc);
             await _context.SaveChangesAsync();
 
+            // Send real-time notification to barangay admins
+            var barangayId = GetCurrentBarangayId();
+            if (barangayId.HasValue)
+            {
+                var uploaderName = HttpContext.Session.GetString("UserName") ?? "Unknown";
+                await _notificationService.NotifyPendingDocument(barangayId.Value, title, uploaderName);
+            }
+
             TempData["Success"] = $"Document uploaded: \"{title}\"";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
@@ -1052,6 +1063,12 @@ namespace JAS_MINE_IT15.Controllers
                     doc.ApprovedById = GetCurrentUserId();
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+
+                    // Send real-time notification
+                    if (doc.BarangayId.HasValue)
+                    {
+                        await _notificationService.NotifyDocumentStatusChange(doc.BarangayId.Value, doc.Title, "approved");
+                    }
                 }
             }
 
@@ -1085,6 +1102,12 @@ namespace JAS_MINE_IT15.Controllers
                     doc.ApprovedById = GetCurrentUserId(); // Track who rejected
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+
+                    // Send real-time notification
+                    if (doc.BarangayId.HasValue)
+                    {
+                        await _notificationService.NotifyDocumentStatusChange(doc.BarangayId.Value, doc.Title, "rejected");
+                    }
                 }
             }
 

@@ -128,60 +128,68 @@
     @* ========== STATS SECTION - Role-specific cards ========== *@
     @if (isAdmin || isSecretary || isCouncil)
     {
-        @* ADMIN/SECRETARY/COUNCIL: Show all 5 stats *@
+        @* ADMIN / SECRETARY / COUNCIL: See all 5 stat cards *@
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card">
-                    <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i> Documents</div>
+                    <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i> Total Documents</div>
                     <div class="stat-value text-primary">@(Model?.TotalDocuments ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card">
-                    <div class="stat-label"><i class="bi bi-journal-text me-1"></i> Policies</div>
+                    <div class="stat-label"><i class="bi bi-journal-text me-1"></i> Total Policies</div>
                     <div class="stat-value text-info">@(Model?.TotalPolicies ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card">
                     <div class="stat-label"><i class="bi bi-lightbulb me-1"></i> Best Practices</div>
                     <div class="stat-value text-success">@(Model?.TotalBestPractices ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card">
                     <div class="stat-label"><i class="bi bi-book me-1"></i> Lessons Learned</div>
                     <div class="stat-value text-warning">@(Model?.TotalLessonsLearned ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card">
                     <div class="stat-label"><i class="bi bi-megaphone me-1"></i> Announcements</div>
                     <div class="stat-value text-danger">@(Model?.TotalAnnouncements ?? 0)</div>
+                    <small class="text-muted">posted</small>
                 </div>
             </div>
         </div>
     }
     else if (isStaff)
     {
-        @* STAFF: Show only relevant stats (Documents, Best Practices, Lessons) *@
+        @* STAFF: Only sees the 3 modules they can upload to *@
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-4">
                 <div class="stat-card">
-                    <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i> Documents</div>
+                    <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i> Total Documents</div>
                     <div class="stat-value text-primary">@(Model?.TotalDocuments ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4">
                 <div class="stat-card">
                     <div class="stat-label"><i class="bi bi-lightbulb me-1"></i> Best Practices</div>
                     <div class="stat-value text-success">@(Model?.TotalBestPractices ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
             <div class="col-6 col-md-4">
                 <div class="stat-card">
                     <div class="stat-label"><i class="bi bi-book me-1"></i> Lessons Learned</div>
                     <div class="stat-value text-warning">@(Model?.TotalLessonsLearned ?? 0)</div>
+                    <small class="text-muted">uploaded</small>
                 </div>
             </div>
         </div>

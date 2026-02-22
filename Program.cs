@@ -1,4 +1,5 @@
 using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Hubs;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -6,12 +7,14 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
 
 // Tenant Service for multi-tenant filtering
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -66,6 +69,8 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=LandingPage}/{id?}");
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 using (var scope = app.Services.CreateScope())
 {

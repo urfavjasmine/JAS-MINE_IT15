@@ -100,6 +100,7 @@
     </div>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 
     <script>
         const mobileSidebar = document.getElementById("mobileSidebar");
@@ -122,6 +123,108 @@
                 openSidebar();
             }
         });
+
+        // ========== SignalR Real-time Notifications ==========
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/notificationHub")
+            .withAutomaticReconnect()
+            .build();
+
+        // Handle incoming notifications
+        connection.on("ReceiveNotification", function(notification) {
+            console.log("Received notification:", notification);
+
+            // Update notification badge count
+            const badge = document.querySelector('.notification-badge');
+            if (badge) {
+                let count = parseInt(badge.textContent) || 0;
+                badge.textContent = count + 1;
+                badge.classList.remove('d-none');
+            }
+
+            // Show toast notification
+            showNotificationToast(notification);
+
+            // Add to notification dropdown
+            addNotificationToDropdown(notification);
+        });
+
+        // Start connection
+        connection.start()
+            .then(() => console.log("SignalR connected"))
+            .catch(err => console.error("SignalR connection error:", err));
+
+        // Toast notification function
+        function showNotificationToast(notification) {
+            // Create toast container if not exists
+            let toastContainer = document.getElementById('notificationToasts');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'notificationToasts';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '9999';
+                document.body.appendChild(toastContainer);
+            }
+
+            const iconClass = notification.Type === 'pending' ? 'bi-clock text-warning' :
+                              notification.Type === 'approval' ? 'bi-check-circle text-success' :
+                              notification.Type === 'rejected' ? 'bi-x-circle text-danger' :
+                              'bi-bell text-primary';
+
+            const toastHtml = `
+                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header">
+                        <i class="bi ${iconClass} me-2"></i>
+                        <strong class="me-auto">${notification.Title}</strong>
+                        <small>${notification.Time}</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${notification.Message}
+                        ${notification.Link !== '#' ? `<div class="mt-2"><a href="${notification.Link}" class="btn btn-sm btn-primary">View</a></div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            const toastEl = document.createElement('div');
+            toastEl.innerHTML = toastHtml;
+            toastContainer.appendChild(toastEl.firstElementChild);
+
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                const toast = toastContainer.querySelector('.toast');
+                if (toast) toast.remove();
+            }, 8000);
+        }
+
+        // Add notification to dropdown
+        function addNotificationToDropdown(notification) {
+            const dropdown = document.querySelector('.dropdown-menu[style*="320px"]');
+            if (!dropdown) return;
+
+            const hr = dropdown.querySelector('hr');
+            if (!hr) return;
+
+            const iconClass = notification.Type === 'pending' ? 'bi-clock text-warning' :
+                              notification.Type === 'approval' ? 'bi-check-circle text-success' :
+                              notification.Type === 'rejected' ? 'bi-x-circle text-danger' :
+                              'bi-megaphone text-primary';
+
+            const itemHtml = `
+                <a href="${notification.Link}" class="dropdown-item small py-2 d-block text-decoration-none" style="white-space: normal;">
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="bg-success rounded-circle flex-shrink-0 mt-1" style="width:8px;height:8px;"></span>
+                        <div>
+                            <i class="bi ${iconClass} me-1"></i>
+                            <span class="fw-medium text-dark">${notification.Title}</span>
+                            <div class="text-muted" style="font-size: 11px;">${notification.Time}</div>
+                        </div>
+                    </div>
+                </a>
+            `;
+
+            hr.insertAdjacentHTML('beforebegin', itemHtml);
+        }
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)

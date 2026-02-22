@@ -9,12 +9,9 @@
 
         <i class="bi bi-bell"></i>
 
-        @if (Model.UnreadCount > 0)
-        {
-            <span class="badge bg-success position-absolute top-0 start-100 translate-middle rounded-pill">
-                @Model.UnreadCount
-            </span>
-        }
+        <span class="notification-badge badge bg-success position-absolute top-0 start-100 translate-middle rounded-pill @(Model.UnreadCount == 0 ? "d-none" : "")">
+            @Model.UnreadCount
+        </span>
     </button>
 
     <div class="dropdown-menu dropdown-menu-end shadow p-2" style="width:320px;">
