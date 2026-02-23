@@ -396,9 +396,19 @@
             @* Limited Administration *@
             <div class="jm-section">ADMINISTRATION</div>
             <div class="jm-group">
+                <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
+                    <div class="jm-icon"><i class="bi bi-people"></i></div>
+                    <div class="jm-text">User Management</div>
+                </a>
+
                 <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
                     <div class="jm-icon"><i class="bi bi-bell"></i></div>
                     <div class="jm-text">Announcements</div>
+                </a>
+
+                <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
+                    <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="jm-text">Audit Logs</div>
                 </a>
 
                 <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
