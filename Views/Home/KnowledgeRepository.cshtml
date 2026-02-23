@@ -278,7 +278,19 @@
         </div>
     }
 
-    @* Archive toggle is now in the header button *@
+    @* Archive view indicator *@
+    @if (archiveStatus == "archived")
+    {
+        <div class="alert alert-secondary d-flex align-items-center justify-content-between mb-4" role="alert">
+            <div>
+                <i class="bi bi-archive-fill me-2"></i>
+                <strong>Viewing Archived Documents</strong> — These documents have been archived and are no longer active.
+            </div>
+            <a href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "active" })" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-arrow-left me-1"></i> Back to Active
+            </a>
+        </div>
+    }
 
     <!-- Filters Card -->
     <div class="soft-card mb-4">
@@ -412,6 +424,27 @@
                                                 </form>
                                             </div>
                                         }
+
+                                        @* Direct Archive / Restore buttons *@
+                                        @if (canArchive && !doc.IsArchived)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-warning me-1" title="Archive"
+                                                    data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                                    onclick="openArchive('@doc.Id','@js(doc.Title)')">
+                                                <i class="bi bi-archive"></i>
+                                            </button>
+                                        }
+                                        @if (canArchive && doc.IsArchived)
+                                        {
+                                            <form method="post" action="@Url.Action("RestoreDoc","Home")" class="d-inline me-1">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@doc.Id" />
+                                                <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                </button>
+                                            </form>
+                                        }
+
                                         <div class="dropdown d-inline-block">
                                             <button type="button" class="btn-actions" data-bs-toggle="dropdown" aria-expanded="false">
                                                 <i class="bi bi-three-dots-vertical"></i>
@@ -485,6 +518,16 @@
                                                 }
                                                 else
                                                 {
+                                                    <!-- Archived doc actions -->
+                                                    @if (!string.IsNullOrEmpty(doc.FilePath))
+                                                    {
+                                                        <li>
+                                                            <a class="dropdown-item" href="@doc.FilePath" target="_blank" download>
+                                                                <i class="bi bi-download me-2"></i>Download
+                                                            </a>
+                                                        </li>
+                                                    }
+
                                                     <!-- RESTORE (only if canArchive and archived) -->
                                                     @if (canArchive)
                                                     {
