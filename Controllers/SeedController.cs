@@ -1,9 +1,11 @@
 using JAS_MINE_IT15.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JAS_MINE_IT15.Controllers
 {
     [Route("seed")]
+    [Authorize(Roles = "super_admin")]
     public class SeedController : Controller
     {
         private readonly IServiceProvider _services;

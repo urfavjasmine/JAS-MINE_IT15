@@ -463,6 +463,16 @@
                 <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
                 <div class="jm-text">Knowledge Sharing</div>
             </a>
+
+            <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
+                <div class="jm-icon"><i class="bi bi-bell"></i></div>
+                <div class="jm-text">Announcements</div>
+            </a>
+
+            <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
+                <div class="jm-icon"><i class="bi bi-gear"></i></div>
+                <div class="jm-text">Settings</div>
+            </a>
         }
 
     </nav>

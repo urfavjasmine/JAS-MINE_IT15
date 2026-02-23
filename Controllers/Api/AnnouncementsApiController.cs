@@ -1,5 +1,6 @@
 using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace JAS_MINE_IT15.Controllers.Api
     /// Supports CRUD operations, filtering, and notification delivery.
     /// </summary>
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class AnnouncementsApiController : ControllerBase

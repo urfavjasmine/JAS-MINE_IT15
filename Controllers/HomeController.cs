@@ -126,6 +126,32 @@ namespace JAS_MINE_IT15.Controllers
 
         #endregion
 
+        /// <summary>
+        /// Writes an audit log entry to the database for any system action.
+        /// </summary>
+        private async Task LogAuditAsync(string action, string module, int? targetId = null, string? targetType = null, string? targetName = null, string? description = null)
+        {
+            var log = new AuditLog
+            {
+                UserId = GetCurrentUserId(),
+                UserEmail = HttpContext.Session.GetString("UserName"),
+                UserName = HttpContext.Session.GetString("UserName"),
+                Action = action,
+                Module = module,
+                TargetId = targetId,
+                TargetType = targetType,
+                TargetName = targetName,
+                Description = description,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = HttpContext.Request.Headers["User-Agent"].ToString(),
+                SessionId = HttpContext.Session.Id,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.AuditLogs.Add(log);
+            await _context.SaveChangesAsync();
+        }
+
         private static string ComputeStatus(string endDate)
         {
             if (DateTime.TryParse(endDate, out var end))
@@ -155,7 +181,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/BarangaySubscriptions
         [HttpGet]
-        public IActionResult BarangaySubscriptions(string q = "", string status = "all")
+        public async Task<IActionResult> BarangaySubscriptions(string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -163,9 +189,22 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim();
             status = (status ?? "all").Trim();
 
-            // TODO: Fetch subscriptions from database
-            // var allSubscriptions = _context.Subscriptions.ToList();
-            var allSubscriptions = new List<SubscriptionItem>();
+            // Fetch subscriptions from database with related entities
+            var allSubscriptions = await _context.BarangaySubscriptions
+                .Where(s => s.IsActive)
+                .Include(s => s.Barangay)
+                .Include(s => s.Plan)
+                .OrderByDescending(s => s.CreatedAt)
+                .Select(s => new SubscriptionItem
+                {
+                    Id = s.Id.ToString(),
+                    BarangayName = s.Barangay != null ? s.Barangay.Name : "",
+                    PlanName = s.Plan != null ? s.Plan.Name : "",
+                    StartDate = s.StartDate.ToString("yyyy-MM-dd"),
+                    EndDate = s.EndDate.ToString("yyyy-MM-dd"),
+                    Status = s.EndDate < DateTime.Today && s.Status != "Cancelled" ? "Expired" : s.Status
+                })
+                .ToListAsync();
 
             var filtered = allSubscriptions.AsEnumerable();
 
@@ -183,11 +222,9 @@ namespace JAS_MINE_IT15.Controllers
 
             var list = filtered.ToList();
 
-            // TODO: Fetch barangays and plans from database
-            // var barangays = _context.Barangays.Select(b => b.Name).ToList();
-            // var plans = _context.Plans.Select(p => p.Name).ToList();
-            var barangays = new List<string>();
-            var plans = new List<string>();
+            // Fetch barangays and plans from database
+            var barangays = await _context.Barangays.Where(b => b.IsActive).OrderBy(b => b.Name).Select(b => b.Name).ToListAsync();
+            var plans = await _context.SubscriptionPlans.Where(p => p.IsActive).OrderBy(p => p.Name).Select(p => p.Name).ToListAsync();
 
             var vm = new BarangaySubscriptionsViewModel
             {
@@ -214,7 +251,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult CreateSubscription(string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
+        public async Task<IActionResult> CreateSubscription(string barangayName, string planName, string startDate, string endDate, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -231,7 +268,37 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
             }
 
-            // TODO: Add subscription to database
+            // Find barangay and plan by name
+            var bgy = await _context.Barangays.FirstOrDefaultAsync(b => b.Name == barangayName.Trim() && b.IsActive);
+            var plan = await _context.SubscriptionPlans.FirstOrDefaultAsync(p => p.Name == planName.Trim() && p.IsActive);
+
+            if (bgy == null || plan == null)
+            {
+                TempData["Error"] = "Invalid barangay or plan selected.";
+                return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+            }
+
+            if (!DateTime.TryParse(startDate, out var parsedStart) || !DateTime.TryParse(endDate, out var parsedEnd))
+            {
+                TempData["Error"] = "Invalid date format.";
+                return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+            }
+
+            var subscription = new BarangaySubscription
+            {
+                BarangayId = bgy.Id,
+                PlanId = plan.Id,
+                StartDate = parsedStart,
+                EndDate = parsedEnd,
+                Status = parsedEnd >= DateTime.Today ? "Active" : "Expired",
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.BarangaySubscriptions.Add(subscription);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "BarangaySubscriptions", subscription.Id, "Subscription", $"{barangayName} - {planName}", $"Assigned {planName} to {barangayName}");
+
             TempData["Success"] = $"{planName} assigned to {barangayName}.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
         }
@@ -296,10 +363,26 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Cancel
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult CancelSubscription(string id, string q = "", string status = "all")
+        public async Task<IActionResult> CancelSubscription(string id, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
+
+            if (int.TryParse(id, out var subscriptionId))
+            {
+                var subscription = await _context.BarangaySubscriptions
+                    .Include(s => s.Barangay)
+                    .Include(s => s.Plan)
+                    .FirstOrDefaultAsync(s => s.Id == subscriptionId);
+                if (subscription != null)
+                {
+                    subscription.Status = "Cancelled";
+                    subscription.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    var label = $"{subscription.Barangay?.Name} - {subscription.Plan?.Name}";
+                    await LogAuditAsync("Cancel", "BarangaySubscriptions", subscription.Id, "Subscription", label, $"Cancelled subscription: {label}");
+                }
+            }
 
             TempData["Success"] = "Subscription cancelled.";
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
@@ -307,20 +390,57 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/MySubscription
         [HttpGet]
-        public IActionResult MySubscription()
+        public async Task<IActionResult> MySubscription()
         {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var barangayId = GetCurrentBarangayId();
+            var barangayName = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
+
+            // Find active subscription for this barangay
+            var subscription = await _context.BarangaySubscriptions
+                .Where(s => s.IsActive && s.BarangayId == barangayId)
+                .Include(s => s.Plan)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            // Get payment history
+            var payments = new List<MySubscriptionViewModel.PaymentRow>();
+            if (subscription != null)
+            {
+                payments = await _context.SubscriptionPayments
+                    .Where(p => p.IsActive && p.SubscriptionId == subscription.Id)
+                    .OrderByDescending(p => p.PaymentDate)
+                    .Select(p => new MySubscriptionViewModel.PaymentRow
+                    {
+                        Date = p.PaymentDate.ToString("yyyy-MM-dd"),
+                        Amount = p.Amount,
+                        Method = p.PaymentMethod ?? "Cash",
+                        Status = p.Status,
+                        Reference = p.ReferenceNumber ?? ""
+                    })
+                    .ToListAsync();
+            }
+
             var vm = new MySubscriptionViewModel
             {
-                BarangayName = "Your Barangay",
-                Subscription = new MySubscriptionViewModel.SubscriptionSummary
+                BarangayName = barangayName,
+                Subscription = subscription != null ? new MySubscriptionViewModel.SubscriptionSummary
                 {
-                    PlanName = "Starter Plan",
+                    PlanName = subscription.Plan?.Name ?? "Unknown Plan",
+                    Price = subscription.Plan?.Price ?? 0m,
+                    Status = subscription.EndDate < DateTime.Today && subscription.Status != "Cancelled" ? "Expired" : subscription.Status,
+                    StartDate = subscription.StartDate.ToString("yyyy-MM-dd"),
+                    EndDate = subscription.EndDate.ToString("yyyy-MM-dd")
+                } : new MySubscriptionViewModel.SubscriptionSummary
+                {
+                    PlanName = "No Active Plan",
                     Price = 0m,
-                    Status = "Pending",
+                    Status = "None",
                     StartDate = "",
                     EndDate = ""
                 },
-                Payments = new List<MySubscriptionViewModel.PaymentRow>()
+                Payments = payments
             };
 
             return View(vm);
@@ -328,14 +448,32 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/SubscriptionPayments
         [HttpGet]
-        public IActionResult SubscriptionPayments(string q = "")
+        public async Task<IActionResult> SubscriptionPayments(string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
 
-            var allPayments = new List<PaymentItem>();
+            var allPayments = await _context.SubscriptionPayments
+                .Where(p => p.IsActive)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Barangay)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new PaymentItem
+                {
+                    Id = p.Id.ToString(),
+                    BarangayName = p.Subscription != null && p.Subscription.Barangay != null ? p.Subscription.Barangay.Name : "",
+                    PlanName = p.Subscription != null && p.Subscription.Plan != null ? p.Subscription.Plan.Name : "",
+                    Amount = p.Amount,
+                    PaymentDate = p.PaymentDate.ToString("yyyy-MM-dd"),
+                    PaymentMethod = p.PaymentMethod ?? "Cash",
+                    Status = p.Status,
+                    Reference = p.ReferenceNumber ?? ""
+                })
+                .ToListAsync();
 
             var list = allPayments.AsEnumerable();
 
@@ -352,8 +490,8 @@ namespace JAS_MINE_IT15.Controllers
 
             var totalPaid = allPayments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
 
-            var barangays = new List<string>();
-            var plans = new List<string>();
+            var barangays = await _context.Barangays.Where(b => b.IsActive).OrderBy(b => b.Name).Select(b => b.Name).ToListAsync();
+            var plans = await _context.SubscriptionPlans.Where(p => p.IsActive).OrderBy(p => p.Name).Select(p => p.Name).ToListAsync();
             var methods = new List<string> { "Cash", "Bank Transfer", "GCash", "Maya", "Check" };
 
             var vm = new SubscriptionPaymentsViewModel
@@ -381,7 +519,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult CreatePayment(string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
+        public async Task<IActionResult> CreatePayment(string barangayName, string planName, decimal amount, string paymentDate, string paymentMethod, string status, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -397,6 +535,34 @@ namespace JAS_MINE_IT15.Controllers
                 TempData["Error"] = "Please complete required fields (Barangay, Plan, Amount).";
                 return RedirectToAction(nameof(SubscriptionPayments), new { q });
             }
+
+            // Find the subscription matching barangay + plan
+            var subscription = await _context.BarangaySubscriptions
+                .Include(s => s.Barangay)
+                .Include(s => s.Plan)
+                .FirstOrDefaultAsync(s => s.IsActive && s.Barangay!.Name == barangayName.Trim() && s.Plan!.Name == planName.Trim());
+
+            if (subscription == null)
+            {
+                TempData["Error"] = "No active subscription found for this barangay and plan.";
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
+            }
+
+            var payment = new SubscriptionPayment
+            {
+                SubscriptionId = subscription.Id,
+                Amount = amount,
+                PaymentDate = DateTime.TryParse(paymentDate, out var pd) ? pd : DateTime.Now,
+                PaymentMethod = paymentMethod,
+                Status = status,
+                ProcessedById = GetCurrentUserId(),
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.SubscriptionPayments.Add(payment);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "SubscriptionPayments", payment.Id, "Payment", $"{barangayName} - ₱{amount:N0}", $"Recorded payment of ₱{amount:N0} for {barangayName}");
 
             TempData["Success"] = $"Payment of ₱{amount:N0} recorded.";
             return RedirectToAction(nameof(SubscriptionPayments), new { q });
@@ -477,14 +643,25 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/SubscriptionPlans
         [HttpGet]
-        public IActionResult SubscriptionPlans(string q = "")
+        public async Task<IActionResult> SubscriptionPlans(string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
 
-            var allPlans = new List<PlanItem>();
+            var allPlans = await _context.SubscriptionPlans
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new PlanItem
+                {
+                    Id = p.Id.ToString(),
+                    Name = p.Name,
+                    Description = p.Description ?? "",
+                    Price = p.Price,
+                    DurationMonths = p.DurationMonths,
+                    IsActive = p.IsActive
+                })
+                .ToListAsync();
 
             var list = allPlans.AsEnumerable();
             if (!string.IsNullOrWhiteSpace(q))
@@ -516,7 +693,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
-        public IActionResult CreatePlan(string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
+        public async Task<IActionResult> CreatePlan(string name, decimal price, int durationMonths, string description, bool isActive, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -531,6 +708,20 @@ namespace JAS_MINE_IT15.Controllers
 
             if (durationMonths <= 0) durationMonths = 1;
             if (price < 0) price = 0;
+
+            var plan = new SubscriptionPlan
+            {
+                Name = name,
+                Description = description,
+                Price = price,
+                DurationMonths = durationMonths,
+                IsActive = isActive,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.SubscriptionPlans.Add(plan);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "SubscriptionPlans", plan.Id, "Plan", name, $"Created plan: {name} (₱{price:N0}/{durationMonths}mo)");
 
             TempData["Success"] = $"\"{name}\" has been added.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
@@ -679,6 +870,10 @@ namespace JAS_MINE_IT15.Controllers
             int? barangayId = businessUser.BarangayId;
             string barangayName = businessUser.BarangayName ?? "";
 
+            // Update last login timestamp
+            businessUser.LastLoginAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
             // Add BarangayId as claim
             await AddBarangayClaimAsync(user, barangayId);
 
@@ -695,10 +890,14 @@ namespace JAS_MINE_IT15.Controllers
             // Redirect based on role
             if (role == "super_admin")
             {
+                // Log login
+                await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
                 return RedirectToAction("System", "Dashboard"); // System dashboard
             }
             else
             {
+                // Log login
+                await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
                 return RedirectToAction("Barangay", "Dashboard"); // Barangay dashboard
             }
         }
@@ -929,6 +1128,8 @@ namespace JAS_MINE_IT15.Controllers
                 await _notificationService.NotifyPendingDocument(barangayId.Value, title, uploaderName);
             }
 
+            await LogAuditAsync("Create", "KnowledgeRepository", doc.Id, "Document", title, $"Uploaded document: {title}");
+
             TempData["Success"] = $"Document uploaded: \"{title}\"";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
@@ -993,6 +1194,8 @@ namespace JAS_MINE_IT15.Controllers
 
             await _context.SaveChangesAsync();
 
+            await LogAuditAsync("Edit", "KnowledgeRepository", docId, "Document", doc.Title, $"Updated document: {doc.Title}");
+
             TempData["Success"] = "Document updated.";
             return RedirectToAction(nameof(KnowledgeRepository));
         }
@@ -1023,6 +1226,7 @@ namespace JAS_MINE_IT15.Controllers
                     doc.IsArchived = true;
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Archive", "KnowledgeRepository", doc.Id, "Document", doc.Title, $"Archived document: {doc.Title}");
                 }
             }
 
@@ -1056,6 +1260,7 @@ namespace JAS_MINE_IT15.Controllers
                     doc.IsArchived = false;
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Restore", "KnowledgeRepository", doc.Id, "Document", doc.Title, $"Restored document: {doc.Title}");
                 }
             }
 
@@ -1090,6 +1295,7 @@ namespace JAS_MINE_IT15.Controllers
                     doc.ApprovedById = GetCurrentUserId();
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Approve", "KnowledgeRepository", doc.Id, "Document", doc.Title, $"Approved document: {doc.Title}");
 
                     // Send real-time notification
                     if (doc.BarangayId.HasValue)
@@ -1129,6 +1335,7 @@ namespace JAS_MINE_IT15.Controllers
                     doc.ApprovedById = GetCurrentUserId(); // Track who rejected
                     doc.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Reject", "KnowledgeRepository", doc.Id, "Document", doc.Title, $"Rejected document: {doc.Title}");
 
                     // Send real-time notification
                     if (doc.BarangayId.HasValue)
@@ -1290,6 +1497,8 @@ namespace JAS_MINE_IT15.Controllers
             _context.Policies.Add(policy);
             await _context.SaveChangesAsync();
 
+            await LogAuditAsync("Create", "PoliciesManagement", policy.Id, "Policy", title, $"Created policy: {title}");
+
             TempData["Success"] = $"Policy \"{title}\" created successfully.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -1323,6 +1532,8 @@ namespace JAS_MINE_IT15.Controllers
 
             await _context.SaveChangesAsync();
 
+            await LogAuditAsync("Edit", "PoliciesManagement", policyId, "Policy", policy.Title, $"Updated policy: {policy.Title}");
+
             TempData["Success"] = "Policy updated successfully.";
             return RedirectToAction(nameof(PoliciesManagement), new { status, q });
         }
@@ -1346,6 +1557,7 @@ namespace JAS_MINE_IT15.Controllers
                     policy.IsArchived = true;
                     policy.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Archive", "PoliciesManagement", policy.Id, "Policy", policy.Title, $"Archived policy: {policy.Title}");
                 }
             }
 
@@ -1372,6 +1584,7 @@ namespace JAS_MINE_IT15.Controllers
                     policy.IsArchived = false;
                     policy.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Restore", "PoliciesManagement", policy.Id, "Policy", policy.Title, $"Restored policy: {policy.Title}");
                 }
             }
 
@@ -1416,6 +1629,7 @@ namespace JAS_MINE_IT15.Controllers
                     }
 
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("StatusChange", "PoliciesManagement", policy.Id, "Policy", policy.Title, $"Changed policy status to {newStatus}");
                 }
             }
 
@@ -1578,6 +1792,7 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.LessonsLearned.Add(lesson);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "LessonsLearned", lesson.Id, "Lesson", title, $"Created lesson: {title}");
 
             TempData["Success"] = "Lesson learned has been created.";
             return RedirectToAction(nameof(LessonsLearned));
@@ -1616,6 +1831,7 @@ namespace JAS_MINE_IT15.Controllers
             lesson.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Edit", "LessonsLearned", lesson.Id, "Lesson", lesson.Title, $"Updated lesson: {lesson.Title}");
 
             TempData["Success"] = "Lesson has been updated.";
             return RedirectToAction(nameof(LessonsLearned));
@@ -1637,6 +1853,7 @@ namespace JAS_MINE_IT15.Controllers
                 lesson.IsArchived = true;
                 lesson.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Archive", "LessonsLearned", lesson.Id, "Lesson", lesson.Title, $"Archived lesson: {lesson.Title}");
                 TempData["Success"] = "Lesson has been archived.";
             }
 
@@ -1659,6 +1876,7 @@ namespace JAS_MINE_IT15.Controllers
                 lesson.IsArchived = false;
                 lesson.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Restore", "LessonsLearned", lesson.Id, "Lesson", lesson.Title, $"Restored lesson: {lesson.Title}");
                 TempData["Success"] = "Lesson has been restored.";
             }
 
@@ -1791,6 +2009,7 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.BestPractices.Add(practice);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "BestPractices", practice.Id, "BestPractice", title, $"Created best practice: {title}");
 
             TempData["Success"] = "Best practice has been created.";
             return RedirectToAction(nameof(BestPractices));
@@ -1830,6 +2049,7 @@ namespace JAS_MINE_IT15.Controllers
             practice.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Edit", "BestPractices", practice.Id, "BestPractice", practice.Title, $"Updated best practice: {practice.Title}");
 
             TempData["Success"] = "Best practice has been updated.";
             return RedirectToAction(nameof(BestPractices));
@@ -1851,6 +2071,7 @@ namespace JAS_MINE_IT15.Controllers
                 practice.IsArchived = true;
                 practice.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Archive", "BestPractices", practice.Id, "BestPractice", practice.Title, $"Archived best practice: {practice.Title}");
                 TempData["Success"] = "Practice has been archived.";
             }
 
@@ -1873,6 +2094,7 @@ namespace JAS_MINE_IT15.Controllers
                 practice.IsArchived = false;
                 practice.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Restore", "BestPractices", practice.Id, "BestPractice", practice.Title, $"Restored best practice: {practice.Title}");
                 TempData["Success"] = "Practice has been restored.";
             }
 
@@ -2009,6 +2231,7 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.KnowledgeDiscussions.Add(discussion);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "KnowledgeSharing", discussion.Id, "Discussion", title, $"Created discussion: {title}");
 
             TempData["Success"] = $"Discussion \"{title}\" created successfully.";
             return RedirectToAction(nameof(KnowledgeSharing));
@@ -2052,6 +2275,7 @@ namespace JAS_MINE_IT15.Controllers
             discussion.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Edit", "KnowledgeSharing", discussion.Id, "Discussion", discussion.Title, $"Updated discussion: {discussion.Title}");
 
             TempData["Success"] = "Discussion updated successfully.";
             return RedirectToAction(nameof(KnowledgeSharing));
@@ -2084,6 +2308,7 @@ namespace JAS_MINE_IT15.Controllers
                     discussion.IsArchived = true;
                     discussion.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Archive", "KnowledgeSharing", discussion.Id, "Discussion", discussion.Title, $"Archived discussion: {discussion.Title}");
                     TempData["Success"] = "Discussion archived.";
                 }
             }
@@ -2261,34 +2486,75 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(UserManagement));
             }
 
-            // Check if email already exists
-            var exists = await _context.BusinessUsers.AnyAsync(u => u.Email == email);
-            if (exists)
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+            {
+                TempData["Error"] = "Password must be at least 6 characters.";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            // Check if email already exists in BusinessUsers or Identity
+            var existsBusiness = await _context.BusinessUsers.AnyAsync(u => u.Email == email);
+            var existsIdentity = await _userManager.FindByEmailAsync(email);
+            if (existsBusiness || existsIdentity != null)
             {
                 TempData["Error"] = "A user with this email already exists.";
                 return RedirectToAction(nameof(UserManagement));
             }
 
-            // Hash password (simplified - in production use proper hashing)
-            var passwordHash = Convert.ToBase64String(
-                System.Security.Cryptography.SHA256.HashData(
-                    System.Text.Encoding.UTF8.GetBytes(password)
-                )
-            );
+            // 1. Create Identity user (so they can log in)
+            var identityUser = new IdentityUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true
+            };
 
+            var identityResult = await _userManager.CreateAsync(identityUser, password);
+            if (!identityResult.Succeeded)
+            {
+                var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
+                TempData["Error"] = $"Failed to create user: {errors}";
+                return RedirectToAction(nameof(UserManagement));
+            }
+
+            // 2. Assign role in Identity
+            await _userManager.AddToRoleAsync(identityUser, role);
+
+            // 3. Resolve BarangayId from name
+            int? barangayId = null;
+            if (!string.IsNullOrWhiteSpace(barangay))
+            {
+                var bgy = await _context.Barangays.FirstOrDefaultAsync(b => b.Name == barangay && b.IsActive);
+                if (bgy != null) barangayId = bgy.Id;
+            }
+
+            // If barangay_admin creating a user, auto-assign their barangay
+            if (!barangayId.HasValue && GetCurrentRole() == "barangay_admin")
+            {
+                barangayId = GetCurrentBarangayId();
+                if (string.IsNullOrWhiteSpace(barangay))
+                    barangay = HttpContext.Session.GetString("Barangay") ?? "";
+            }
+
+            // 4. Create BusinessUser record
             var user = new Models.Entities.User
             {
                 FullName = name,
                 Email = email,
-                PasswordHash = passwordHash,
+                PasswordHash = "IDENTITY_MANAGED",
                 Role = role,
+                BarangayId = barangayId,
                 BarangayName = barangay,
                 IsActive = true,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                CreatedBy = GetCurrentUserId()
             };
 
             _context.BusinessUsers.Add(user);
             await _context.SaveChangesAsync();
+
+            // 5. Log the action
+            await LogAuditAsync("Create", "UserManagement", user.Id, "User", name, $"Created user {email} with role {role}");
 
             TempData["Success"] = $"User \"{name}\" created successfully.";
             return RedirectToAction(nameof(UserManagement));
@@ -2320,7 +2586,17 @@ namespace JAS_MINE_IT15.Controllers
             user.BarangayName = (barangay ?? "").Trim();
             user.UpdatedAt = DateTime.Now;
 
+            // Sync role change to Identity
+            var identityUser = await _userManager.FindByEmailAsync(user.Email);
+            if (identityUser != null)
+            {
+                var currentRoles = await _userManager.GetRolesAsync(identityUser);
+                if (currentRoles.Any()) await _userManager.RemoveFromRolesAsync(identityUser, currentRoles);
+                await _userManager.AddToRoleAsync(identityUser, user.Role);
+            }
+
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Edit", "UserManagement", user.Id, "User", user.FullName, $"Updated user: {user.Email}");
 
             TempData["Success"] = $"User \"{user.FullName}\" updated successfully.";
             return RedirectToAction(nameof(UserManagement));
@@ -2342,6 +2618,7 @@ namespace JAS_MINE_IT15.Controllers
                     user.IsActive = false;
                     user.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Archive", "UserManagement", user.Id, "User", user.FullName, $"Archived user: {user.Email}");
                     TempData["Success"] = $"User \"{user.FullName}\" archived.";
                 }
             }
@@ -2362,10 +2639,18 @@ namespace JAS_MINE_IT15.Controllers
             var barangayId = GetCurrentBarangayId();
 
             bool canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             filter = (filter ?? "all").Trim().ToLower();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
+
+            // Council members can only see published, active announcements
+            if (role == "council_member")
+            {
+                filter = "published";
+                archiveStatus = "active";
+            }
 
             var query = _context.Announcements
                 .Where(a => a.IsActive)
@@ -2411,6 +2696,7 @@ namespace JAS_MINE_IT15.Controllers
                 Filter = filter,
                 ArchiveStatus = archiveStatus,
                 CanCreate = canCreate,
+                CanEdit = canEdit,
                 CanArchive = canArchive,
                 Announcements = announcements,
 
@@ -2475,6 +2761,7 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.Announcements.Add(announcement);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "Announcements", announcement.Id, "Announcement", title, $"Created announcement: {title}");
 
             TempData["Success"] = $"Announcement \"{title}\" created successfully.";
             return RedirectToAction(nameof(Announcements), new { filter });
@@ -2524,6 +2811,7 @@ namespace JAS_MINE_IT15.Controllers
             announcement.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Edit", "Announcements", announcementId, "Announcement", announcement.Title, $"Updated announcement: {announcement.Title}");
 
             TempData["Success"] = "Announcement updated successfully.";
             return RedirectToAction(nameof(Announcements), new { filter });
@@ -2554,6 +2842,7 @@ namespace JAS_MINE_IT15.Controllers
                     announcement.IsArchived = true;
                     announcement.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Archive", "Announcements", announcement.Id, "Announcement", announcement.Title, $"Archived announcement: {announcement.Title}");
                 }
             }
 
@@ -2586,6 +2875,7 @@ namespace JAS_MINE_IT15.Controllers
                     announcement.IsArchived = false;
                     announcement.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
+                    await LogAuditAsync("Restore", "Announcements", announcement.Id, "Announcement", announcement.Title, $"Restored announcement: {announcement.Title}");
                 }
             }
 
@@ -2737,6 +3027,7 @@ namespace JAS_MINE_IT15.Controllers
             var logs = _context.AuditLogs.Where(l => l.IsActive);
             await logs.ForEachAsync(l => l.IsActive = false);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("ClearAll", "AuditLogs", null, "AuditLog", null, "Cleared all audit logs");
 
             TempData["Success"] = "All logs cleared.";
             return RedirectToAction(nameof(AuditLogs));
@@ -2805,20 +3096,24 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/Settings
         [HttpGet]
-        public IActionResult Settings(string tab = "general")
+        public async Task<IActionResult> Settings(string tab = "general")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             tab = (tab ?? "general").Trim().ToLower();
 
+            // Load user profile from DB
+            var userId = GetCurrentUserId();
+            var user = userId.HasValue ? await _context.BusinessUsers.FindAsync(userId.Value) : null;
+
             var vm = new SettingsViewModel
             {
                 Tab = tab,
 
-                FullName = HttpContext.Session.GetString("Settings_FullName") ?? (HttpContext.Session.GetString("UserName") ?? ""),
-                Email = HttpContext.Session.GetString("Settings_Email") ?? "",
-                Barangay = HttpContext.Session.GetString("Settings_Barangay") ?? (HttpContext.Session.GetString("Barangay") ?? ""),
+                FullName = user?.FullName ?? HttpContext.Session.GetString("UserName") ?? "",
+                Email = user?.Email ?? HttpContext.Session.GetString("UserName") ?? "",
+                Barangay = user?.BarangayName ?? HttpContext.Session.GetString("Barangay") ?? "",
                 Language = HttpContext.Session.GetString("Settings_Language") ?? "en",
 
                 NotifApprovals = (HttpContext.Session.GetString("Settings_NotifApprovals") ?? "true") == "true",
@@ -2842,21 +3137,32 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult SaveProfile(SettingsViewModel model)
+        public async Task<IActionResult> SaveProfile(SettingsViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
-            HttpContext.Session.SetString("Settings_FullName", (model.FullName ?? "").Trim());
-            HttpContext.Session.SetString("Settings_Email", (model.Email ?? "").Trim());
-            HttpContext.Session.SetString("Settings_Barangay", (model.Barangay ?? "").Trim());
+            var userId = GetCurrentUserId();
+            if (userId.HasValue)
+            {
+                var user = await _context.BusinessUsers.FindAsync(userId.Value);
+                if (user != null)
+                {
+                    user.FullName = (model.FullName ?? user.FullName).Trim();
+                    user.BarangayName = (model.Barangay ?? "").Trim();
+                    user.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+
+                    // Update session to reflect changes
+                    HttpContext.Session.SetString("UserName", user.Email);
+                    if (!string.IsNullOrWhiteSpace(user.BarangayName))
+                        HttpContext.Session.SetString("Barangay", user.BarangayName);
+
+                    await LogAuditAsync("Edit", "Settings", user.Id, "User", user.FullName, "Updated profile settings");
+                }
+            }
+
             HttpContext.Session.SetString("Settings_Language", (model.Language ?? "en").Trim());
-
-            if (!string.IsNullOrWhiteSpace(model.FullName))
-                HttpContext.Session.SetString("UserName", model.FullName.Trim());
-
-            if (!string.IsNullOrWhiteSpace(model.Barangay))
-                HttpContext.Session.SetString("Barangay", model.Barangay.Trim());
 
             TempData["Success"] = "Profile saved. Your profile information has been updated.";
             return RedirectToAction(nameof(Settings), new { tab = "general" });
@@ -2881,7 +3187,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult UpdatePassword(string currentPassword, string newPassword, string confirmPassword)
+        public async Task<IActionResult> UpdatePassword(string currentPassword, string newPassword, string confirmPassword)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -2897,6 +3203,32 @@ namespace JAS_MINE_IT15.Controllers
                 TempData["Error"] = "New passwords do not match.";
                 return RedirectToAction(nameof(Settings), new { tab = "security" });
             }
+
+            if (newPassword.Length < 6)
+            {
+                TempData["Error"] = "New password must be at least 6 characters.";
+                return RedirectToAction(nameof(Settings), new { tab = "security" });
+            }
+
+            // Get the Identity user
+            var email = HttpContext.Session.GetString("UserName") ?? "";
+            var identityUser = await _userManager.FindByEmailAsync(email);
+            if (identityUser == null)
+            {
+                TempData["Error"] = "User account not found.";
+                return RedirectToAction(nameof(Settings), new { tab = "security" });
+            }
+
+            // Verify current password and change to new
+            var changeResult = await _userManager.ChangePasswordAsync(identityUser, currentPassword, newPassword);
+            if (!changeResult.Succeeded)
+            {
+                var errors = string.Join(", ", changeResult.Errors.Select(e => e.Description));
+                TempData["Error"] = $"Password change failed: {errors}";
+                return RedirectToAction(nameof(Settings), new { tab = "security" });
+            }
+
+            await LogAuditAsync("PasswordChange", "Settings", GetCurrentUserId(), "User", email, "Changed password");
 
             TempData["Success"] = "Password updated. Your password has been changed.";
             return RedirectToAction(nameof(Settings), new { tab = "security" });
@@ -2929,10 +3261,107 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(Settings), new { tab = "system" });
         }
 
-        [Authorize(Roles = "super_admin,barangay_admin")]
-        public IActionResult PasswordRequests()
+        [HttpGet]
+        public async Task<IActionResult> PasswordRequests(string statusFilter = "all")
         {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToDashboard();
+
+            statusFilter = (statusFilter ?? "all").Trim();
+
+            var query = _context.PasswordResetRequests
+                .Where(r => r.IsActive)
+                .Include(r => r.User)
+                .AsQueryable();
+
+            if (statusFilter != "all")
+                query = query.Where(r => r.Status == statusFilter);
+
+            var requests = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new PasswordResetRequestViewModel
+                {
+                    Id = r.Id,
+                    Email = r.Email,
+                    UserName = r.User != null ? r.User.FullName : "Unknown",
+                    Status = r.Status,
+                    CreatedAt = r.CreatedAt,
+                    ProcessedAt = r.ProcessedAt,
+                    Notes = r.Notes ?? ""
+                })
+                .ToListAsync();
+
+            ViewBag.Requests = requests;
+            ViewBag.StatusFilter = statusFilter;
+            ViewBag.TotalPending = await _context.PasswordResetRequests.CountAsync(r => r.IsActive && r.Status == "Pending");
+            ViewBag.TotalProcessed = await _context.PasswordResetRequests.CountAsync(r => r.IsActive && r.Status != "Pending");
+            ViewBag.SuccessMessage = TempData["Success"];
+            ViewBag.ErrorMessage = TempData["Error"];
+
             return View();
+        }
+
+        // POST: Process password reset request (approve = reset password)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ProcessPasswordRequest(int id, string action, string newPassword = "")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToDashboard();
+
+            var request = await _context.PasswordResetRequests
+                .Include(r => r.User)
+                .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
+
+            if (request == null)
+            {
+                TempData["Error"] = "Request not found.";
+                return RedirectToAction(nameof(PasswordRequests));
+            }
+
+            if (action == "approve")
+            {
+                // Reset the user's password via Identity
+                var identityUser = await _userManager.FindByEmailAsync(request.Email);
+                if (identityUser != null)
+                {
+                    var tempPassword = string.IsNullOrWhiteSpace(newPassword) ? "Reset@123" : newPassword;
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
+                    var resetResult = await _userManager.ResetPasswordAsync(identityUser, token, tempPassword);
+
+                    if (resetResult.Succeeded)
+                    {
+                        request.Status = "Approved";
+                        request.ProcessedAt = DateTime.Now;
+                        request.ProcessedById = GetCurrentUserId();
+                        request.Notes = $"Password reset to temporary password. User must change on next login.";
+                        await _context.SaveChangesAsync();
+                        await LogAuditAsync("Approve", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Approved password reset for {request.Email}");
+                        TempData["Success"] = $"Password reset for {request.Email}. Temporary password set.";
+                    }
+                    else
+                    {
+                        var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
+                        TempData["Error"] = $"Failed to reset password: {errors}";
+                    }
+                }
+                else
+                {
+                    TempData["Error"] = "Identity user not found for this email.";
+                }
+            }
+            else if (action == "reject")
+            {
+                request.Status = "Rejected";
+                request.ProcessedAt = DateTime.Now;
+                request.ProcessedById = GetCurrentUserId();
+                request.Notes = "Request rejected by administrator.";
+                await _context.SaveChangesAsync();
+                await LogAuditAsync("Reject", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Rejected password reset for {request.Email}");
+                TempData["Success"] = $"Password reset request for {request.Email} rejected.";
+            }
+
+            return RedirectToAction(nameof(PasswordRequests));
         }
 
         // GET: /Home/ForgotPassword
@@ -2945,7 +3374,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/ForgotPassword
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ForgotPassword(ForgotPasswordViewModel model)
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -2953,8 +3382,34 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
+            var email = (model.Email ?? "").Trim();
+
+            // Check if user exists
+            var user = await _context.BusinessUsers.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && u.IsActive);
+
+            if (user != null)
+            {
+                // Generate a reset token
+                var token = Guid.NewGuid().ToString("N");
+
+                var resetRequest = new PasswordResetRequest
+                {
+                    UserId = user.Id,
+                    Email = user.Email,
+                    Token = token,
+                    Status = "Pending",
+                    ExpiresAt = DateTime.Now.AddHours(24),
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.PasswordResetRequests.Add(resetRequest);
+                await _context.SaveChangesAsync();
+            }
+
+            // Always show success message (don't reveal if email exists)
             model.Submitted = true;
-            model.SuccessMessage = "If your email is registered, you will receive reset instructions.";
+            model.SuccessMessage = "If your email is registered, a password reset request has been submitted. An administrator will process your request.";
 
             return View(model);
         }
@@ -2963,6 +3418,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public async Task<IActionResult> Logout()
         {
+            await LogAuditAsync("Logout", "Authentication", GetCurrentUserId(), "User", HttpContext.Session.GetString("UserName"), $"User logged out");
             HttpContext.Session.Clear();
             await _signInManager.SignOutAsync();
             return RedirectToAction(nameof(Index));
@@ -3021,6 +3477,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateBarangay(string name, string? code, string? municipality,
             string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
         {
@@ -3042,11 +3499,13 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.Barangays.Add(barangay);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "BarangaysManagement", barangay.Id, "Barangay", name, $"Created barangay: {name}");
 
             return RedirectToAction("BarangaysManagement", new { q });
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditBarangay(int id, string name, string? code, string? municipality,
             string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
         {
@@ -3066,12 +3525,14 @@ namespace JAS_MINE_IT15.Controllers
                 barangay.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Edit", "BarangaysManagement", barangay.Id, "Barangay", barangay.Name, $"Updated barangay: {barangay.Name}");
             }
 
             return RedirectToAction("BarangaysManagement", new { q });
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ArchiveBarangay(int id, string q = "")
         {
             if (!IsSuperAdmin()) return RedirectToDashboard();
@@ -3082,6 +3543,7 @@ namespace JAS_MINE_IT15.Controllers
                 barangay.IsActive = false;
                 barangay.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
+                await LogAuditAsync("Archive", "BarangaysManagement", barangay.Id, "Barangay", barangay.Name, $"Archived barangay: {barangay.Name}");
             }
 
             return RedirectToAction("BarangaysManagement", new { q });
@@ -3154,7 +3616,8 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [DenyViewOnly]
-        public async Task<IActionResult> CreateDiscussion(string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateKnowledgeDiscussion(string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
         {
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
@@ -3177,13 +3640,15 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.KnowledgeDiscussions.Add(discussion);
             await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "KnowledgeDiscussions", discussion.Id, "Discussion", title, $"Created discussion: {title}");
 
             return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
         }
 
         [HttpPost]
         [DenyViewOnly]
-        public async Task<IActionResult> EditDiscussion(int id, string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditKnowledgeDiscussion(int id, string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
         {
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
@@ -3203,7 +3668,8 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [DenyViewOnly]
-        public async Task<IActionResult> ArchiveDiscussion(int id, string q = "", string categoryFilter = "All Categories")
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ArchiveKnowledgeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
         {
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
@@ -3224,7 +3690,8 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [DenyViewOnly]
-        public async Task<IActionResult> RestoreDiscussion(int id, string q = "", string categoryFilter = "All Categories")
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RestoreKnowledgeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
         {
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
@@ -3244,6 +3711,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> LikeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
         {
             var discussion = await _context.KnowledgeDiscussions.FindAsync(id);

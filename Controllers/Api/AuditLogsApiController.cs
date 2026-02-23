@@ -1,5 +1,6 @@
 using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -11,6 +12,7 @@ namespace JAS_MINE_IT15.Controllers.Api
     /// Provides logging, querying, and analytics for system activities.
     /// </summary>
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class AuditLogsApiController : ControllerBase

@@ -25,6 +25,7 @@ namespace JAS_MINE_IT15.Models
 
         // Permission flags
         public bool CanCreate { get; set; }
+        public bool CanEdit { get; set; }
         public bool CanArchive { get; set; }
 
         // Stats

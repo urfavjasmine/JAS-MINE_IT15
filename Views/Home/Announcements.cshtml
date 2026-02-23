@@ -22,6 +22,7 @@
     var archiveStatus = Model?.ArchiveStatus ?? "active";
     var filter = Model?.Filter ?? "all";
     var canCreate = Model?.CanCreate ?? false;
+    var canEdit = Model?.CanEdit ?? false;
     var canArchive = Model?.CanArchive ?? false;
     var isViewingArchived = archiveStatus == "archived";
     var announcements = Model?.Announcements ?? new List<JAS_MINE_IT15.Models.AnnouncementItem>();
@@ -205,22 +206,25 @@
                                 </button>
                             </form>
 
-                            <!-- EDIT -->
-                            <button class="btn btn-light action-btn" title="Edit"
-                                    data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                    onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(a.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@a.Priority','@a.Status')">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-
-                            <!-- PIN -->
-                            <form method="post" action="@Url.Action("TogglePinAnnouncement","Home")" class="m-0">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@a.Id" />
-                                <input type="hidden" name="filter" value="@filter" />
-                                <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
-                                    <i class="bi bi-pin@(a.Pinned ? "-fill text-primary" : "")"></i>
+                            @if (canEdit)
+                            {
+                                <!-- EDIT -->
+                                <button class="btn btn-light action-btn" title="Edit"
+                                        data-bs-toggle="modal" data-bs-target="#createEditModal"
+                                        onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(a.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@a.Priority','@a.Status')">
+                                    <i class="bi bi-pencil"></i>
                                 </button>
-                            </form>
+
+                                <!-- PIN -->
+                                <form method="post" action="@Url.Action("TogglePinAnnouncement","Home")" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <input type="hidden" name="filter" value="@filter" />
+                                    <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
+                                        <i class="bi bi-pin@(a.Pinned ? "-fill text-primary" : "")"></i>
+                                    </button>
+                                </form>
+                            }
 
                             @if (canArchive)
                             {

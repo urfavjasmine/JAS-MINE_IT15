@@ -9,5 +9,6 @@
         public string PaymentDate { get; set; } = "";    // yyyy-MM-dd
         public string PaymentMethod { get; set; } = "";  // Cash/GCash/etc
         public string Status { get; set; } = "Paid";     // Paid | Pending | Failed
+        public string Reference { get; set; } = "";
     }
 }

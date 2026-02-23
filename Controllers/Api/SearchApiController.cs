@@ -1,4 +1,5 @@
 using JAS_MINE_IT15.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ namespace JAS_MINE_IT15.Controllers.Api
     /// Provides unified search across documents, policies, announcements, best practices, and lessons learned.
     /// </summary>
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class SearchApiController : ControllerBase

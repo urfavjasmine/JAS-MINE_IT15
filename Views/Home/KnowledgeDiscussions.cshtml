@@ -123,7 +123,7 @@
                                     {
                                         <li><hr class="dropdown-divider" /></li>
                                         <li>
-                                            <form method="post" asp-action="ArchiveDiscussion" asp-route-id="@d.Id" asp-route-q="@Model.SearchQuery" asp-route-categoryFilter="@Model.CategoryFilter">
+                                            <form method="post" asp-action="ArchiveKnowledgeDiscussion" asp-route-id="@d.Id" asp-route-q="@Model.SearchQuery" asp-route-categoryFilter="@Model.CategoryFilter">
                                                 <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Archive this discussion?')">Archive</button>
                                             </form>
                                         </li>
@@ -226,7 +226,7 @@
 <script>
     function openCreate() {
         document.getElementById('modalTitle').textContent = 'New Discussion';
-        document.getElementById('discussionForm').action = '@Url.Action("CreateDiscussion")';
+        document.getElementById('discussionForm').action = '@Url.Action("CreateKnowledgeDiscussion")';
         document.getElementById('fId').value = '';
         document.getElementById('fTitle').value = '';
         document.getElementById('fCategory').value = '';
@@ -235,7 +235,7 @@
 
     function openEdit(id, title, content, category) {
         document.getElementById('modalTitle').textContent = 'Edit Discussion';
-        document.getElementById('discussionForm').action = '@Url.Action("EditDiscussion")';
+        document.getElementById('discussionForm').action = '@Url.Action("EditKnowledgeDiscussion")';
         document.getElementById('fId').value = id;
         document.getElementById('fTitle').value = title;
         document.getElementById('fCategory').value = category || '';

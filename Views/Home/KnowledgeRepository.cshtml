@@ -229,16 +229,24 @@
                 <i class="bi bi-folder2-open"></i>
                 Knowledge Repository
             </div>
-            <div class="page-subtitle">Manage and access purok documents securely</div>
+            <div class="page-subtitle">Manage and access barangay documents securely</div>
         </div>
 
-        @if (canUpload)
-        {
-            <button class="btn btn-primary btn-upload px-4" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                <i class="bi bi-upload me-2"></i>
-                Upload Document
-            </button>
-        }
+        <div class="d-flex gap-2 align-items-center">
+            <a href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = (archiveStatus == "archived" ? "active" : "archived") })"
+               class="btn @(archiveStatus == "archived" ? "btn-primary" : "btn-outline-dark") d-flex align-items-center gap-2 px-3" style="height:44px; border-radius:10px; font-weight:600;">
+                <i class="bi bi-archive"></i>
+                Archived (@archivedDocuments)
+            </a>
+
+            @if (canUpload && archiveStatus != "archived")
+            {
+                <button class="btn btn-primary btn-upload px-4" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-upload me-2"></i>
+                    Upload Document
+                </button>
+            }
+        </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(successMessage))
@@ -270,27 +278,7 @@
         </div>
     }
 
-    <!-- Archive Status Tabs -->
-    <ul class="nav nav-tabs mb-4">
-        <li class="nav-item">
-            <a class="nav-link @(archiveStatus == "active" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "active" })">
-                <i class="bi bi-check-circle me-1"></i> Active (@totalDocuments)
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(archiveStatus == "archived" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "archived" })">
-                <i class="bi bi-archive me-1"></i> Archived (@archivedDocuments)
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(archiveStatus == "all" ? "active" : "")"
-               href="@Url.Action("KnowledgeRepository", "Home", new { q = searchQuery, category = selectedCategory, status = selectedStatus, archiveStatus = "all" })">
-                <i class="bi bi-list-ul me-1"></i> All
-            </a>
-        </li>
-    </ul>
+    @* Archive toggle is now in the header button *@
 
     <!-- Filters Card -->
     <div class="soft-card mb-4">

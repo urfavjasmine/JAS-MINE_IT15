@@ -25,6 +25,7 @@ namespace JAS_MINE_IT15.Models
             public string Date { get; set; } = "";   // yyyy-MM-dd
             public string Method { get; set; } = "";
             public string Status { get; set; } = "Paid"; // Paid | Failed | Pending
+            public string Reference { get; set; } = "";
         }
     }
 }
