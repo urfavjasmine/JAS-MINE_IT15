@@ -2,14 +2,14 @@
 @using Microsoft.AspNetCore.Http
 
 @{
-    ViewData["Title"] = "Barangay Dashboard";
+    ViewData["Title"] = "Purok Dashboard";
     Layout = "~/Views/Shared/_Layout.cshtml";
     
-    // Null-safe properties
+    // Null-safe properties 
     var warningMessage = Model?.WarningMessage ?? "";
     var isViewOnly = Model?.IsViewOnly ?? false;
     var canModify = Model?.CanModify ?? false;
-    var barangayName = Model?.BarangayName ?? "Barangay";
+    var barangayName = Model?.BarangayName ?? "Purok";
     var roleLabel = Model?.RoleLabel ?? "";
     var role = Model?.Role ?? "";
     var recentActivity = Model?.RecentActivity ?? new List<JAS_MINE_IT15.Controllers.ActivityItem>();
@@ -505,7 +505,7 @@
                     }
                     else
                     {
-                        <p class="text-muted mb-0">No recent activity in your barangay.</p>
+                        <p class="text-muted mb-0">No recent activity in your purok.</p>
                     }
                 </div>
             </div>

@@ -1723,7 +1723,11 @@ namespace JAS_MINE_IT15.Controllers
                     Implementations = p.Implementations,
                     IsFeatured = p.IsFeatured,
                     IsArchived = p.IsArchived,
-                    CreatedAt = p.CreatedAt
+                    CreatedAt = p.CreatedAt,
+                    Barangay = !string.IsNullOrEmpty(p.BarangayName)
+                        ? "Purok " + p.BarangayName.Replace("Brgy. ", "").Replace("Brgy ", "")
+                        : "",
+                    DateAdded = p.CreatedAt.ToString("yyyy-MM-dd")
                 })
                 .ToListAsync();
 
@@ -2610,7 +2614,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/AuditLogs
         [HttpGet]
-        public IActionResult AuditLogs(string q = "", string module = "all")
+        public async Task<IActionResult> AuditLogs(string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -2618,7 +2622,25 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var allLogs = new List<LogItem>();
+            var barangayId = HttpContext.Session.GetString("BarangayId") ?? "";
+
+            // Query real audit logs from DB
+            var query = _context.AuditLogs.Where(l => l.IsActive);
+
+            var allLogs = await query
+                .OrderByDescending(l => l.CreatedAt)
+                .Select(l => new LogItem
+                {
+                    Id = l.Id.ToString(),
+                    Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    User = l.UserName ?? l.UserEmail ?? "System",
+                    Action = l.Action ?? "",
+                    Module = l.Module ?? "",
+                    Target = l.TargetName ?? l.TargetType ?? "",
+                    Ip = l.IpAddress ?? ""
+                })
+                .ToListAsync();
+
             var list = allLogs;
 
             if (!string.IsNullOrWhiteSpace(q))
@@ -2669,17 +2691,22 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ClearAllLogs()
+        public async Task<IActionResult> ClearAllLogs()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
+            var logs = _context.AuditLogs.Where(l => l.IsActive);
+            await logs.ForEachAsync(l => l.IsActive = false);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "All logs cleared.";
             return RedirectToAction(nameof(AuditLogs));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ExportLogsCsv(string q = "", string module = "all")
+        public async Task<IActionResult> ExportLogsCsv(string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -2687,7 +2714,21 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var allLogs = new List<LogItem>();
+            var allLogs = await _context.AuditLogs
+                .Where(l => l.IsActive)
+                .OrderByDescending(l => l.CreatedAt)
+                .Select(l => new LogItem
+                {
+                    Id = l.Id.ToString(),
+                    Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    User = l.UserName ?? l.UserEmail ?? "System",
+                    Action = l.Action ?? "",
+                    Module = l.Module ?? "",
+                    Target = l.TargetName ?? l.TargetType ?? "",
+                    Ip = l.IpAddress ?? ""
+                })
+                .ToListAsync();
+
             var list = allLogs.AsEnumerable();
 
             if (!string.IsNullOrWhiteSpace(q))
