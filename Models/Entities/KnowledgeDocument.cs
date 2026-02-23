@@ -35,7 +35,7 @@ namespace JAS_MINE_IT15.Models.Entities
 
         public long? FileSize { get; set; }
 
-        [MaxLength(50)]
+        [MaxLength(255)]
         public string? FileType { get; set; }
 
         /// <summary>

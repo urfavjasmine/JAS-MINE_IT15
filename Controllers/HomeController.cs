@@ -2177,8 +2177,21 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
-            var dbUsers = await _context.BusinessUsers
-                .Where(u => u.IsActive)
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+
+            // Base query
+            var userQuery = _context.BusinessUsers.AsQueryable();
+
+            if (role == "barangay_admin" && barangayId.HasValue)
+            {
+                // Barangay admin: only show users in their barangay, exclude super_admin
+                userQuery = userQuery
+                    .Where(u => u.BarangayId == barangayId.Value)
+                    .Where(u => u.Role != "super_admin");
+            }
+
+            var dbUsers = await userQuery
                 .OrderByDescending(u => u.CreatedAt)
                 .Select(u => new
                 {
@@ -2202,11 +2215,23 @@ namespace JAS_MINE_IT15.Controllers
             }).ToList();
 
             // Get list of barangays for dropdown
-            var barangays = await _context.Barangays
-                .Where(b => b.IsActive)
-                .OrderBy(b => b.Name)
-                .Select(b => b.Name)
-                .ToListAsync();
+            List<string> barangays;
+            if (role == "barangay_admin" && barangayId.HasValue)
+            {
+                // Barangay admin only sees their own barangay
+                barangays = await _context.Barangays
+                    .Where(b => b.IsActive && b.Id == barangayId.Value)
+                    .Select(b => b.Name)
+                    .ToListAsync();
+            }
+            else
+            {
+                barangays = await _context.Barangays
+                    .Where(b => b.IsActive)
+                    .OrderBy(b => b.Name)
+                    .Select(b => b.Name)
+                    .ToListAsync();
+            }
 
             var vm = new UserManagementViewModel
             {
@@ -2622,12 +2647,25 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var barangayId = HttpContext.Session.GetString("BarangayId") ?? "";
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
 
             // Query real audit logs from DB
-            var query = _context.AuditLogs.Where(l => l.IsActive);
+            var logQuery = _context.AuditLogs.Where(l => l.IsActive);
 
-            var allLogs = await query
+            // Barangay admin: only show logs from users in their barangay
+            if (role == "barangay_admin" && barangayId.HasValue)
+            {
+                var barangayUserEmails = await _context.BusinessUsers
+                    .Where(u => u.BarangayId == barangayId.Value && u.Role != "super_admin")
+                    .Select(u => u.Email)
+                    .ToListAsync();
+
+                logQuery = logQuery.Where(l =>
+                    l.UserEmail != null && barangayUserEmails.Contains(l.UserEmail));
+            }
+
+            var allLogs = await logQuery
                 .OrderByDescending(l => l.CreatedAt)
                 .Select(l => new LogItem
                 {
