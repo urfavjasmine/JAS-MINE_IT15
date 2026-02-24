@@ -1646,7 +1646,7 @@ namespace JAS_MINE_IT15.Controllers
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            var barangayId = GetCurrentBarangayId();
             bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
             bool canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
@@ -1764,8 +1764,8 @@ namespace JAS_MINE_IT15.Controllers
             if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff")
                 return RedirectToAction(nameof(LessonsLearned));
 
-            var barangayId = HttpContext.Session.GetInt32("BarangayId");
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var barangayId = GetCurrentBarangayId();
+            var userId = GetCurrentUserId() ?? 0;
 
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(problem) ||
                 string.IsNullOrWhiteSpace(actionTaken) || string.IsNullOrWhiteSpace(result))
@@ -1897,7 +1897,7 @@ namespace JAS_MINE_IT15.Controllers
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var barangayId = HttpContext.Session.GetInt32("BarangayId");
+            var barangayId = GetCurrentBarangayId();
             bool canManage = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canModify = canManage;
             bool canArchive = role == "barangay_admin" || role == "super_admin";
@@ -1982,8 +1982,8 @@ namespace JAS_MINE_IT15.Controllers
             if (role != "barangay_admin" && role != "barangay_secretary")
                 return RedirectToAction(nameof(BestPractices));
 
-            var barangayId = HttpContext.Session.GetInt32("BarangayId");
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var barangayId = GetCurrentBarangayId();
+            var userId = GetCurrentUserId() ?? 0;
 
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(steps))
             {

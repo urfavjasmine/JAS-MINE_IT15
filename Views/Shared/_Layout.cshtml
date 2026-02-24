@@ -8,8 +8,6 @@
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="~/css/site.css" />
 
     <style>
@@ -37,6 +35,15 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px;
+        }
+
+        /* Ensure header dropdowns are not clipped */
+        .dashboard-header {
+            position: relative;
+            z-index: 1030;
+        }
+        .dashboard-header .dropdown-menu {
+            z-index: 1050;
         }
 
         /* Mobile sidebar */
@@ -121,6 +128,16 @@
         document.addEventListener("click", function (e) {
             if (e.target.closest("#sidebarToggleBtn")) {
                 openSidebar();
+            }
+        });
+
+        // Initialize notification dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            var notifBtn = document.querySelector('.dashboard-header [data-bs-toggle="dropdown"]');
+            if (notifBtn && typeof bootstrap !== 'undefined') {
+                if (!bootstrap.Dropdown.getInstance(notifBtn)) {
+                    new bootstrap.Dropdown(notifBtn);
+                }
             }
         });
 
