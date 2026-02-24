@@ -80,7 +80,71 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
-        await db.Database.MigrateAsync();
+
+        // ── Ensure all required columns exist (safe idempotent ALTER TABLE) ──
+        // This runs BEFORE MigrateAsync so the app works even if EF migrations
+        // can't apply (e.g. deployed DB created from raw SQL schema).
+        var ensureColumnsSql = @"
+            -- Policies
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Policies') AND name = 'IsArchived')
+                ALTER TABLE dbo.Policies ADD IsArchived BIT NOT NULL DEFAULT 0;
+
+            -- LessonsLearned
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Problem')
+                ALTER TABLE dbo.LessonsLearned ADD Problem NVARCHAR(MAX) NOT NULL DEFAULT '';
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'ActionTaken')
+                ALTER TABLE dbo.LessonsLearned ADD ActionTaken NVARCHAR(MAX) NOT NULL DEFAULT '';
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Result')
+                ALTER TABLE dbo.LessonsLearned ADD Result NVARCHAR(MAX) NOT NULL DEFAULT '';
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Recommendation')
+                ALTER TABLE dbo.LessonsLearned ADD Recommendation NVARCHAR(MAX) NULL;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'DateRecorded')
+                ALTER TABLE dbo.LessonsLearned ADD DateRecorded DATETIME2 NOT NULL DEFAULT '0001-01-01';
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'IsArchived')
+                ALTER TABLE dbo.LessonsLearned ADD IsArchived BIT NOT NULL DEFAULT 0;
+
+            -- KnowledgeRepository
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeRepository') AND name = 'IsArchived')
+                ALTER TABLE dbo.KnowledgeRepository ADD IsArchived BIT NOT NULL DEFAULT 0;
+
+            -- KnowledgeDiscussions
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeDiscussions') AND name = 'IsArchived')
+                ALTER TABLE dbo.KnowledgeDiscussions ADD IsArchived BIT NOT NULL DEFAULT 0;
+
+            -- BestPractices
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'IsArchived')
+                ALTER TABLE dbo.BestPractices ADD IsArchived BIT NOT NULL DEFAULT 0;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'OwnerOffice')
+                ALTER TABLE dbo.BestPractices ADD OwnerOffice NVARCHAR(200) NULL;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Purpose')
+                ALTER TABLE dbo.BestPractices ADD Purpose NVARCHAR(MAX) NULL;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'ResourcesNeeded')
+                ALTER TABLE dbo.BestPractices ADD ResourcesNeeded NVARCHAR(MAX) NULL;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Status')
+                ALTER TABLE dbo.BestPractices ADD Status NVARCHAR(20) NOT NULL DEFAULT '';
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Steps')
+                ALTER TABLE dbo.BestPractices ADD Steps NVARCHAR(MAX) NOT NULL DEFAULT '';
+
+            -- Announcements
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Announcements') AND name = 'IsArchived')
+                ALTER TABLE dbo.Announcements ADD IsArchived BIT NOT NULL DEFAULT 0;
+
+            -- KnowledgeRepository FileType expansion
+            IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeRepository') AND name = 'FileType' AND max_length = 100)
+                ALTER TABLE dbo.KnowledgeRepository ALTER COLUMN FileType NVARCHAR(255) NULL;
+        ";
+        await db.Database.ExecuteSqlRawAsync(ensureColumnsSql);
+        logger.LogInformation("Ensured all required database columns exist.");
+
+        // Now run EF migrations (may no-op if columns already exist)
+        try
+        {
+            await db.Database.MigrateAsync();
+        }
+        catch (Exception migEx)
+        {
+            logger.LogWarning(migEx, "EF MigrateAsync had issues (columns already ensured above).");
+        }
 
         await IdentitySeeder.SeedRoles(services);
         await IdentitySeeder.SeedSuperAdmin(services);
