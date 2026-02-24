@@ -232,17 +232,19 @@
             <div class="page-subtitle">Discover and learn from proven solutions across puroks</div>
         </div>
 
-        <div class="d-flex gap-2">
-            @if (canManage)
+        <div class="d-flex gap-2 align-items-center">
+            <a href="@Url.Action("BestPractices", "Home", new { archiveStatus = (archiveStatus == "archived" ? "active" : "archived") })"
+               class="btn @(archiveStatus == "archived" ? "btn-primary" : "btn-outline-dark") d-flex align-items-center gap-2 px-3" style="height:44px; border-radius:10px; font-weight:600;">
+                <i class="bi bi-archive"></i>
+                Archived (@archivedPractices)
+            </a>
+
+            @if (canManage && archiveStatus != "archived")
             {
                 <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#bpCreateModal">
                     <i class="bi bi-plus-lg me-2"></i>Add Practice
                 </button>
             }
-            <button class="btn btn-outline-soft px-4">
-                <i class="bi bi-download me-2"></i>
-                Export to PDF
-            </button>
         </div>
     </div>
 
@@ -293,26 +295,18 @@
         </div>
     </div>
 
-    <!-- Archive Status Tabs -->
-    <div class="mb-4">
-        <ul class="nav nav-tabs">
-            <li class="nav-item">
-                <a class="nav-link @(archiveStatus == "active" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="active">
-                    <i class="bi bi-check-circle me-1"></i>Active
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(archiveStatus == "archived" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="archived">
-                    <i class="bi bi-archive me-1"></i>Archived
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(archiveStatus == "all" ? "active" : "")" asp-action="BestPractices" asp-route-archiveStatus="all">
-                    <i class="bi bi-list me-1"></i>All
-                </a>
-            </li>
-        </ul>
-    </div>
+    @if (archiveStatus == "archived")
+    {
+        <div class="alert alert-secondary d-flex align-items-center justify-content-between mb-4" role="alert">
+            <div>
+                <i class="bi bi-archive-fill me-2"></i>
+                <strong>Viewing Archived Practices</strong> — These practices have been archived and are no longer active.
+            </div>
+            <a href="@Url.Action("BestPractices", "Home", new { archiveStatus = "active" })" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-arrow-left me-1"></i> Back to Active
+            </a>
+        </div>
+    }
 
     <!-- Filters -->
     <form method="get" asp-action="BestPractices">

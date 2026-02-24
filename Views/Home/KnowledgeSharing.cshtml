@@ -214,35 +214,34 @@
             <div class="page-subtitle">Connect, share, and learn from the community</div>
         </div>
 
-        @if (canPost)
-        {
-            <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#createDiscussionModal">
-                <i class="bi bi-plus-lg me-2"></i>New Discussion
-            </button>
-        }
+        <div class="d-flex gap-2 align-items-center">
+            <a href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = (Model?.ArchiveStatus == "archived" ? "active" : "archived") })"
+               class="btn @(Model?.ArchiveStatus == "archived" ? "btn-primary" : "btn-outline-dark") d-flex align-items-center gap-2 px-3" style="height:44px; border-radius:10px; font-weight:600;">
+                <i class="bi bi-archive"></i>
+                Archived (@(Model?.ArchivedDiscussions ?? 0))
+            </a>
+
+            @if (canPost && Model?.ArchiveStatus != "archived")
+            {
+                <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#createDiscussionModal">
+                    <i class="bi bi-plus-lg me-2"></i>New Discussion
+                </button>
+            }
+        </div>
     </div>
 
-    <!-- Archive Status Tabs -->
-    <ul class="nav nav-tabs mb-4">
-        <li class="nav-item">
-            <a class="nav-link @(Model?.ArchiveStatus == "active" ? "active" : "")"
-               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "active" })">
-                <i class="bi bi-check-circle me-1"></i> Active (@(Model?.TotalDiscussions ?? 0))
+    @if (Model?.ArchiveStatus == "archived")
+    {
+        <div class="alert alert-secondary d-flex align-items-center justify-content-between mb-4" role="alert">
+            <div>
+                <i class="bi bi-archive-fill me-2"></i>
+                <strong>Viewing Archived Discussions</strong> — These discussions have been archived and are no longer active.
+            </div>
+            <a href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "active" })" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-arrow-left me-1"></i> Back to Active
             </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(Model?.ArchiveStatus == "archived" ? "active" : "")"
-               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "archived" })">
-                <i class="bi bi-archive me-1"></i> Archived (@(Model?.ArchivedDiscussions ?? 0))
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(Model?.ArchiveStatus == "all" ? "active" : "")"
-               href="@Url.Action("KnowledgeSharing", "Home", new { q = Model?.SearchQuery, category = Model?.SelectedCategory, archiveStatus = "all" })">
-                <i class="bi bi-list-ul me-1"></i> All
-            </a>
-        </li>
-    </ul>
+        </div>
+    }
 
     <div class="row g-4">
 
