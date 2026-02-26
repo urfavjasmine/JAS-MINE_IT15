@@ -2766,7 +2766,7 @@ namespace JAS_MINE_IT15.Controllers
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = GetCurrentBarangayId();
 
-            bool canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canCreate = role == "barangay_admin" || role == "barangay_secretary";
             bool canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
@@ -2850,7 +2850,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            var canCreate = role == "barangay_admin" || role == "barangay_secretary";
             if (!canCreate) return RedirectToAction(nameof(Announcements), new { filter });
 
             title = (title ?? "").Trim();
@@ -2904,7 +2904,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            var canEdit = role == "barangay_admin" || role == "barangay_secretary";
             if (!canEdit) return RedirectToAction(nameof(Announcements), new { filter });
 
             if (!int.TryParse(id, out var announcementId))
