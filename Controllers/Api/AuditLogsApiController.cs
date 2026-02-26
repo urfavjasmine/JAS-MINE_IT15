@@ -107,6 +107,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// GET api/auditlogsapi - Get audit logs with filtering
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<ActionResult<PaginatedResponse<AuditLogDto>>> GetAll([FromQuery] AuditLogFilterRequest filter)
         {
             var query = _context.AuditLogs
@@ -224,6 +225,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/auditlogsapi - Create new audit log entry
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<ActionResult<AuditLogDto>> Create([FromBody] CreateAuditLogRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Action))
@@ -451,6 +453,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// DELETE api/auditlogsapi/cleanup - Clean up old audit logs (admin only)
         /// </summary>
         [HttpDelete("cleanup")]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> Cleanup([FromQuery] int daysOld = 90)
         {
             var cutoffDate = DateTime.Now.AddDays(-daysOld);

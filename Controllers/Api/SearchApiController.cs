@@ -377,6 +377,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/searchapi/reindex - Trigger reindexing of all content (admin only)
         /// </summary>
         [HttpPost("reindex")]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> Reindex()
         {
             // In a real implementation, this would rebuild search indexes

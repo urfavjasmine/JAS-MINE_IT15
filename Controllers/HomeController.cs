@@ -366,6 +366,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Cancel
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         public async Task<IActionResult> CancelSubscription(string id, string q = "", string status = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -984,6 +985,9 @@ namespace JAS_MINE_IT15.Controllers
             status = string.IsNullOrWhiteSpace(status) ? "all" : status.Trim().ToLower();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
+
             // TENANT FILTERING: filter by user's barangay only
             var barangayId = GetCurrentBarangayId();
             var query = _context.KnowledgeDocuments
@@ -1056,6 +1060,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         [RequireActiveSubscription]
         public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description, IFormFile? file)
         {
@@ -1419,13 +1424,16 @@ namespace JAS_MINE_IT15.Controllers
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin";
             var canApprove = role == "barangay_admin";
             var canArchive = role == "barangay_admin" || role == "super_admin";
 
             status = (status ?? "all").Trim().ToLower();
             q = (q ?? "").Trim();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
+
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
 
             // Filter by BarangayId for barangay roles
             var barangayIdStr = HttpContext.Session.GetString("BarangayId");
@@ -1502,13 +1510,14 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         [RequireActiveSubscription]
         public async Task<IActionResult> CreatePolicy(string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin";
             if (!canCreate) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             title = (title ?? "").Trim();
@@ -1571,7 +1580,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canEdit = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canEdit = role == "barangay_secretary" || role == "barangay_admin";
             if (!canEdit) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (!int.TryParse(id, out var policyId))
@@ -1741,6 +1750,9 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             dateFilter = (dateFilter ?? "").Trim();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
+
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
 
             var query = _context.LessonsLearned
                 .Where(l => l.IsActive && l.BarangayId == barangayId);
@@ -2009,6 +2021,9 @@ namespace JAS_MINE_IT15.Controllers
             bool canModify = canManage;
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
+
             var query = _context.BestPractices
                 .Where(p => p.IsActive && p.BarangayId == barangayId);
 
@@ -2248,6 +2263,9 @@ namespace JAS_MINE_IT15.Controllers
             category = string.IsNullOrWhiteSpace(category) ? "All Categories" : category.Trim();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
+
             // Query discussions
             var query = _context.KnowledgeDiscussions
                 .Where(d => d.IsActive)
@@ -2481,6 +2499,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Quick Post (simplified create)
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         public async Task<IActionResult> QuickPostKnowledge(string content)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2773,12 +2792,12 @@ namespace JAS_MINE_IT15.Controllers
             filter = (filter ?? "all").Trim().ToLower();
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
-            // Council members can only see published, active announcements
+            // ERP Rule: Only admin roles can view archived records
+            if (!canArchive) archiveStatus = "active";
+
+            // Council members can only see published announcements
             if (role == "council_member")
-            {
                 filter = "published";
-                archiveStatus = "active";
-            }
 
             var query = _context.Announcements
                 .Where(a => a.IsActive)
@@ -3151,7 +3170,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> ClearAllLogs()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            if (!IsSuperAdmin()) return RedirectToDashboard();
 
             var logs = _context.AuditLogs.Where(l => l.IsActive);
             await logs.ForEachAsync(l => l.IsActive = false);

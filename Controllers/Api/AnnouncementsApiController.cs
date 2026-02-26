@@ -183,6 +183,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/announcementsapi - Create new announcement
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<ActionResult<AnnouncementDto>> Create([FromBody] CreateAnnouncementRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
@@ -230,6 +231,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// PUT api/announcementsapi/{id} - Update announcement
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<ActionResult<AnnouncementDto>> Update(int id, [FromBody] UpdateAnnouncementRequest request)
         {
             var announcement = await _context.Announcements.FindAsync(id);
@@ -279,6 +281,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// DELETE api/announcementsapi/{id} - Soft delete (archive) announcement
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var announcement = await _context.Announcements.FindAsync(id);
@@ -298,6 +301,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/announcementsapi/{id}/publish - Publish announcement
         /// </summary>
         [HttpPost("{id}/publish")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<IActionResult> Publish(int id)
         {
             var announcement = await _context.Announcements.FindAsync(id);
@@ -316,6 +320,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/announcementsapi/{id}/pin - Toggle pin status
         /// </summary>
         [HttpPost("{id}/pin")]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> TogglePin(int id)
         {
             var announcement = await _context.Announcements.FindAsync(id);

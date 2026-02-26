@@ -214,6 +214,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// </summary>
         [HttpPost("upload")]
         [RequestSizeLimit(MaxFileSize)]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary,barangay_staff")]
         public async Task<ActionResult<UploadResult>> Upload([FromForm] UploadDocumentRequest request, IFormFile? file)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
@@ -306,6 +307,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// PUT api/documentsapi/{id} - Update document metadata
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary,barangay_staff")]
         public async Task<ActionResult<DocumentDto>> Update(int id, [FromBody] UpdateDocumentRequest request)
         {
             var document = await _context.KnowledgeDocuments.FindAsync(id);
@@ -348,6 +350,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// </summary>
         [HttpPost("{id}/replace")]
         [RequestSizeLimit(MaxFileSize)]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary,barangay_staff")]
         public async Task<ActionResult<UploadResult>> ReplaceFile(int id, IFormFile file)
         {
             var document = await _context.KnowledgeDocuments.FindAsync(id);
@@ -419,6 +422,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// DELETE api/documentsapi/{id} - Soft delete (archive) document
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var document = await _context.KnowledgeDocuments.FindAsync(id);
@@ -438,6 +442,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/documentsapi/{id}/approve - Approve document
         /// </summary>
         [HttpPost("{id}/approve")]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> Approve(int id)
         {
             var document = await _context.KnowledgeDocuments.FindAsync(id);
@@ -461,6 +466,7 @@ namespace JAS_MINE_IT15.Controllers.Api
         /// POST api/documentsapi/{id}/reject - Reject document
         /// </summary>
         [HttpPost("{id}/reject")]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> Reject(int id, [FromBody] string? reason)
         {
             var document = await _context.KnowledgeDocuments.FindAsync(id);
