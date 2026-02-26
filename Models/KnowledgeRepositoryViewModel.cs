@@ -10,6 +10,7 @@ namespace JAS_MINE_IT15.Models
         public string Category { get; set; } = "";
         public string TagsCsv { get; set; } = ""; // store tags as "a, b, c"
         public string UploadedBy { get; set; } = "";
+        public string UploadedByRole { get; set; } = "";
         public string Date { get; set; } = ""; // yyyy-MM-dd
         public string Status { get; set; } = "draft"; // draft/pending/approved/rejected
         public string Version { get; set; } = "1.0";

@@ -204,7 +204,7 @@
 
     /* Responsive hide columns like screenshot */
     @@media (max-width: 991.98px) { /* lg down */
-        .col-uploadedby {
+        .col-uploadedby, .col-role {
             display: none;
         }
     }
@@ -349,6 +349,7 @@
                             <th style="min-width: 360px;">Document</th>
                             <th class="col-category">Category</th>
                             <th class="col-uploadedby">Uploaded By</th>
+                            <th class="col-role">Role</th>
                             <th class="col-date">Date</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
@@ -359,7 +360,7 @@
                         @if (documents.Count == 0)
                         {
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No documents found.</td>
+                                <td colspan="7" class="text-center text-muted py-4">No documents found.</td>
                             </tr>
                         }
                         else
@@ -398,6 +399,9 @@
                                     <td class="col-category text-muted">@doc.Category</td>
                                     <td class="col-uploadedby text-muted">
                                         <i class="bi bi-person me-1"></i> @doc.UploadedBy
+                                    </td>
+                                    <td class="col-role text-muted">
+                                        <span class="badge bg-light text-dark border">@RoleLabel(doc.UploadedByRole)</span>
                                     </td>
                                     <td class="col-date text-muted">
                                         <i class="bi bi-calendar3 me-1"></i> @doc.Date
@@ -717,6 +721,16 @@
         s ??= "";
         return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
     }
+
+    public string RoleLabel(string role) => role switch
+    {
+        "super_admin" => "Super Admin",
+        "barangay_admin" => "Barangay Admin",
+        "barangay_secretary" => "Secretary",
+        "barangay_staff" => "Staff",
+        "council_member" => "Council",
+        _ => role
+    };
 }
 
 <script>

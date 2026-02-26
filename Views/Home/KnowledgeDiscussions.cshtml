@@ -110,7 +110,7 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
                                         <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                onclick="openView('@d.Id','@Html.Raw(d.Title.Replace("'", "\\'"))','@Html.Raw(d.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@d.Category','@d.AuthorName','@d.LikesCount','@d.RepliesCount','@d.CreatedAt.ToString("yyyy-MM-dd")')">
+                                                onclick="openView('@d.Id','@js(d.Title)','@js(d.Content)','@d.Category','@d.AuthorName','@d.LikesCount','@d.RepliesCount','@d.CreatedAt.ToString("yyyy-MM-dd")')">
                                             View
                                         </button>
                                     </li>
@@ -118,7 +118,7 @@
                                     {
                                         <li>
                                             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                                    onclick="openEdit('@d.Id','@Html.Raw(d.Title.Replace("'", "\\'"))','@Html.Raw(d.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@d.Category')">
+                                                    onclick="openEdit('@d.Id','@js(d.Title)','@js(d.Content)','@d.Category')">
                                                 Edit
                                             </button>
                                         </li>
@@ -265,3 +265,11 @@
         });
     });
 </script>
+
+@functions {
+    public string js(string? s)
+    {
+        s ??= "";
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+    }
+}

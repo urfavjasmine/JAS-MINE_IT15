@@ -323,7 +323,7 @@
                                                             <li>
                                                                 <button type="button" class="dropdown-item"
                                                                         data-bs-toggle="modal" data-bs-target="#editDiscussionModal"
-                                                                        onclick="openEditDiscussion('@d.Id','@Html.Raw(d.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(d.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@d.Category')">
+                                                                        onclick="openEditDiscussion('@d.Id','@js(d.Title)','@js(d.Content)','@d.Category')">
                                                                     <i class="bi bi-pencil me-2"></i>Edit
                                                                 </button>
                                                             </li>
@@ -640,3 +640,11 @@
         });
     });
 </script>
+
+@functions {
+    public string js(string? s)
+    {
+        s ??= "";
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+    }
+}

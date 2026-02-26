@@ -1,0 +1,150 @@
+@model JAS_MINE_IT15.Models.SelectPlanViewModel
+@using Microsoft.AspNetCore.Http
+@{
+    ViewData["Title"] = "Select a Plan";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var role = Context?.Session?.GetString("Role") ?? "";
+    var barangayName = Context?.Session?.GetString("Barangay") ?? "";
+}
+
+@functions {
+    private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
+
+    private string DurationLabel(int months)
+    {
+        if (months >= 12)
+        {
+            var yrs = months / 12;
+            return yrs == 1 ? "1 Year" : $"{yrs} Years";
+        }
+        return months == 1 ? "1 Month" : $"{months} Months";
+    }
+}
+
+<div class="d-flex flex-column gap-4">
+
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-credit-card-2-front me-2"></i>Select a Subscription Plan</h2>
+        <div class="text-muted">Choose the best plan for @(string.IsNullOrEmpty(barangayName) ? "your barangay" : barangayName).</div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-1"></i> @Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i> @Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.HasActiveSubscription)
+    {
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-0">
+            <i class="bi bi-info-circle fs-5"></i>
+            <div>
+                Your barangay already has an <strong>active or pending</strong> subscription.
+                <a href="@Url.Action("MySubscription", "Home")" class="alert-link">View current subscription &rarr;</a>
+            </div>
+        </div>
+    }
+
+    @if (!Model.Plans.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                No subscription plans are available at the moment. Please check back later.
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @{ var idx = 0; }
+            @foreach (var plan in Model.Plans)
+            {
+                idx++;
+                var isFeatured = idx == Model.Plans.Count; // highlight most expensive as "Recommended"
+                var borderClass = isFeatured ? "border-primary shadow" : "border-0 shadow-sm";
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 @borderClass position-relative">
+                        @if (isFeatured)
+                        {
+                            <div class="position-absolute top-0 start-50 translate-middle">
+                                <span class="badge bg-primary px-3 py-2 rounded-pill">
+                                    <i class="bi bi-star-fill me-1"></i>Recommended
+                                </span>
+                            </div>
+                        }
+
+                        <div class="card-body d-flex flex-column pt-4">
+                            <div class="text-center mb-3">
+                                <h5 class="fw-bold mb-1">@plan.Name</h5>
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2">
+                                    @DurationLabel(plan.DurationMonths)
+                                </span>
+                            </div>
+
+                            <div class="text-center mb-3">
+                                <span class="fs-2 fw-bold text-primary">@Peso(plan.Price)</span>
+                                <span class="text-muted">/ @DurationLabel(plan.DurationMonths)</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(plan.Description))
+                            {
+                                <p class="text-muted small text-center mb-3">@plan.Description</p>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(plan.Features))
+                            {
+                                <hr class="my-2" />
+                                <ul class="list-unstyled small mb-3">
+                                    @foreach (var feature in plan.Features.Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        <li class="d-flex align-items-start gap-2 mb-1">
+                                            <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                                            <span>@feature.Trim()</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+
+                            <div class="mt-auto text-center">
+                                @if (Model.HasActiveSubscription)
+                                {
+                                    <button class="btn btn-outline-secondary w-100" disabled>
+                                        Already Subscribed
+                                    </button>
+                                }
+                                else
+                                {
+                                    <form asp-action="SubscribeToPlan" method="post" onsubmit="return confirm('Subscribe to @plan.Name for @Peso(plan.Price)? An invoice will be generated.');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="planId" value="@plan.Id" />
+                                        <button type="submit" class="btn @(isFeatured ? "btn-primary" : "btn-outline-primary") w-100">
+                                            <i class="bi bi-cart-check me-1"></i> Select Plan
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="text-center mt-2">
+        <a href="@Url.Action("MySubscription", "Home")" class="btn btn-link text-muted">
+            <i class="bi bi-arrow-left me-1"></i> Back to My Subscription
+        </a>
+    </div>
+</div>

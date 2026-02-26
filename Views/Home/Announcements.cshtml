@@ -210,7 +210,7 @@
                                 <!-- EDIT -->
                                 <button class="btn btn-light action-btn" title="Edit"
                                         data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                        onclick="openEdit('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'").Replace("\n", "\\n"))','@Html.Raw(a.Content.Replace("'", "\\'").Replace("\n", "\\n"))','@a.Priority','@a.Status')">
+                                        onclick="openEdit('@a.Id','@js(a.Title)','@js(a.Content)','@a.Priority','@a.Status')">
                                     <i class="bi bi-pencil"></i>
                                 </button>
 
@@ -230,7 +230,7 @@
                                 <!-- ARCHIVE -->
                                 <button class="btn btn-light action-btn" title="Archive"
                                         data-bs-toggle="modal" data-bs-target="#archiveModal"
-                                        onclick="openArchive('@a.Id','@Html.Raw(a.Title.Replace("'", "\\'"))')">
+                                        onclick="openArchive('@a.Id','@js(a.Title)')">
                                     <i class="bi bi-archive text-warning"></i>
                                 </button>
                             }
@@ -386,3 +386,11 @@
         document.getElementById('archiveName').innerText = title;
     }
 </script>
+
+@functions {
+    public string js(string? s)
+    {
+        s ??= "";
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", "").Replace("\n", "\\n");
+    }
+}

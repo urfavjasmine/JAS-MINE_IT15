@@ -25,6 +25,7 @@ namespace JAS_MINE_IT15.Data
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; } = null!;
         public DbSet<BarangaySubscription> BarangaySubscriptions { get; set; } = null!;
         public DbSet<SubscriptionPayment> SubscriptionPayments { get; set; } = null!;
+        public DbSet<Invoice> Invoices { get; set; } = null!;
         public DbSet<KnowledgeDiscussion> KnowledgeDiscussions { get; set; } = null!;
         public DbSet<PasswordResetRequest> PasswordResetRequests { get; set; } = null!;
 
@@ -256,6 +257,38 @@ namespace JAS_MINE_IT15.Data
                 entity.HasOne(e => e.ProcessedBy)
                       .WithMany()
                       .HasForeignKey(e => e.ProcessedById)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =============================================
+            // Invoice entity configuration
+            // =============================================
+            builder.Entity<Invoice>(entity =>
+            {
+                entity.HasIndex(e => e.InvoiceNumber).IsUnique();
+                entity.Property(e => e.Status).HasDefaultValue("Unpaid");
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.Subscription)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubscriptionId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Barangay)
+                      .WithMany()
+                      .HasForeignKey(e => e.BarangayId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =============================================
+            // SubscriptionPayment – add Invoice FK
+            // =============================================
+            builder.Entity<SubscriptionPayment>(entity =>
+            {
+                entity.HasOne(e => e.Invoice)
+                      .WithMany(i => i.Payments)
+                      .HasForeignKey(e => e.InvoiceId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }

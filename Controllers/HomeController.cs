@@ -17,6 +17,7 @@ using System.Security.Claims;
 
 namespace JAS_MINE_IT15.Controllers
 {
+    [Authorize]
     public class HomeController : Controller
     {
         // ✅ Identity services (needed for DB login)
@@ -160,6 +161,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: Home Index
+        [AllowAnonymous]
         [HttpGet]
         public IActionResult Index()
         {
@@ -172,6 +174,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: /Home/LandingPage
+        [AllowAnonymous]
         [HttpGet]
         public IActionResult LandingPage()
         {
@@ -390,14 +393,14 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/MySubscription
         [HttpGet]
-        public async Task<IActionResult> MySubscription()
+        public async Task<IActionResult> MySubscription(bool expired = false)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var barangayId = GetCurrentBarangayId();
             var barangayName = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
 
-            // Find active subscription for this barangay
+            // Find active/pending subscription for this barangay
             var subscription = await _context.BarangaySubscriptions
                 .Where(s => s.IsActive && s.BarangayId == barangayId)
                 .Include(s => s.Plan)
@@ -413,18 +416,39 @@ namespace JAS_MINE_IT15.Controllers
                     .OrderByDescending(p => p.PaymentDate)
                     .Select(p => new MySubscriptionViewModel.PaymentRow
                     {
+                        Id = p.Id.ToString(),
                         Date = p.PaymentDate.ToString("yyyy-MM-dd"),
                         Amount = p.Amount,
                         Method = p.PaymentMethod ?? "Cash",
                         Status = p.Status,
-                        Reference = p.ReferenceNumber ?? ""
+                        Reference = p.ReferenceNumber ?? "",
+                        ProofUrl = p.ProofOfPaymentUrl,
+                        RejectionReason = p.RejectionReason
                     })
                     .ToListAsync();
             }
 
+            // Get invoices for this barangay
+            var invoices = await _context.Invoices
+                .Where(i => i.IsActive && i.BarangayId == barangayId)
+                .OrderByDescending(i => i.IssuedAt)
+                .Select(i => new MySubscriptionViewModel.InvoiceRow
+                {
+                    Id = i.Id,
+                    InvoiceNumber = i.InvoiceNumber,
+                    Amount = i.Amount,
+                    Status = i.Status,
+                    IssuedAt = i.IssuedAt.ToString("yyyy-MM-dd"),
+                    DueDate = i.DueDate.HasValue ? i.DueDate.Value.ToString("yyyy-MM-dd") : null
+                })
+                .ToListAsync();
+
             var vm = new MySubscriptionViewModel
             {
                 BarangayName = barangayName,
+                ShowExpiredWarning = expired,
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string,
                 Subscription = subscription != null ? new MySubscriptionViewModel.SubscriptionSummary
                 {
                     PlanName = subscription.Plan?.Name ?? "Unknown Plan",
@@ -440,7 +464,8 @@ namespace JAS_MINE_IT15.Controllers
                     StartDate = "",
                     EndDate = ""
                 },
-                Payments = payments
+                Payments = payments,
+                Invoices = invoices
             };
 
             return View(vm);
@@ -791,6 +816,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: /Home/Login
+        [AllowAnonymous]
         [HttpGet]
         public IActionResult Login()
         {
@@ -802,6 +828,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // ✅ UPDATED: POST /Home/Login (Identity DB login)
+        [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginViewModel model)
@@ -876,6 +903,9 @@ namespace JAS_MINE_IT15.Controllers
 
             // Add BarangayId as claim
             await AddBarangayClaimAsync(user, barangayId);
+
+            // ── Session fixation prevention: clear old session before setting new values ──
+            HttpContext.Session.Clear();
 
             // Save to session
             HttpContext.Session.SetString("UserId", businessUser?.Id.ToString() ?? "");
@@ -992,6 +1022,7 @@ namespace JAS_MINE_IT15.Controllers
                     Category = d.Category,
                     TagsCsv = d.Tags ?? "",
                     UploadedBy = d.UploadedBy != null ? d.UploadedBy.FullName : "Unknown",
+                    UploadedByRole = d.UploadedBy != null ? d.UploadedBy.Role : "",
                     Date = d.CreatedAt.ToString("yyyy-MM-dd"),
                     Status = d.Status,
                     Version = d.Version,
@@ -1025,6 +1056,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1081,6 +1113,20 @@ namespace JAS_MINE_IT15.Controllers
 
             if (file != null && file.Length > 0)
             {
+                // ── File validation (H5 fix) ──
+                var allowedDocExtensions = new[] { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".jpg", ".jpeg", ".png" };
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!allowedDocExtensions.Contains(ext))
+                {
+                    TempData["Error"] = "File type not allowed. Accepted: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG.";
+                    return RedirectToAction(nameof(KnowledgeRepository));
+                }
+                if (file.Length > 25 * 1024 * 1024) // 25 MB limit
+                {
+                    TempData["Error"] = "File size must be under 25 MB.";
+                    return RedirectToAction(nameof(KnowledgeRepository));
+                }
+
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "documents");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
@@ -1167,6 +1213,20 @@ namespace JAS_MINE_IT15.Controllers
             // Handle file upload (replace existing if new file provided)
             if (file != null && file.Length > 0)
             {
+                // ── File validation (H5 fix) ──
+                var allowedDocExtensions = new[] { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".jpg", ".jpeg", ".png" };
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!allowedDocExtensions.Contains(ext))
+                {
+                    TempData["Error"] = "File type not allowed. Accepted: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG.";
+                    return RedirectToAction(nameof(KnowledgeRepository));
+                }
+                if (file.Length > 25 * 1024 * 1024)
+                {
+                    TempData["Error"] = "File size must be under 25 MB.";
+                    return RedirectToAction(nameof(KnowledgeRepository));
+                }
+
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "documents");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
@@ -1442,6 +1502,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreatePolicy(string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1526,6 +1587,13 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(PoliciesManagement), new { status, q });
             }
 
+            // TENANT OWNERSHIP VALIDATION
+            if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot edit policies from another barangay.";
+                return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+            }
+
             policy.Title = (title ?? policy.Title).Trim();
             policy.Description = (description ?? "").Trim();
             policy.UpdatedAt = DateTime.Now;
@@ -1554,6 +1622,12 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(policyId);
                 if (policy != null)
                 {
+                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot archive policies from another barangay.";
+                        return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+                    }
+
                     policy.IsArchived = true;
                     policy.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
@@ -1576,11 +1650,17 @@ namespace JAS_MINE_IT15.Controllers
             var canArchive = role == "barangay_admin" || role == "super_admin";
             if (!canArchive) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
-            if (int.TryParse(id, out var policyId))
+            if (int.TryParse(id, out var rpolicyId))
             {
-                var policy = await _context.Policies.FindAsync(policyId);
+                var policy = await _context.Policies.FindAsync(rpolicyId);
                 if (policy != null)
                 {
+                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot restore policies from another barangay.";
+                        return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+                    }
+
                     policy.IsArchived = false;
                     policy.UpdatedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
@@ -1611,6 +1691,13 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(policyId);
                 if (policy != null && policy.IsActive)
                 {
+                    // TENANT OWNERSHIP VALIDATION
+                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot change the status of policies from another barangay.";
+                        return RedirectToAction(nameof(PoliciesManagement), new { status, q });
+                    }
+
                     policy.Status = newStatus;
                     policy.UpdatedAt = DateTime.Now;
 
@@ -1656,7 +1743,7 @@ namespace JAS_MINE_IT15.Controllers
             archiveStatus = (archiveStatus ?? "active").Trim().ToLower();
 
             var query = _context.LessonsLearned
-                .Where(l => l.BarangayId == barangayId);
+                .Where(l => l.IsActive && l.BarangayId == barangayId);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -1714,7 +1801,7 @@ namespace JAS_MINE_IT15.Controllers
 
             // Available dates for filter
             var availableDates = await _context.LessonsLearned
-                .Where(l => !l.IsArchived && l.BarangayId == barangayId)
+                .Where(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId)
                 .Select(l => l.DateRecorded)
                 .Distinct()
                 .OrderByDescending(d => d)
@@ -1735,9 +1822,9 @@ namespace JAS_MINE_IT15.Controllers
                 CanSubmit = canSubmit,
                 CanModify = canModify,
                 CanArchive = canArchive,
-                TotalLessons = await _context.LessonsLearned.CountAsync(l => !l.IsArchived && l.BarangayId == barangayId),
-                RecentLessons = await _context.LessonsLearned.CountAsync(l => !l.IsArchived && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
-                ArchivedLessons = await _context.LessonsLearned.CountAsync(l => l.IsArchived && l.BarangayId == barangayId),
+                TotalLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId),
+                RecentLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
+                ArchivedLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.IsArchived && l.BarangayId == barangayId),
                 SearchQuery = q,
                 DateFilter = dateFilter,
                 ArchiveStatus = archiveStatus,
@@ -1757,6 +1844,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreateLesson(string title, string problem, string actionTaken, string result, string recommendation)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1815,6 +1903,13 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(LessonsLearned));
             }
 
+            // TENANT OWNERSHIP VALIDATION
+            if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot edit lessons from another barangay.";
+                return RedirectToAction(nameof(LessonsLearned));
+            }
+
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(problem) ||
                 string.IsNullOrWhiteSpace(actionTaken) || string.IsNullOrWhiteSpace(result))
             {
@@ -1850,6 +1945,12 @@ namespace JAS_MINE_IT15.Controllers
             var lesson = await _context.LessonsLearned.FindAsync(id);
             if (lesson != null)
             {
+                if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot archive lessons from another barangay.";
+                    return RedirectToAction(nameof(LessonsLearned));
+                }
+
                 lesson.IsArchived = true;
                 lesson.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -1873,6 +1974,12 @@ namespace JAS_MINE_IT15.Controllers
             var lesson = await _context.LessonsLearned.FindAsync(id);
             if (lesson != null)
             {
+                if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot restore lessons from another barangay.";
+                    return RedirectToAction(nameof(LessonsLearned));
+                }
+
                 lesson.IsArchived = false;
                 lesson.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -1903,7 +2010,7 @@ namespace JAS_MINE_IT15.Controllers
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             var query = _context.BestPractices
-                .Where(p => p.BarangayId == barangayId);
+                .Where(p => p.IsActive && p.BarangayId == barangayId);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -1957,9 +2064,9 @@ namespace JAS_MINE_IT15.Controllers
                 CanManage = canManage,
                 CanModify = canModify,
                 CanArchive = canArchive,
-                TotalPractices = await _context.BestPractices.CountAsync(p => !p.IsArchived && p.BarangayId == barangayId),
-                ActivePractices = await _context.BestPractices.CountAsync(p => !p.IsArchived && p.BarangayId == barangayId && p.Status == "Active"),
-                ArchivedPractices = await _context.BestPractices.CountAsync(p => p.IsArchived && p.BarangayId == barangayId),
+                TotalPractices = await _context.BestPractices.CountAsync(p => p.IsActive && !p.IsArchived && p.BarangayId == barangayId),
+                ActivePractices = await _context.BestPractices.CountAsync(p => p.IsActive && !p.IsArchived && p.BarangayId == barangayId && p.Status == "Active"),
+                ArchivedPractices = await _context.BestPractices.CountAsync(p => p.IsActive && p.IsArchived && p.BarangayId == barangayId),
                 Categories = new List<string> { "All Categories", "Health", "Education", "Governance", "Environment", "Safety", "Finance" },
                 Practices = practices
             };
@@ -1975,6 +2082,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreatePractice(string title, string purpose, string steps, string resourcesNeeded, string ownerOffice, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2032,6 +2140,13 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(BestPractices));
             }
 
+            // TENANT OWNERSHIP VALIDATION
+            if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot edit practices from another barangay.";
+                return RedirectToAction(nameof(BestPractices));
+            }
+
             if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(steps))
             {
                 TempData["Error"] = "Title and Steps are required.";
@@ -2068,6 +2183,12 @@ namespace JAS_MINE_IT15.Controllers
             var practice = await _context.BestPractices.FindAsync(id);
             if (practice != null)
             {
+                if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot archive practices from another barangay.";
+                    return RedirectToAction(nameof(BestPractices));
+                }
+
                 practice.IsArchived = true;
                 practice.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -2091,6 +2212,12 @@ namespace JAS_MINE_IT15.Controllers
             var practice = await _context.BestPractices.FindAsync(id);
             if (practice != null)
             {
+                if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot restore practices from another barangay.";
+                    return RedirectToAction(nameof(BestPractices));
+                }
+
                 practice.IsArchived = false;
                 practice.UpdatedAt = DateTime.Now;
                 await _context.SaveChangesAsync();
@@ -2190,6 +2317,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreateDiscussion(string title, string content, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2716,6 +2844,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [RequireActiveSubscription]
         public async Task<IActionResult> CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3365,6 +3494,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // GET: /Home/ForgotPassword
+        [AllowAnonymous]
         [HttpGet]
         public IActionResult ForgotPassword()
         {
@@ -3372,6 +3502,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // POST: /Home/ForgotPassword
+        [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
@@ -3415,7 +3546,8 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // ✅ UPDATED: /Home/Logout (clears session + identity cookie)
-        [HttpGet]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
             await LogAuditAsync("Logout", "Authentication", GetCurrentUserId(), "User", HttpContext.Session.GetString("UserName"), $"User logged out");
@@ -3722,6 +3854,338 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
+        }
+
+        // =============================================
+        // PAYMENT WORKFLOW (manual verification)
+        // =============================================
+
+        // GET: /Home/SelectPlan — Barangay Admin picks a subscription plan
+        [HttpGet]
+        public async Task<IActionResult> SelectPlan()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+
+            // Check if barangay already has an active or pending subscription
+            var existing = await _context.BarangaySubscriptions
+                .AnyAsync(s => s.IsActive && s.BarangayId == barangayId
+                    && (s.Status == "Active" || s.Status == "Pending")
+                    && s.EndDate >= DateTime.Today);
+
+            var plans = await _context.SubscriptionPlans
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Price)
+                .Select(p => new SelectPlanViewModel.AvailablePlan
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description ?? "",
+                    Price = p.Price,
+                    DurationMonths = p.DurationMonths,
+                    Features = p.Features
+                })
+                .ToListAsync();
+
+            var vm = new SelectPlanViewModel
+            {
+                Plans = plans,
+                HasActiveSubscription = existing,
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        // POST: /Home/SubscribeToPlan — Create Pending subscription + Unpaid invoice
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SubscribeToPlan(int planId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+            if (barangayId == null)
+            {
+                TempData["Error"] = "No barangay associated with your account.";
+                return RedirectToAction(nameof(SelectPlan));
+            }
+
+            var plan = await _context.SubscriptionPlans.FindAsync(planId);
+            if (plan == null || !plan.IsActive)
+            {
+                TempData["Error"] = "Invalid or inactive plan.";
+                return RedirectToAction(nameof(SelectPlan));
+            }
+
+            // Prevent duplicate pending subscriptions
+            var hasPending = await _context.BarangaySubscriptions
+                .AnyAsync(s => s.IsActive && s.BarangayId == barangayId && s.Status == "Pending");
+            if (hasPending)
+            {
+                TempData["Error"] = "You already have a pending subscription. Please complete payment first.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Create subscription with Pending status
+            var subscription = new BarangaySubscription
+            {
+                BarangayId = barangayId.Value,
+                PlanId = plan.Id,
+                StartDate = DateTime.Today,
+                EndDate = DateTime.Today.AddMonths(plan.DurationMonths),
+                Status = "Pending",
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.BarangaySubscriptions.Add(subscription);
+            await _context.SaveChangesAsync();
+
+            // Create invoice
+            var invoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{subscription.Id:D5}";
+            var invoice = new Invoice
+            {
+                InvoiceNumber = invoiceNumber,
+                SubscriptionId = subscription.Id,
+                BarangayId = barangayId.Value,
+                Amount = plan.Price,
+                DueDate = DateTime.Today.AddDays(7),
+                Status = "Unpaid",
+                IssuedAt = DateTime.Now,
+                Notes = $"Subscription to {plan.Name} ({plan.DurationMonths} month{(plan.DurationMonths > 1 ? "s" : "")})",
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.Invoices.Add(invoice);
+            await _context.SaveChangesAsync();
+
+            var barangayName = HttpContext.Session.GetString("Barangay") ?? "Barangay";
+            await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
+                $"{barangayName} - {plan.Name}", $"Subscribed to {plan.Name}. Invoice {invoiceNumber} generated (₱{plan.Price:N0}).");
+
+            TempData["Success"] = $"Subscription created. Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated. Please upload proof of payment.";
+            return RedirectToAction(nameof(MySubscription));
+        }
+
+        // POST: /Home/UploadPaymentProof — Barangay Admin uploads proof-of-payment
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadPaymentProof(int invoiceId, IFormFile proofFile, string paymentMethod, string? referenceNumber)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+            var invoice = await _context.Invoices
+                .Include(i => i.Subscription)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive && i.BarangayId == barangayId);
+
+            if (invoice == null)
+            {
+                TempData["Error"] = "Invoice not found.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            if (invoice.Status == "Paid")
+            {
+                TempData["Error"] = "This invoice has already been paid.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Prevent duplicate uploads — only allow if no PendingVerification payment exists for this invoice
+            var hasPendingProof = await _context.SubscriptionPayments
+                .AnyAsync(p => p.InvoiceId == invoiceId && p.IsActive && p.Status == "PendingVerification");
+            if (hasPendingProof)
+            {
+                TempData["Error"] = "A payment proof is already pending verification for this invoice.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            if (proofFile == null || proofFile.Length == 0)
+            {
+                TempData["Error"] = "Please upload a proof of payment file.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Validate file type and size (max 5 MB, images and PDFs only)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+            var ext = Path.GetExtension(proofFile.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(ext))
+            {
+                TempData["Error"] = "Only JPG, PNG, and PDF files are allowed.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+            if (proofFile.Length > 5 * 1024 * 1024)
+            {
+                TempData["Error"] = "File size must be under 5 MB.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Save file to wwwroot/uploads/payments
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "payments");
+            Directory.CreateDirectory(uploadsDir);
+            var fileName = $"{Guid.NewGuid()}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await proofFile.CopyToAsync(stream);
+            }
+
+            var proofUrl = $"/uploads/payments/{fileName}";
+
+            // Create payment record
+            var payment = new SubscriptionPayment
+            {
+                SubscriptionId = invoice.SubscriptionId,
+                InvoiceId = invoice.Id,
+                Amount = invoice.Amount,
+                PaymentDate = DateTime.Today,
+                PaymentMethod = (paymentMethod ?? "").Trim(),
+                ReferenceNumber = (referenceNumber ?? "").Trim(),
+                ProofOfPaymentUrl = proofUrl,
+                Status = "PendingVerification",
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.SubscriptionPayments.Add(payment);
+            await _context.SaveChangesAsync();
+
+            await LogAuditAsync("Upload", "SubscriptionPayments", payment.Id, "Payment",
+                $"Invoice {invoice.InvoiceNumber}", $"Uploaded proof of payment for ₱{invoice.Amount:N0}");
+
+            TempData["Success"] = "Proof of payment uploaded. It will be verified by the system administrator.";
+            return RedirectToAction(nameof(MySubscription));
+        }
+
+        // GET: /Home/PendingPayments — Super Admin reviews pending payment proofs
+        [HttpGet]
+        public async Task<IActionResult> PendingPayments()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var pendingPayments = await _context.SubscriptionPayments
+                .Where(p => p.IsActive && p.Status == "PendingVerification")
+                .Include(p => p.Invoice)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Barangay)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                .OrderBy(p => p.CreatedAt)
+                .Select(p => new PendingPaymentsViewModel.PendingPaymentRow
+                {
+                    PaymentId = p.Id,
+                    BarangayName = p.Subscription != null && p.Subscription.Barangay != null ? p.Subscription.Barangay.Name : "Unknown",
+                    PlanName = p.Subscription != null && p.Subscription.Plan != null ? p.Subscription.Plan.Name : "Unknown",
+                    InvoiceNumber = p.Invoice != null ? p.Invoice.InvoiceNumber : "",
+                    Amount = p.Amount,
+                    PaymentDate = p.PaymentDate.ToString("yyyy-MM-dd"),
+                    PaymentMethod = p.PaymentMethod ?? "",
+                    ProofUrl = p.ProofOfPaymentUrl,
+                    ReferenceNumber = p.ReferenceNumber
+                })
+                .ToListAsync();
+
+            var vm = new PendingPaymentsViewModel
+            {
+                Payments = pendingPayments,
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
+            };
+
+            return View(vm);
+        }
+
+        // POST: /Home/ApprovePayment — Super Admin approves a payment
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApprovePayment(int paymentId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var payment = await _context.SubscriptionPayments
+                .Include(p => p.Invoice)
+                .Include(p => p.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.IsActive && p.Status == "PendingVerification");
+
+            if (payment == null)
+            {
+                TempData["Error"] = "Payment not found or already processed.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+
+            // Approve the payment
+            payment.Status = "Approved";
+            payment.ProcessedById = GetCurrentUserId();
+            payment.ProcessedAt = DateTime.Now;
+            payment.UpdatedAt = DateTime.Now;
+
+            // Mark invoice as paid
+            if (payment.Invoice != null)
+            {
+                payment.Invoice.Status = "Paid";
+                payment.Invoice.PaidAt = DateTime.Now;
+                payment.Invoice.UpdatedAt = DateTime.Now;
+            }
+
+            // Activate subscription
+            if (payment.Subscription != null)
+            {
+                payment.Subscription.Status = "Active";
+                payment.Subscription.StartDate = DateTime.Today;
+                var duration = payment.Subscription.Plan?.DurationMonths ?? 12;
+                payment.Subscription.EndDate = DateTime.Today.AddMonths(duration);
+                payment.Subscription.UpdatedAt = DateTime.Now;
+            }
+
+            await _context.SaveChangesAsync();
+
+            var label = payment.Invoice?.InvoiceNumber ?? $"Payment #{payment.Id}";
+            await LogAuditAsync("Approve", "SubscriptionPayments", payment.Id, "Payment", label,
+                $"Approved payment of ₱{payment.Amount:N0} for {label}");
+
+            TempData["Success"] = $"Payment {label} approved. Subscription is now active.";
+            return RedirectToAction(nameof(PendingPayments));
+        }
+
+        // POST: /Home/RejectPayment — Super Admin rejects a payment with reason
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectPayment(int paymentId, string rejectionReason)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            var payment = await _context.SubscriptionPayments
+                .Include(p => p.Invoice)
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.IsActive && p.Status == "PendingVerification");
+
+            if (payment == null)
+            {
+                TempData["Error"] = "Payment not found or already processed.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+
+            payment.Status = "Rejected";
+            payment.RejectionReason = (rejectionReason ?? "").Trim();
+            payment.ProcessedById = GetCurrentUserId();
+            payment.ProcessedAt = DateTime.Now;
+            payment.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            var label = payment.Invoice?.InvoiceNumber ?? $"Payment #{payment.Id}";
+            await LogAuditAsync("Reject", "SubscriptionPayments", payment.Id, "Payment", label,
+                $"Rejected payment of ₱{payment.Amount:N0}. Reason: {payment.RejectionReason}");
+
+            TempData["Success"] = $"Payment {label} rejected.";
+            return RedirectToAction(nameof(PendingPayments));
         }
 
         private static string GetRoleLabel(string role)

@@ -349,6 +349,11 @@
                     <div class="jm-icon"><i class="bi bi-receipt"></i></div>
                     <div class="jm-text">Subscription Payments</div>
                 </a>
+
+                <a class="jm-item @(IsActive("PendingPayments") ? "active" : "")" href="@Url.Action("PendingPayments", "Home")">
+                    <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="jm-text">Payment Verification</div>
+                </a>
             </div>
         }
 
@@ -418,6 +423,11 @@
                     <div class="jm-icon"><i class="bi bi-star"></i></div>
                     <div class="jm-text">My Subscription</div>
                 </a>
+
+                <a class="jm-item @(IsActive("SelectPlan") ? "active" : "")" href="@Url.Action("SelectPlan", "Home")">
+                    <div class="jm-icon"><i class="bi bi-cart-plus"></i></div>
+                    <div class="jm-text">Browse Plans</div>
+                </a>
             </div>
         }
 
@@ -477,10 +487,13 @@
             </div>
         </div>
 
-        <a class="jm-signout" href="@Url.Action("Logout", "Home")">
-            <i class="bi bi-box-arrow-right"></i>
-            <span>Sign Out</span>
-        </a>
+        <form method="post" action="@Url.Action("Logout", "Home")" id="logoutForm">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="jm-signout" style="background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0;font:inherit;color:inherit;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Sign Out</span>
+            </button>
+        </form>
     </div>
 </aside>
 

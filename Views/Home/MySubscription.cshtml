@@ -15,29 +15,135 @@
     private string BadgeClass(string s)
     {
         s = (s ?? "").Trim();
-        if (s == "Active" || s == "Paid") return "bg-success-subtle text-success border border-success-subtle";
-        if (s == "Expired") return "bg-danger-subtle text-danger border border-danger-subtle";
-        return "bg-warning-subtle text-warning border border-warning-subtle";
+        return s switch
+        {
+            "Active" or "Paid" or "Approved" => "bg-success-subtle text-success border border-success-subtle",
+            "Expired" or "Rejected" => "bg-danger-subtle text-danger border border-danger-subtle",
+            "Overdue" => "bg-danger-subtle text-danger border border-danger-subtle",
+            "Pending" or "PendingVerification" => "bg-warning-subtle text-warning border border-warning-subtle",
+            "Unpaid" => "bg-secondary-subtle text-secondary border border-secondary-subtle",
+            "None" => "bg-light text-muted border",
+            _ => "bg-warning-subtle text-warning border border-warning-subtle"
+        };
+    }
+
+    private string BadgeIcon(string s)
+    {
+        s = (s ?? "").Trim();
+        return s switch
+        {
+            "Active" or "Paid" or "Approved" => "bi-check-circle-fill",
+            "Expired" => "bi-x-circle-fill",
+            "Overdue" => "bi-exclamation-triangle-fill",
+            "Pending" or "PendingVerification" => "bi-hourglass-split",
+            "Rejected" => "bi-x-octagon-fill",
+            "Unpaid" => "bi-dash-circle",
+            _ => "bi-question-circle"
+        };
+    }
+
+    private string StatusLabel(string s)
+    {
+        s = (s ?? "").Trim();
+        return s switch
+        {
+            "PendingVerification" => "Pending Verification",
+            _ => s
+        };
     }
 
     private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
+
+    private bool IsExpiringSoon(string endDateStr)
+    {
+        if (DateTime.TryParse(endDateStr, out var endDate))
+        {
+            var daysLeft = (endDate - DateTime.Today).TotalDays;
+            return daysLeft > 0 && daysLeft <= 30;
+        }
+        return false;
+    }
+
+    private int DaysLeft(string endDateStr)
+    {
+        if (DateTime.TryParse(endDateStr, out var endDate))
+            return Math.Max(0, (int)(endDate - DateTime.Today).TotalDays);
+        return 0;
+    }
 }
 
 @{
     var sub = Model?.Subscription;
     var payments = Model?.Payments ?? new List<JAS_MINE_IT15.Models.MySubscriptionViewModel.PaymentRow>();
+    var invoices = Model?.Invoices ?? new List<JAS_MINE_IT15.Models.MySubscriptionViewModel.InvoiceRow>();
     var displayBarangay = Model?.BarangayName ?? barangayName ?? "";
+    var isAdmin = role == "barangay_admin";
 }
 
 <div class="d-flex flex-column gap-4">
 
-    <div>
-        <h2 class="fw-bold mb-1">My Subscription</h2>
-        <div class="text-muted">View your barangay's subscription details and payment history.</div>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-star me-2"></i>My Subscription</h2>
+            <div class="text-muted">View your barangay's subscription details, invoices, and payment history.</div>
+        </div>
+        @if (isAdmin)
+        {
+            <a href="@Url.Action("SelectPlan", "Home")" class="btn btn-primary">
+                <i class="bi bi-cart-plus me-1"></i> Browse Plans
+            </a>
+        }
     </div>
 
+    @* ── Alerts ── *@
+    @if (Model?.ShowExpiredWarning == true)
+    {
+        <div class="alert alert-danger d-flex align-items-center gap-2 mb-0" role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <div>
+                <strong>Subscription expired or not found.</strong>
+                You cannot create new content until your subscription is renewed.
+                @if (isAdmin)
+                {
+                    <a href="@Url.Action("SelectPlan", "Home")" class="alert-link">Select a new plan &rarr;</a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model?.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-1"></i> @Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model?.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i> @Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @* ── Expiring Soon Warning ── *@
+    @if (sub != null && sub.Status == "Active" && IsExpiringSoon(sub.EndDate))
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-0" role="alert">
+            <i class="bi bi-clock-history fs-5"></i>
+            <div>
+                <strong>Subscription expiring soon!</strong>
+                Your plan expires in <strong>@DaysLeft(sub.EndDate) day(s)</strong> on @sub.EndDate.
+                @if (isAdmin)
+                {
+                    <a href="@Url.Action("SelectPlan", "Home")" class="alert-link">Renew now &rarr;</a>
+                }
+            </div>
+        </div>
+    }
+
     <!-- Subscription Card -->
-    <div class="card border-primary-subtle">
+    <div class="card @(sub?.Status == "Active" ? "border-success" : sub?.Status == "Expired" ? "border-danger" : "border-primary-subtle")">
         <div class="card-header bg-white">
             <div class="fw-bold d-flex align-items-center gap-2">
                 <i class="bi bi-credit-card fs-5"></i>
@@ -46,10 +152,17 @@
         </div>
 
         <div class="card-body">
-            @if (sub == null)
+            @if (sub == null || sub.Status == "None")
             {
-                <div class="alert alert-warning mb-0">
-                    No active subscription found yet.
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                    <div class="text-muted mb-2">No active subscription found.</div>
+                    @if (isAdmin)
+                    {
+                        <a href="@Url.Action("SelectPlan", "Home")" class="btn btn-primary">
+                            <i class="bi bi-cart-plus me-1"></i> Get Started
+                        </a>
+                    }
                 </div>
             }
             else
@@ -70,19 +183,25 @@
                                 <i class="bi bi-calendar3"></i>
                                 <span>End: @sub.EndDate</span>
                             </div>
+                            @if (sub.Status == "Active" && !string.IsNullOrEmpty(sub.EndDate))
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-clock"></i>
+                                    <span>@DaysLeft(sub.EndDate) day(s) remaining</span>
+                                </div>
+                            }
                         </div>
                     </div>
 
                     <div class="col-12 col-md-4 text-md-end">
                         <span class="badge @BadgeClass(sub.Status) px-3 py-2">
-                            @sub.Status
+                            <i class="bi @BadgeIcon(sub.Status) me-1"></i>@StatusLabel(sub.Status)
                         </span>
 
                         <div class="mt-2">
                             <span class="fs-3 fw-bold text-primary">
                                 @Peso(sub.Price)
                             </span>
-                            <span class="text-muted">/year</span>
                         </div>
                     </div>
                 </div>
@@ -90,24 +209,167 @@
         </div>
     </div>
 
+    @* ── Invoices ── *@
+    <div class="card">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <div class="fw-bold d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-text fs-5"></i>
+                <span>Invoices</span>
+            </div>
+            @if (invoices.Any())
+            {
+                <span class="badge bg-secondary-subtle text-secondary border">@invoices.Count total</span>
+            }
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Issued</th>
+                            <th>Due Date</th>
+                            @if (isAdmin)
+                            {
+                                <th class="text-center">Action</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!invoices.Any())
+                        {
+                            <tr>
+                                <td colspan="@(isAdmin ? 6 : 5)" class="text-muted text-center py-4">
+                                    No invoices yet.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var inv in invoices)
+                            {
+                                <tr>
+                                    <td class="font-monospace small">@inv.InvoiceNumber</td>
+                                    <td class="fw-semibold">@Peso(inv.Amount)</td>
+                                    <td>
+                                        <span class="badge @BadgeClass(inv.Status)">
+                                            <i class="bi @BadgeIcon(inv.Status) me-1"></i>@inv.Status
+                                        </span>
+                                    </td>
+                                    <td class="text-muted">@inv.IssuedAt</td>
+                                    <td class="text-muted">@(inv.DueDate ?? "—")</td>
+                                    @if (isAdmin)
+                                    {
+                                        <td class="text-center">
+                                            @if (inv.Status == "Unpaid" || inv.Status == "Overdue")
+                                            {
+                                                <button type="button" class="btn btn-sm btn-primary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#uploadModal-@inv.Id">
+                                                    <i class="bi bi-upload me-1"></i>Upload Proof
+                                                </button>
+
+                                                <!-- Upload Modal -->
+                                                <div class="modal fade" id="uploadModal-@inv.Id" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content">
+                                                            <form asp-action="UploadPaymentProof" method="post" enctype="multipart/form-data">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="invoiceId" value="@inv.Id" />
+
+                                                                <div class="modal-header">
+                                                                    <h6 class="modal-title fw-bold">
+                                                                        <i class="bi bi-upload me-1"></i> Upload Payment Proof
+                                                                    </h6>
+                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                                </div>
+
+                                                                <div class="modal-body">
+                                                                    <div class="mb-3 p-3 bg-light rounded">
+                                                                        <div class="small text-muted">Invoice</div>
+                                                                        <div class="fw-semibold font-monospace">@inv.InvoiceNumber</div>
+                                                                        <div class="text-primary fw-bold">@Peso(inv.Amount)</div>
+                                                                    </div>
+
+                                                                    <div class="mb-3">
+                                                                        <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
+                                                                        <select name="paymentMethod" class="form-select" required>
+                                                                            <option value="">Select method...</option>
+                                                                            <option value="GCash">GCash</option>
+                                                                            <option value="Bank Transfer">Bank Transfer</option>
+                                                                            <option value="Cash">Cash</option>
+                                                                            <option value="Check">Check</option>
+                                                                            <option value="Maya">Maya</option>
+                                                                        </select>
+                                                                    </div>
+
+                                                                    <div class="mb-3">
+                                                                        <label class="form-label fw-semibold">Reference Number</label>
+                                                                        <input type="text" name="referenceNumber" class="form-control"
+                                                                               placeholder="Transaction ref #" maxlength="100" />
+                                                                    </div>
+
+                                                                    <div class="mb-0">
+                                                                        <label class="form-label fw-semibold">Proof of Payment <span class="text-danger">*</span></label>
+                                                                        <input type="file" name="proofFile" class="form-control"
+                                                                               accept=".jpg,.jpeg,.png,.pdf" required />
+                                                                        <div class="form-text">JPG, PNG, or PDF — max 5 MB</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                                                    <button type="submit" class="btn btn-primary btn-sm">
+                                                                        <i class="bi bi-upload me-1"></i> Submit Payment
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">—</span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Payment History -->
     <div class="card">
-        <div class="card-header bg-white">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between">
             <div class="fw-bold d-flex align-items-center gap-2">
                 <i class="bi bi-receipt fs-5"></i>
                 <span>Payment History</span>
             </div>
+            @if (payments.Any())
+            {
+                <span class="badge bg-secondary-subtle text-secondary border">@payments.Count record(s)</span>
+            }
         </div>
 
-        <div class="card-body">
-            <div class="table-responsive border rounded">
-                <table class="table table-hover mb-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Amount</th>
                             <th>Date</th>
                             <th>Method</th>
+                            <th>Reference</th>
                             <th>Status</th>
+                            <th>Proof</th>
                         </tr>
                     </thead>
 
@@ -115,7 +377,7 @@
                         @if (!payments.Any())
                         {
                             <tr>
-                                <td colspan="4" class="text-muted text-center py-4">
+                                <td colspan="6" class="text-muted text-center py-4">
                                     No payments found.
                                 </td>
                             </tr>
@@ -124,14 +386,38 @@
                         {
                             foreach (var p in payments)
                             {
-                                <tr>
+                                <tr class="@(p.Status == "Rejected" ? "table-danger" : "")">
                                     <td class="fw-semibold">@Peso(p.Amount)</td>
                                     <td class="text-muted">@p.Date</td>
-                                    <td class="text-muted">@p.Method</td>
+                                    <td class="text-muted">@(string.IsNullOrEmpty(p.Method) ? "—" : p.Method)</td>
+                                    <td class="text-muted small">@(string.IsNullOrEmpty(p.Reference) ? "—" : p.Reference)</td>
                                     <td>
-                                        <span class="badge @BadgeClass(p.Status)">@p.Status</span>
+                                        <span class="badge @BadgeClass(p.Status)">
+                                            <i class="bi @BadgeIcon(p.Status) me-1"></i>@StatusLabel(p.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(p.ProofUrl))
+                                        {
+                                            <a href="@p.ProofUrl" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-eye me-1"></i>View
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
                                     </td>
                                 </tr>
+                                @if (p.Status == "Rejected" && !string.IsNullOrEmpty(p.RejectionReason))
+                                {
+                                    <tr class="table-danger">
+                                        <td colspan="6" class="small py-1 ps-4">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            <strong>Rejection reason:</strong> @p.RejectionReason
+                                        </td>
+                                    </tr>
+                                }
                             }
                         }
                     </tbody>

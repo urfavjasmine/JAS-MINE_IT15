@@ -1,5 +1,7 @@
+using JAS_MINE_IT15.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.EntityFrameworkCore;
 
 namespace JAS_MINE_IT15.Filters
 {
@@ -47,6 +49,52 @@ namespace JAS_MINE_IT15.Filters
             {
                 context.HttpContext.Session.SetString("ErrorMessage", "You do not have permission to access this page.");
                 context.Result = new RedirectToActionResult("Index", "Dashboard", null);
+                return;
+            }
+
+            base.OnActionExecuting(context);
+        }
+    }
+
+    /// <summary>
+    /// Blocks create/edit/upload actions when the user's barangay subscription is not Active.
+    /// super_admin bypasses the gate.
+    /// Apply to controller or individual actions that require an active subscription.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
+    public class RequireActiveSubscriptionAttribute : ActionFilterAttribute
+    {
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            var role = context.HttpContext.Session.GetString("Role") ?? "";
+
+            // Super admin always bypasses
+            if (role == "super_admin")
+            {
+                base.OnActionExecuting(context);
+                return;
+            }
+
+            var barangayIdStr = context.HttpContext.Session.GetString("BarangayId");
+            if (!int.TryParse(barangayIdStr, out var barangayId))
+            {
+                context.HttpContext.Session.SetString("ErrorMessage", "Your account is not assigned to a barangay.");
+                context.Result = new RedirectToActionResult("Barangay", "Dashboard", null);
+                return;
+            }
+
+            // Check subscription in DB
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+            var hasActive = dbContext.BarangaySubscriptions
+                .Any(s => s.BarangayId == barangayId
+                       && s.IsActive
+                       && s.Status == "Active"
+                       && s.EndDate >= DateTime.Today);
+
+            if (!hasActive)
+            {
+                context.HttpContext.Items["SubscriptionExpired"] = true;
+                context.Result = new RedirectToActionResult("MySubscription", "Home", new { expired = true });
                 return;
             }
 

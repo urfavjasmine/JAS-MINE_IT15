@@ -11,6 +11,7 @@ namespace JAS_MINE_IT15.Controllers.Api
     /// </summary>
     [ApiController]
     [Authorize]
+    [AutoValidateAntiforgeryToken]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class SearchApiController : ControllerBase

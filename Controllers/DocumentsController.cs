@@ -88,6 +88,7 @@ namespace JAS_MINE_IT15.Controllers
                     Category = d.Category,
                     TagsCsv = d.Tags ?? "",
                     UploadedBy = d.UploadedBy != null ? d.UploadedBy.FullName : "Unknown",
+                    UploadedByRole = d.UploadedBy != null ? d.UploadedBy.Role : "",
                     Date = d.CreatedAt.ToString("yyyy-MM-dd"),
                     Status = d.Status,
                     Version = d.Version,

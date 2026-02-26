@@ -33,6 +33,13 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Home/Login";
+    options.AccessDeniedPath = "/Home/Login";
+    options.LogoutPath = "/Home/Logout";
+});
+
 // Session
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -132,6 +139,49 @@ using (var scope = app.Services.CreateScope())
             -- KnowledgeRepository FileType expansion
             IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeRepository') AND name = 'FileType' AND max_length = 100)
                 ALTER TABLE dbo.KnowledgeRepository ALTER COLUMN FileType NVARCHAR(255) NULL;
+
+            -- Invoices table
+            IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID('dbo.Invoices') AND type = 'U')
+            BEGIN
+                CREATE TABLE dbo.Invoices (
+                    Id INT IDENTITY(1,1) PRIMARY KEY,
+                    InvoiceNumber NVARCHAR(50) NOT NULL,
+                    SubscriptionId INT NOT NULL,
+                    BarangayId INT NULL,
+                    Amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+                    DueDate DATE NULL,
+                    Status NVARCHAR(20) NOT NULL DEFAULT 'Unpaid',
+                    IssuedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+                    PaidAt DATETIME2 NULL,
+                    Notes NVARCHAR(500) NULL,
+                    IsActive BIT NOT NULL DEFAULT 1,
+                    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+                    UpdatedAt DATETIME2 NULL,
+                    CONSTRAINT FK_Invoices_Subscription FOREIGN KEY (SubscriptionId) REFERENCES dbo.BarangaySubscriptions(Id),
+                    CONSTRAINT FK_Invoices_Barangay FOREIGN KEY (BarangayId) REFERENCES dbo.Barangays(Id)
+                );
+                CREATE UNIQUE INDEX IX_Invoices_InvoiceNumber ON dbo.Invoices(InvoiceNumber);
+            END
+
+            -- SubscriptionPayments new columns
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'InvoiceId')
+                ALTER TABLE dbo.SubscriptionPayments ADD InvoiceId INT NULL CONSTRAINT FK_SubscriptionPayments_Invoice FOREIGN KEY REFERENCES dbo.Invoices(Id);
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProofOfPaymentUrl')
+                ALTER TABLE dbo.SubscriptionPayments ADD ProofOfPaymentUrl NVARCHAR(500) NULL;
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'RejectionReason')
+                ALTER TABLE dbo.SubscriptionPayments ADD RejectionReason NVARCHAR(500) NULL;
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProcessedAt')
+                ALTER TABLE dbo.SubscriptionPayments ADD ProcessedAt DATETIME2 NULL;
+
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProcessedById')
+                ALTER TABLE dbo.SubscriptionPayments ADD ProcessedById INT NULL;
+
+            -- Expand SubscriptionPayments.Status from 20 to 30 if needed
+            IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'Status' AND max_length < 60)
+                ALTER TABLE dbo.SubscriptionPayments ALTER COLUMN Status NVARCHAR(30) NOT NULL;
         ";
         await db.Database.ExecuteSqlRawAsync(ensureColumnsSql);
         logger.LogInformation("Ensured all required database columns exist.");
@@ -149,6 +199,28 @@ using (var scope = app.Services.CreateScope())
         await IdentitySeeder.SeedRoles(services);
         await IdentitySeeder.SeedSuperAdmin(services);
         await IdentitySeeder.SeedDefaultUsers(services);
+
+        // ── Auto-expire subscriptions past EndDate ──
+        var expiredCount = await db.Database.ExecuteSqlRawAsync(@"
+            UPDATE dbo.BarangaySubscriptions
+            SET Status = 'Expired', UpdatedAt = GETDATE()
+            WHERE IsActive = 1
+              AND Status = 'Active'
+              AND EndDate < CAST(GETDATE() AS DATE)
+        ");
+        if (expiredCount > 0)
+            logger.LogInformation("Auto-expired {Count} subscription(s) past EndDate.", expiredCount);
+
+        // ── Auto-mark overdue invoices ──
+        var overdueCount = await db.Database.ExecuteSqlRawAsync(@"
+            UPDATE dbo.Invoices
+            SET Status = 'Overdue', UpdatedAt = GETDATE()
+            WHERE IsActive = 1
+              AND Status = 'Unpaid'
+              AND DueDate < CAST(GETDATE() AS DATE)
+        ");
+        if (overdueCount > 0)
+            logger.LogInformation("Marked {Count} invoice(s) as Overdue.", overdueCount);
     }
     catch (Exception ex)
     {
