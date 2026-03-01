@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using JAS_MINE_IT15.Models.Entities;
 
 namespace JAS_MINE_IT15.Data
 {
@@ -105,6 +107,92 @@ namespace JAS_MINE_IT15.Data
                 if (!await userManager.IsInRoleAsync(user, d.Role))
                     await userManager.AddToRoleAsync(user, d.Role);
             }
+        }
+
+        /// <summary>
+        /// Seeds 3 default subscription plans: Standard, Professional, Enterprise.
+        /// Skips if plans with those names already exist.
+        /// </summary>
+        public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
+        {
+            var planDefs = new[]
+            {
+                new
+                {
+                    Name        = "Standard",
+                    Description = "Essential modules for barangay staff and council members to get started.",
+                    Price       = 2999.00m,
+                    Duration    = 12,
+                    Features    = string.Join(";",
+                        "👥 Roles: Staff, Council Member",
+                        "📚 Knowledge Repository – View & download documents",
+                        "📢 Announcements – View barangay-wide announcements",
+                        "💡 Lessons Learned – Browse recorded lessons",
+                        "🏆 Best Practices – Access the best practices database",
+                        "🔒 Basic audit trail per user",
+                        "📧 Email support")
+                },
+                new
+                {
+                    Name        = "Professional",
+                    Description = "Full management tools for barangay admins and secretaries.",
+                    Price       = 5999.00m,
+                    Duration    = 12,
+                    Features    = string.Join(";",
+                        "👥 Roles: Admin, Secretary, Staff, Council",
+                        "📚 Knowledge Repository – Upload, edit & organize documents",
+                        "📄 Policy & Procedures – Create, approve & manage policies",
+                        "💡 Lessons Learned – Create & share lessons",
+                        "🏆 Best Practices – Contribute & manage practices",
+                        "🔗 Knowledge Sharing – Start discussions & threads",
+                        "📢 Announcements – Create & manage announcements",
+                        "🔒 Full audit logs & activity tracking",
+                        "⚡ Priority email & chat support")
+                },
+                new
+                {
+                    Name        = "Enterprise",
+                    Description = "Complete ERP access for the entire barangay organization.",
+                    Price       = 9999.00m,
+                    Duration    = 12,
+                    Features    = string.Join(";",
+                        "👥 Roles: Admin, Secretary, Staff, Council",
+                        "📚 Knowledge Repository – Full access with archive & restore",
+                        "📄 Policy & Procedures – Full lifecycle management",
+                        "💡 Lessons Learned – Full CRUD with archive & restore",
+                        "🏆 Best Practices – Full CRUD with archive & restore",
+                        "🔗 Knowledge Sharing – Full discussions & collaboration",
+                        "📢 Announcements – Full management with scheduling",
+                        "👤 User Management – Add, edit & deactivate users",
+                        "🔒 Advanced audit logs with export",
+                        "📊 Dashboard analytics & reporting",
+                        "🛡️ Dedicated account manager & phone support")
+                }
+            };
+
+            foreach (var def in planDefs)
+            {
+                var exists = await context.SubscriptionPlans
+                    .AnyAsync(p => p.Name == def.Name);
+
+                if (!exists)
+                {
+                    context.SubscriptionPlans.Add(new SubscriptionPlan
+                    {
+                        Name           = def.Name,
+                        Description    = def.Description,
+                        Price          = def.Price,
+                        DurationMonths = def.Duration,
+                        Features       = def.Features,
+                        IsActive       = true,
+                        CreatedAt      = DateTime.Now
+                    });
+
+                    Console.WriteLine($"[Seeder] Added subscription plan: {def.Name}");
+                }
+            }
+
+            await context.SaveChangesAsync();
         }
 
     }

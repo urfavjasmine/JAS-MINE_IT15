@@ -843,11 +843,15 @@ namespace JAS_MINE_IT15.Controllers
         // GET: /Home/Login
         [AllowAnonymous]
         [HttpGet]
-        public IActionResult Login()
+        public IActionResult Login(int? planId = null)
         {
             // If already logged in, go dashboard
             if (IsLoggedIn())
                 return RedirectToDashboard();
+
+            // Store selected plan ID so it survives login round-trip
+            if (planId.HasValue)
+                TempData["SelectedPlanId"] = planId.Value;
 
             return View(new LoginViewModel());
         }
@@ -953,6 +957,13 @@ namespace JAS_MINE_IT15.Controllers
             {
                 // Log login
                 await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
+
+                // If a plan was selected before login, redirect to plan selection page
+                if (TempData["SelectedPlanId"] is int selectedPlanId && role == "barangay_admin")
+                {
+                    return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
+                }
+
                 return RedirectToAction("Barangay", "Dashboard"); // Barangay dashboard
             }
         }
