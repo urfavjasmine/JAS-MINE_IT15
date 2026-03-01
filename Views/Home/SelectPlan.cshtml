@@ -44,6 +44,16 @@
         </div>
     }
 
+    @if (!Model.HasBarangay)
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-0">
+            <i class="bi bi-exclamation-triangle fs-5"></i>
+            <div>
+                Your account is not linked to a barangay yet. Please contact the <strong>system administrator</strong> to assign your barangay before subscribing.
+            </div>
+        </div>
+    }
+
     @if (Model.HasActiveSubscription)
     {
         <div class="alert alert-info d-flex align-items-center gap-2 mb-0">
@@ -119,7 +129,13 @@
                             }
 
                             <div class="mt-auto text-center">
-                                @if (Model.HasActiveSubscription)
+                                @if (!Model.HasBarangay)
+                                {
+                                    <button class="btn btn-outline-secondary w-100" disabled>
+                                        <i class="bi bi-lock me-1"></i> No Barangay Linked
+                                    </button>
+                                }
+                                else if (Model.HasActiveSubscription)
                                 {
                                     <button class="btn btn-outline-secondary w-100" disabled>
                                         Already Subscribed

@@ -199,6 +199,7 @@ using (var scope = app.Services.CreateScope())
         await IdentitySeeder.SeedRoles(services);
         await IdentitySeeder.SeedSuperAdmin(services);
         await IdentitySeeder.SeedDefaultUsers(services);
+        await IdentitySeeder.SeedTestBarangayAndLinkUsers(db);
         await IdentitySeeder.SeedSubscriptionPlans(db);
 
         // ── Auto-expire subscriptions past EndDate ──

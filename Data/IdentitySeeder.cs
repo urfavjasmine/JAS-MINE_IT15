@@ -110,6 +110,62 @@ namespace JAS_MINE_IT15.Data
         }
 
         /// <summary>
+        /// Seeds a test barangay and links all seeded default users to it (BusinessUsers table).
+        /// Ensures test accounts have a valid BarangayId so the full subscription flow works.
+        /// </summary>
+        public static async Task SeedTestBarangayAndLinkUsers(ApplicationDbContext context)
+        {
+            // Ensure at least one test barangay exists
+            var testBarangay = await context.Barangays
+                .FirstOrDefaultAsync(b => b.Name == "Barangay San Isidro");
+
+            if (testBarangay == null)
+            {
+                testBarangay = new Barangay
+                {
+                    Name = "Barangay San Isidro",
+                    Code = "BSI-001",
+                    Municipality = "Sample Municipality",
+                    Province = "Sample Province",
+                    Region = "Region IV-A",
+                    ContactEmail = "sanisidro@brgy.gov.ph",
+                    ContactPhone = "09171234567",
+                    Address = "123 Main St, Barangay San Isidro",
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                context.Barangays.Add(testBarangay);
+                await context.SaveChangesAsync();
+                Console.WriteLine($"[Seeder] Created test barangay: {testBarangay.Name} (Id: {testBarangay.Id})");
+            }
+
+            // Link default test users to the test barangay
+            var testEmails = new[]
+            {
+                "brgyadmin@brgy.gov.ph",
+                "secretary@brgy.gov.ph",
+                "staff@brgy.gov.ph",
+                "council@brgy.gov.ph"
+            };
+
+            foreach (var email in testEmails)
+            {
+                var businessUser = await context.BusinessUsers
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && u.IsActive);
+
+                if (businessUser != null && businessUser.BarangayId == null)
+                {
+                    businessUser.BarangayId = testBarangay.Id;
+                    businessUser.BarangayName = testBarangay.Name;
+                    businessUser.UpdatedAt = DateTime.Now;
+                    Console.WriteLine($"[Seeder] Linked {email} to {testBarangay.Name} (BarangayId: {testBarangay.Id})");
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        /// <summary>
         /// Seeds 2 subscription plans: Professional and Enterprise.
         /// Deactivates any old Standard/Basic/Premium plans. Skips if plans already exist.
         /// </summary>

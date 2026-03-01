@@ -4047,6 +4047,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 Plans = plans,
                 HasActiveSubscription = existing,
+                HasBarangay = barangayId != null,
                 SelectedPlanId = planId,
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
