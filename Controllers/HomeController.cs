@@ -845,9 +845,13 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public IActionResult Login(int? planId = null)
         {
-            // If already logged in, go dashboard
+            // If already logged in and a plan was selected, go to SelectPlan
             if (IsLoggedIn())
+            {
+                if (planId.HasValue && GetCurrentRole() == "barangay_admin")
+                    return RedirectToAction(nameof(SelectPlan), new { planId = planId.Value });
                 return RedirectToDashboard();
+            }
 
             // Store selected plan ID so it survives login round-trip
             if (planId.HasValue)
@@ -4012,7 +4016,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/SelectPlan — Barangay Admin picks a subscription plan
         [HttpGet]
-        public async Task<IActionResult> SelectPlan()
+        public async Task<IActionResult> SelectPlan(int? planId = null)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
@@ -4043,6 +4047,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 Plans = plans,
                 HasActiveSubscription = existing,
+                SelectedPlanId = planId,
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
             };

@@ -71,7 +71,8 @@
             @foreach (var plan in Model.Plans)
             {
                 idx++;
-                var isFeatured = idx == Model.Plans.Count; // highlight most expensive as "Recommended"
+                var isSelected = Model.SelectedPlanId.HasValue && Model.SelectedPlanId.Value == plan.Id;
+                var isFeatured = isSelected || idx == Model.Plans.Count; // highlight selected or most expensive
                 var borderClass = isFeatured ? "border-primary shadow" : "border-0 shadow-sm";
 
                 <div class="col-12 col-md-6 col-lg-4">

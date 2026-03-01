@@ -55,6 +55,7 @@ namespace JAS_MINE_IT15.Models
     {
         public List<AvailablePlan> Plans { get; set; } = new();
         public bool HasActiveSubscription { get; set; }
+        public int? SelectedPlanId { get; set; }
         public string? SuccessMessage { get; set; }
         public string? ErrorMessage { get; set; }
 

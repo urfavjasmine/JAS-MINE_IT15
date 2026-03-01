@@ -115,16 +115,29 @@ namespace JAS_MINE_IT15.Data
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
-            // Deactivate old plans that are no longer offered
+            // Hard-delete old plans that are no longer offered (Basic, Standard, Premium)
+            var unwantedNames = new[] { "Standard", "Basic", "Premium" };
             var oldPlans = await context.SubscriptionPlans
-                .Where(p => (p.Name == "Standard" || p.Name == "Basic" || p.Name == "Premium") && p.IsActive)
+                .Where(p => unwantedNames.Contains(p.Name))
                 .ToListAsync();
 
             foreach (var old in oldPlans)
             {
-                old.IsActive = false;
-                old.UpdatedAt = DateTime.Now;
-                Console.WriteLine($"[Seeder] Deactivated old plan: {old.Name}");
+                // Only delete if no subscriptions reference this plan
+                var hasSubscriptions = await context.BarangaySubscriptions
+                    .AnyAsync(s => s.PlanId == old.Id);
+
+                if (!hasSubscriptions)
+                {
+                    context.SubscriptionPlans.Remove(old);
+                    Console.WriteLine($"[Seeder] Deleted old plan: {old.Name}");
+                }
+                else if (old.IsActive)
+                {
+                    old.IsActive = false;
+                    old.UpdatedAt = DateTime.Now;
+                    Console.WriteLine($"[Seeder] Deactivated old plan: {old.Name} (has subscriptions)");
+                }
             }
 
             var planDefs = new[]
