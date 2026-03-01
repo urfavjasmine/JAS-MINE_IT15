@@ -110,72 +110,55 @@ namespace JAS_MINE_IT15.Data
         }
 
         /// <summary>
-        /// Seeds 3 default subscription plans: Standard, Professional, Enterprise.
-        /// Skips if plans with those names already exist.
+        /// Seeds 2 subscription plans: Professional and Enterprise.
+        /// Deactivates any old Standard plan. Skips if plans already exist.
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
+            // Deactivate old Standard plan if it exists
+            var standard = await context.SubscriptionPlans
+                .FirstOrDefaultAsync(p => p.Name == "Standard");
+            if (standard != null && standard.IsActive)
+            {
+                standard.IsActive = false;
+                standard.UpdatedAt = DateTime.Now;
+                Console.WriteLine("[Seeder] Deactivated old Standard plan.");
+            }
+
             var planDefs = new[]
             {
                 new
                 {
-                    Name        = "Standard",
-                    Description = "Essential modules for barangay staff and council members to get started.",
-                    Price       = 2999.00m,
-                    Duration    = 12,
-                    Features    = string.Join(";",
-                        "👥 Roles: Staff, Council Member",
-                        "📚 Knowledge Repository – View & download documents",
-                        "📢 Announcements – View barangay-wide announcements",
-                        "💡 Lessons Learned – Browse recorded lessons",
-                        "🏆 Best Practices – Access the best practices database",
-                        "🔒 Basic audit trail per user",
-                        "📧 Email support")
-                },
-                new
-                {
                     Name        = "Professional",
-                    Description = "Full management tools for barangay admins and secretaries.",
+                    Description = "Everything you need to manage your barangay records.",
                     Price       = 5999.00m,
                     Duration    = 12,
                     Features    = string.Join(";",
-                        "👥 Roles: Admin, Secretary, Staff, Council",
-                        "📚 Knowledge Repository – Upload, edit & organize documents",
-                        "📄 Policy & Procedures – Create, approve & manage policies",
-                        "💡 Lessons Learned – Create & share lessons",
-                        "🏆 Best Practices – Contribute & manage practices",
-                        "🔗 Knowledge Sharing – Start discussions & threads",
-                        "📢 Announcements – Create & manage announcements",
-                        "🔒 Full audit logs & activity tracking",
-                        "⚡ Priority email & chat support")
+                        "View records",
+                        "Add and manage records",
+                        "Create announcements",
+                        "Generate reports")
                 },
                 new
                 {
                     Name        = "Enterprise",
-                    Description = "Complete ERP access for the entire barangay organization.",
+                    Description = "Complete ERP access with advanced tools.",
                     Price       = 9999.00m,
                     Duration    = 12,
                     Features    = string.Join(";",
-                        "👥 Roles: Admin, Secretary, Staff, Council",
-                        "📚 Knowledge Repository – Full access with archive & restore",
-                        "📄 Policy & Procedures – Full lifecycle management",
-                        "💡 Lessons Learned – Full CRUD with archive & restore",
-                        "🏆 Best Practices – Full CRUD with archive & restore",
-                        "🔗 Knowledge Sharing – Full discussions & collaboration",
-                        "📢 Announcements – Full management with scheduling",
-                        "👤 User Management – Add, edit & deactivate users",
-                        "🔒 Advanced audit logs with export",
-                        "📊 Dashboard analytics & reporting",
-                        "🛡️ Dedicated account manager & phone support")
+                        "All Professional features",
+                        "Dashboard (summary view)",
+                        "Archive and restore data",
+                        "More detailed tracking")
                 }
             };
 
             foreach (var def in planDefs)
             {
-                var exists = await context.SubscriptionPlans
-                    .AnyAsync(p => p.Name == def.Name);
+                var existing = await context.SubscriptionPlans
+                    .FirstOrDefaultAsync(p => p.Name == def.Name);
 
-                if (!exists)
+                if (existing == null)
                 {
                     context.SubscriptionPlans.Add(new SubscriptionPlan
                     {
@@ -187,8 +170,18 @@ namespace JAS_MINE_IT15.Data
                         IsActive       = true,
                         CreatedAt      = DateTime.Now
                     });
-
                     Console.WriteLine($"[Seeder] Added subscription plan: {def.Name}");
+                }
+                else
+                {
+                    // Update existing plan features/price to match latest definition
+                    existing.Description    = def.Description;
+                    existing.Price          = def.Price;
+                    existing.DurationMonths = def.Duration;
+                    existing.Features       = def.Features;
+                    existing.IsActive       = true;
+                    existing.UpdatedAt      = DateTime.Now;
+                    Console.WriteLine($"[Seeder] Updated subscription plan: {def.Name}");
                 }
             }
 

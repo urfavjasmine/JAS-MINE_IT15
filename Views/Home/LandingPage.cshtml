@@ -5,12 +5,6 @@
     var year = DateTime.Now.Year;
     var plans = (ViewBag.Plans as List<SubscriptionPlan>) ?? new List<SubscriptionPlan>();
     var planCount = plans.Count;
-    var midIndex = planCount > 2 ? 1 : -1; // second plan is "Most Popular"
-
-    // colours per tier for visual distinction
-    string[] tierColors  = { "#0d6efd", "#1f3f63", "#198754" };
-    string[] tierBgs     = { "rgba(13,110,253,.08)", "rgba(31,63,99,.08)", "rgba(25,135,84,.08)" };
-    string[] tierBtnClass = { "btn-outline-primary", "btn-primary", "btn-success" };
 }
 
 <!doctype html>
@@ -52,17 +46,7 @@
             background: rgba(13,110,253,.12); color: #0d6efd; font-size: 20px;
         }
 
-        /* ── Role access badges on module cards ── */
-        .role-badge {
-            display: inline-block; font-size: .72rem; font-weight: 600;
-            padding: 3px 9px; border-radius: 999px; margin: 2px 2px 2px 0;
-        }
-        .role-admin     { background: #dbeafe; color: #1e40af; }
-        .role-secretary  { background: #fef3c7; color: #92400e; }
-        .role-staff      { background: #d1fae5; color: #065f46; }
-        .role-council    { background: #ede9fe; color: #5b21b6; }
-        .role-section-label { font-size: .8rem; color: #6b7280; font-weight: 600; margin-top: 12px; margin-bottom: 4px; }
-        .module-what { font-size: .85rem; color: #6c757d; margin-top: 8px; line-height: 1.5; }
+        .module-explain { font-size: .85rem; color: #6c757d; margin-top: 8px; line-height: 1.5; }
 
         /* ── Plan Cards ── */
         .plan-card {
@@ -81,9 +65,6 @@
 
         .plan-btn { border-radius: 10px; padding: 10px 14px; width: 100%; font-weight: 500; transition: all .2s; text-decoration: none; }
         .plan-btn:hover { opacity: .88; transform: scale(1.02); }
-
-        /* Modules explanation text */
-        .module-explain { font-size: .82rem; color: #6c757d; margin-top: 2px; }
     </style>
 </head>
 
@@ -138,16 +119,9 @@
                             <div class="icon-badge mb-3">📚</div>
                             <h5 class="fw-semibold">Knowledge Repository</h5>
                             <p class="text-muted mb-2">Store, organize, and access official barangay documents in a centralized and secure repository.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Upload barangay resolutions, ordinances, and official files.
                                 Search and retrieve documents anytime. Control who can view or edit each file.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; Full access</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; Upload &amp; edit</span>
-                                <span class="role-badge role-staff">Staff &mdash; View &amp; download</span>
-                                <span class="role-badge role-council">Council &mdash; View only</span>
                             </div>
                         </div>
                     </div>
@@ -160,16 +134,9 @@
                             <div class="icon-badge mb-3">📄</div>
                             <h5 class="fw-semibold">Policy &amp; Procedures Management</h5>
                             <p class="text-muted mb-2">Create, update, and manage barangay policies and procedures with approval tracking.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Draft new policies and send them for approval.
                                 Track which policies are pending, approved, or rejected. Keep an organized history of all barangay rules.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; Full access &amp; approve</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; Draft &amp; edit</span>
-                                <span class="role-badge role-staff">Staff &mdash; View policies</span>
-                                <span class="role-badge role-council">Council &mdash; Review &amp; comment</span>
                             </div>
                         </div>
                     </div>
@@ -182,16 +149,9 @@
                             <div class="icon-badge mb-3">💡</div>
                             <h5 class="fw-semibold">Lessons Learned</h5>
                             <p class="text-muted mb-2">Record and review lessons learned from past barangay activities to improve future decisions.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Document what worked and what didn't in past projects.
                                 Share insights so the whole team learns from every experience and avoids repeating mistakes.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; Full access</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; Create &amp; edit</span>
-                                <span class="role-badge role-staff">Staff &mdash; Create &amp; view</span>
-                                <span class="role-badge role-council">Council &mdash; View &amp; comment</span>
                             </div>
                         </div>
                     </div>
@@ -204,16 +164,9 @@
                             <div class="icon-badge mb-3">🏆</div>
                             <h5 class="fw-semibold">Best Practices Database</h5>
                             <p class="text-muted mb-2">Maintain a collection of proven best practices to guide barangay staff operations.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Save step-by-step guides and proven methods for common tasks.
                                 New staff can quickly learn the right way to do things using your barangay's own playbook.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; Full access</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; Create &amp; edit</span>
-                                <span class="role-badge role-staff">Staff &mdash; View &amp; follow</span>
-                                <span class="role-badge role-council">Council &mdash; View only</span>
                             </div>
                         </div>
                     </div>
@@ -226,16 +179,9 @@
                             <div class="icon-badge mb-3">🔗</div>
                             <h5 class="fw-semibold">Knowledge Sharing Portal</h5>
                             <p class="text-muted mb-2">Allow barangay staff to share discussions, announcements, and knowledge collaboratively.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Post announcements, start discussion threads, and share updates.
                                 Like a private social forum for your barangay team to communicate and collaborate.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; Full access</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; Post &amp; moderate</span>
-                                <span class="role-badge role-staff">Staff &mdash; Post &amp; reply</span>
-                                <span class="role-badge role-council">Council &mdash; Post &amp; reply</span>
                             </div>
                         </div>
                     </div>
@@ -248,16 +194,9 @@
                             <div class="icon-badge mb-3" style="background:rgba(220,53,69,.12);color:#dc3545;">🔒</div>
                             <h5 class="fw-semibold">Audit Logs &amp; Security</h5>
                             <p class="text-muted mb-2">Track every action in the system with detailed audit trails for accountability.</p>
-                            <div class="module-what">
+                            <div class="module-explain">
                                 <strong>What it does:</strong> Automatically records who did what and when.
                                 Ensures full transparency and helps resolve disputes with an unalterable activity log.
-                            </div>
-                            <div class="role-section-label"><i class="bi bi-people-fill me-1"></i>Role Access</div>
-                            <div>
-                                <span class="role-badge role-admin">Admin &mdash; View all logs</span>
-                                <span class="role-badge role-secretary">Secretary &mdash; View own logs</span>
-                                <span class="role-badge role-staff">Staff &mdash; View own logs</span>
-                                <span class="role-badge role-council">Council &mdash; View own logs</span>
                             </div>
                         </div>
                     </div>
@@ -266,7 +205,7 @@
         </div>
     </section>
 
-    <!-- ═══════ Subscription Plans (Dynamic from DB) ═══════ -->
+    <!-- ═══════ Subscription Plans ═══════ -->
     <section class="py-5" style="background:#f5f6f8;" id="plans-section">
         <div class="container py-4">
 
@@ -284,79 +223,62 @@
             }
             else
             {
-                <div class="row g-4 justify-content-center align-items-stretch">
+                <div class="row g-4 justify-content-center">
                     @for (int i = 0; i < planCount; i++)
                     {
                         var plan = plans[i];
-                        var isFeatured = (i == midIndex);
+                        var isEnterprise = plan.Name == "Enterprise";
                         var features = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        var durationLabel = plan.DurationMonths >= 12
-                            ? (plan.DurationMonths / 12 == 1 ? "1 Year" : $"{plan.DurationMonths / 12} Years")
-                            : (plan.DurationMonths == 1 ? "1 Month" : $"{plan.DurationMonths} Months");
-                        var colorIdx = Math.Min(i, tierColors.Length - 1);
+                        var cardBorder = isEnterprise ? "border: 2px solid var(--brand);" : "border: 2px solid transparent;";
+                        var btnClass   = isEnterprise ? "btn-primary" : "btn-outline-primary";
+                        var priceColor = isEnterprise ? "var(--brand)" : "#0d6efd";
 
-                        <div class="col-12 col-md-6 col-lg-4">
-                            <div class="card h-100 shadow-sm plan-card @(isFeatured ? "featured" : "border-0")"
-                                 data-plan-id="@plan.Id" data-plan-name="@plan.Name" data-plan-price="@plan.Price">
+                        <div class="col-12 col-md-6 col-lg-5">
+                            <div class="card h-100 shadow-sm plan-card" style="@cardBorder">
                                 <div class="card-body p-4 p-lg-5 d-flex flex-column position-relative">
 
-                                    @* Most Popular pill *@
-                                    @if (isFeatured)
+                                    @if (isEnterprise)
                                     {
                                         <div class="position-absolute top-0 start-50 translate-middle">
                                             <span class="badge text-white"
                                                   style="background:var(--brand);padding:7px 16px;border-radius:999px;font-weight:600;">
-                                                <i class="bi bi-star-fill me-1"></i> Most Popular
+                                                <i class="bi bi-star-fill me-1"></i> Recommended
                                             </span>
                                         </div>
                                     }
 
-                                    <!-- Plan Name -->
-                                    <h4 class="fw-bold text-center mb-1 @(isFeatured ? "mt-2" : "")"
-                                        style="color:@tierColors[colorIdx];">@plan.Name</h4>
+                                    <h4 class="fw-bold text-center mb-1 @(isEnterprise ? "mt-3" : "")"
+                                        style="color:@priceColor;">@plan.Name</h4>
 
                                     @if (!string.IsNullOrWhiteSpace(plan.Description))
                                     {
                                         <p class="text-muted text-center small mb-3">@plan.Description</p>
                                     }
 
-                                    <!-- Price -->
                                     <div class="text-center mb-2">
-                                        <span class="plan-price" style="color:@tierColors[colorIdx];">₱@string.Format("{0:N0}", plan.Price)</span>
-                                        <span class="plan-duration">/ @durationLabel</span>
+                                        <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
+                                        <span class="plan-duration">/ year</span>
                                     </div>
 
-                                    <!-- Duration badge -->
                                     <div class="text-center mb-3">
                                         <span class="badge bg-light text-secondary border" style="font-size:.82rem;">
-                                            <i class="bi bi-calendar3 me-1"></i> @durationLabel subscription
+                                            <i class="bi bi-calendar3 me-1"></i> 12-month subscription
                                         </span>
                                     </div>
 
-                                    <!-- Features grouped by role label -->
                                     <hr class="my-2" />
                                     <div class="mb-4 flex-grow-1">
                                         @foreach (var feature in features)
                                         {
-                                            var trimmed = feature.Trim();
-                                            var isRoleRow = trimmed.StartsWith("👥");
-                                            <div class="feature-item @(isRoleRow ? "mt-1 mb-2" : "")">
-                                                @if (isRoleRow)
-                                                {
-                                                    <span class="fw-semibold" style="font-size:.92rem;color:@tierColors[colorIdx];">@trimmed</span>
-                                                }
-                                                else
-                                                {
-                                                    <i class="bi bi-check-circle-fill feature-icon"></i>
-                                                    <span>@trimmed</span>
-                                                }
+                                            <div class="feature-item">
+                                                <i class="bi bi-check-circle-fill feature-icon"></i>
+                                                <span>@feature.Trim()</span>
                                             </div>
                                         }
                                     </div>
 
-                                    <!-- Subscribe Now button (direct redirect) -->
                                     <a href="@Url.Action("Login", "Home")?planId=@plan.Id"
-                                       class="plan-btn btn @tierBtnClass[colorIdx] mt-auto text-center"
+                                       class="plan-btn btn @btnClass mt-auto text-center"
                                        style="border-radius:10px;padding:12px 14px;font-weight:600;">
                                         <i class="bi bi-arrow-right-circle me-1"></i> Subscribe Now
                                     </a>
