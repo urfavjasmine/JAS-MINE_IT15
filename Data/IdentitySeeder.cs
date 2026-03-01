@@ -111,18 +111,20 @@ namespace JAS_MINE_IT15.Data
 
         /// <summary>
         /// Seeds 2 subscription plans: Professional and Enterprise.
-        /// Deactivates any old Standard plan. Skips if plans already exist.
+        /// Deactivates any old Standard/Basic/Premium plans. Skips if plans already exist.
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
-            // Deactivate old Standard plan if it exists
-            var standard = await context.SubscriptionPlans
-                .FirstOrDefaultAsync(p => p.Name == "Standard");
-            if (standard != null && standard.IsActive)
+            // Deactivate old plans that are no longer offered
+            var oldPlans = await context.SubscriptionPlans
+                .Where(p => (p.Name == "Standard" || p.Name == "Basic" || p.Name == "Premium") && p.IsActive)
+                .ToListAsync();
+
+            foreach (var old in oldPlans)
             {
-                standard.IsActive = false;
-                standard.UpdatedAt = DateTime.Now;
-                Console.WriteLine("[Seeder] Deactivated old Standard plan.");
+                old.IsActive = false;
+                old.UpdatedAt = DateTime.Now;
+                Console.WriteLine($"[Seeder] Deactivated old plan: {old.Name}");
             }
 
             var planDefs = new[]
