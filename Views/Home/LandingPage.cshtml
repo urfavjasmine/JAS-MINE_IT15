@@ -1,7 +1,11 @@
-﻿@{
+﻿@using JAS_MINE_IT15.Models.Entities
+@{
     ViewData["Title"] = "JAS-MINE Landing";
-    Layout = null; 
+    Layout = null;
     var year = DateTime.Now.Year;
+    var plans = (ViewBag.Plans as List<SubscriptionPlan>) ?? new List<SubscriptionPlan>();
+    var planCount = plans.Count;
+    var midIndex = planCount > 2 ? 1 : -1; // second plan is "Most Popular"
 }
 
 <!doctype html>
@@ -12,178 +16,206 @@
     <title>@ViewData["Title"]</title>
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
     <style>
-        /* Navbar blur */
-        .nav-blur {
-            background: rgba(255,255,255,.92);
-            backdrop-filter: blur(10px);
-        }
+        :root { --brand: #1f3f63; --brand-light: #2a5a8a; --accent: #2e8b3c; }
+
+        html { scroll-behavior: smooth; }
 
         .hero {
             min-height: 78vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at 70% 15%, rgba(47, 222, 173, .10) 0%, rgba(0,0,0,0) 55%), linear-gradient(180deg, #0b2f4d 0%, #0a3557 35%, #1b4d72 100%);
+            background: radial-gradient(circle at 70% 15%, rgba(47,222,173,.10) 0%, rgba(0,0,0,0) 55%),
+                        linear-gradient(180deg, #0b2f4d 0%, #0a3557 35%, #1b4d72 100%);
             color: #fff;
         }
+        .hero h1 { letter-spacing: .2px; }
+        .hero p  { max-width: 840px; }
 
-            .hero h1 {
-                letter-spacing: .2px;
-            }
+        .btn-hero { min-width: 120px; border-radius: 10px; padding: 12px 18px; font-weight: 400; }
+        .btn-subscribe { background: var(--accent); border-color: var(--accent); }
+        .btn-subscribe:hover { background: #267433; border-color: #267433; }
 
-            .hero p {
-                max-width: 840px;
-            }
+        .section-pad { padding: 72px 0; }
 
-        .btn-hero {
-            min-width: 120px;
-            border-radius: 10px;
-            padding: 12px 18px;
-            font-weight: 400;
-        }
-
-        .btn-subscribe {
-            background: #2e8b3c;
-            border-color: #2e8b3c;
-        }
-
-            .btn-subscribe:hover {
-                background: #267433;
-                border-color: #267433;
-            }
-
-        /* Section spacing */
-        .section-pad {
-            padding: 72px 0;
-        }
-
-        /* Small feature icon badge */
         .icon-badge {
-            height: 60px;
-            width: 60px;
-            border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(13,110,253,.12);
-            color: #0d6efd;
-            font-size: 20px;
+            height: 60px; width: 60px; border-radius: 12px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(13,110,253,.12); color: #0d6efd; font-size: 20px;
         }
+
+        /* ── Plan Cards ── */
+        .plan-card {
+            border-radius: 16px; cursor: pointer;
+            transition: transform .2s, box-shadow .2s, border-color .2s;
+            border: 2px solid transparent;
+        }
+        .plan-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,.10); }
+        .plan-card.selected { border-color: var(--brand) !important; box-shadow: 0 0 0 3px rgba(31,63,99,.18), 0 12px 28px rgba(0,0,0,.10); }
+        .plan-card.featured { border-color: var(--brand); }
+
+        .plan-price { font-size: 2.3rem; font-weight: 800; color: var(--brand); }
+        .plan-duration { color: #6c757d; font-size: .95rem; }
+
+        .feature-item { display: flex; align-items: start; gap: 8px; margin-bottom: 10px; font-size: .93rem; }
+        .feature-icon { color: var(--accent); font-size: 1.1rem; margin-top: 2px; flex-shrink: 0; }
+
+        .selected-badge {
+            display: none; position: absolute; top: 14px; right: 14px;
+            background: var(--brand); color: #fff; border-radius: 50%;
+            width: 30px; height: 30px; align-items: center; justify-content: center; font-size: 14px;
+        }
+        .plan-card.selected .selected-badge { display: flex; }
+
+        .plan-btn { border-radius: 10px; padding: 10px 14px; width: 100%; font-weight: 500; transition: all .2s; }
+
+        /* ── Sticky bottom bar when plan selected ── */
+        .subscribe-bar {
+            position: fixed; bottom: -80px; left: 0; right: 0; z-index: 1000;
+            background: #fff; border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+            transition: bottom .35s ease;
+        }
+        .subscribe-bar.visible { bottom: 0; }
+
+        /* Modules explanation tooltip like text */
+        .module-explain { font-size: .82rem; color: #6c757d; margin-top: 2px; }
     </style>
 </head>
 
 <body class="bg-light">
 
-    <!-- Navbar -->
+    <!-- ═══════ Navbar ═══════ -->
     <header style="background:#f3f4f6; border-bottom:1px solid #e5e7eb;">
         <div class="container d-flex justify-content-between align-items-center py-3">
-
-            <!-- Logo + Brand -->
             <div class="d-flex align-items-center gap-2">
-                <img src="~/images/jasmine-logo.png"
-                     style="height:60px; width:60px; object-fit:contain;" />
-                <span style="font-weight:700; font-size:20px; color:#1f3f63;">
-                    JAS-MINE
-                </span>
+                <img src="~/images/jasmine-logo.png" style="height:60px;width:60px;object-fit:contain;" />
+                <span style="font-weight:700;font-size:20px;color:var(--brand);">JAS-MINE</span>
             </div>
-
-            <!-- Buttons -->
             <div class="d-flex gap-2">
                 <a asp-controller="Home" asp-action="Login"
-                   class="btn"
-                   style="border:1px solid #d1d5db; background:#ffffff; color:#374151; padding:6px 16px; border-radius:8px;">
-                    Login
-                </a>
-
-                <a asp-controller="Home" asp-action="Login"
-                   class="btn"
-                   style="background:#1f3f63; color:white; padding:6px 16px; border-radius:8px;">
-                    Subscribe
-                </a>
+                   class="btn" style="border:1px solid #d1d5db;background:#fff;color:#374151;padding:6px 16px;border-radius:8px;">Login</a>
+                <a href="#plans-section"
+                   class="btn" style="background:var(--brand);color:white;padding:6px 16px;border-radius:8px;">Subscribe</a>
             </div>
-
         </div>
     </header>
 
-
-    <!-- Hero -->
+    <!-- ═══════ Hero ═══════ -->
     <section class="hero">
         <div class="container text-center py-5">
-            <h1 class="fw-bold display-5">
-                JAS-MINE ERP System for Barangays
-            </h1>
-
-            <p class="mx-auto mt-3 text-white-50 fs-6 fs-md-5">
+            <h1 class="fw-bold display-5">JAS-MINE ERP System for Barangays</h1>
+            <p class="mx-auto mt-3 text-white-50 fs-6">
                 Centralized ERP-based Knowledge Management System designed to help barangays manage documents,
                 policies, and operational knowledge efficiently and securely.
             </p>
-
             <div class="mt-4 d-flex flex-column flex-sm-row gap-3 justify-content-center">
                 <a class="btn btn-light btn-hero" asp-controller="Home" asp-action="Login">Login</a>
-                <a class="btn btn-subscribe text-white btn-hero" asp-controller="Home" asp-action="Login">
-                    Subscribe Now <span class="ms-2">→</span>
+                <a class="btn btn-subscribe text-white btn-hero" href="#plans-section">
+                    Subscribe Now <span class="ms-2">&rarr;</span>
                 </a>
             </div>
         </div>
     </section>
 
-    <!-- Features -->
-    <section class="section-pad bg-white">
+    <!-- ═══════ Features (Modules Explained) ═══════ -->
+    <section class="section-pad bg-white" id="features-section">
         <div class="container">
-            <div class="text-center mb-4">
+            <div class="text-center mb-5">
                 <h2 class="fw-bold">Featured Modules</h2>
                 <p class="text-muted mb-0">Core modules powering barangay knowledge management</p>
             </div>
 
-            <div class="row g-3">
+            <div class="row g-4">
+                <!-- Module 1 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm border-0">
                         <div class="card-body p-4">
                             <div class="icon-badge mb-3">📚</div>
-                            <h5 class="fw-semibold">Knowledge Repository Module</h5>
-                            <p class="text-muted mb-0">Store, organize, and access official barangay documents in a centralized and secure repository.</p>
+                            <h5 class="fw-semibold">Knowledge Repository</h5>
+                            <p class="text-muted mb-2">Store, organize, and access official barangay documents in a centralized and secure repository.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Upload barangay resolutions, ordinances, and official files.
+                                Search and retrieve documents anytime. Control who can view or edit each file.
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Module 2 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm border-0">
                         <div class="card-body p-4">
                             <div class="icon-badge mb-3">📄</div>
-                            <h5 class="fw-semibold">Policy and Procedures Management Module</h5>
-                            <p class="text-muted mb-0">Create, update, and manage barangay policies and procedures with approval tracking.</p>
+                            <h5 class="fw-semibold">Policy &amp; Procedures Management</h5>
+                            <p class="text-muted mb-2">Create, update, and manage barangay policies and procedures with approval tracking.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Draft new policies and send them for approval.
+                                Track which policies are pending, approved, or rejected. Keep an organized history of all barangay rules.
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Module 3 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm border-0">
                         <div class="card-body p-4">
                             <div class="icon-badge mb-3">💡</div>
-                            <h5 class="fw-semibold">Lessons Learned Management Module</h5>
-                            <p class="text-muted mb-0">Record and review lessons learned from past barangay activities to improve future decisions.</p>
+                            <h5 class="fw-semibold">Lessons Learned</h5>
+                            <p class="text-muted mb-2">Record and review lessons learned from past barangay activities to improve future decisions.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Document what worked and what didn't in past projects.
+                                Share insights so the whole team learns from every experience and avoids repeating mistakes.
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Module 4 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm border-0">
                         <div class="card-body p-4">
                             <div class="icon-badge mb-3">🏆</div>
-                            <h5 class="fw-semibold">Best Practices Database Module</h5>
-                            <p class="text-muted mb-0">Maintain a collection of proven best practices to guide barangay staff operations.</p>
+                            <h5 class="fw-semibold">Best Practices Database</h5>
+                            <p class="text-muted mb-2">Maintain a collection of proven best practices to guide barangay staff operations.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Save step-by-step guides and proven methods for common tasks.
+                                New staff can quickly learn the right way to do things using your barangay's own playbook.
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Module 5 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm">
+                    <div class="card h-100 shadow-sm border-0">
                         <div class="card-body p-4">
                             <div class="icon-badge mb-3">🔗</div>
-                            <h5 class="fw-semibold">Knowledge Sharing Portal Module</h5>
-                            <p class="text-muted mb-0">Allow barangay staff to share discussions, announcements, and knowledge collaboratively.</p>
+                            <h5 class="fw-semibold">Knowledge Sharing Portal</h5>
+                            <p class="text-muted mb-2">Allow barangay staff to share discussions, announcements, and knowledge collaboratively.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Post announcements, start discussion threads, and share updates.
+                                Like a private social forum for your barangay team to communicate and collaborate.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extra: Audit Logs -->
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body p-4">
+                            <div class="icon-badge mb-3" style="background:rgba(220,53,69,.12);color:#dc3545;">🔒</div>
+                            <h5 class="fw-semibold">Audit Logs &amp; Security</h5>
+                            <p class="text-muted mb-2">Track every action in the system with detailed audit trails for accountability.</p>
+                            <div class="module-explain">
+                                <strong>What it does:</strong> Automatically records who did what and when.
+                                Ensures full transparency and helps resolve disputes with an unalterable activity log.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -191,130 +223,123 @@
         </div>
     </section>
 
-    <!-- Plans -->
-    <section class="py-5" style="background:#f5f6f8;">
+    <!-- ═══════ Subscription Plans (Dynamic from DB) ═══════ -->
+    <section class="py-5" style="background:#f5f6f8;" id="plans-section">
         <div class="container py-4">
 
             <div class="text-center mb-5">
-                <h2 class="fw-bold" style="font-size: 36px;">Subscription Plans</h2>
-                <p class="text-muted" style="font-size: 16px;">
-                    Choose a plan that fits your barangay's needs
-                </p>
+                <h2 class="fw-bold" style="font-size:36px;">Subscription Plans</h2>
+                <p class="text-muted" style="font-size:16px;">Choose a plan that fits your barangay's needs</p>
             </div>
 
-            <div class="row g-4 justify-content-center align-items-stretch">
-
-                <!-- Basic Plan -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0" style="border-radius:14px;">
-                        <div class="card-body p-5 d-flex flex-column">
-                            <h4 class="fw-bold text-center mb-4">Basic Plan</h4>
-
-                            <div class="mb-4">
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Knowledge Repository Module</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Policy Management Module</span>
-                                </div>
-                            </div>
-
-                            <a class="btn btn-outline-secondary mt-auto"
-                               style="border-radius:10px; padding:10px 14px;"
-                               asp-controller="Home" asp-action="Login">
-                                Subscribe
-                            </a>
-                        </div>
-                    </div>
+            @if (!plans.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox" style="font-size:3rem;color:#ced4da;"></i>
+                    <p class="text-muted mt-2">No subscription plans available at the moment. Please check back later.</p>
                 </div>
+            }
+            else
+            {
+                <div class="row g-4 justify-content-center align-items-stretch">
+                    @for (int i = 0; i < planCount; i++)
+                    {
+                        var plan = plans[i];
+                        var isFeatured = (i == midIndex);
+                        var features = (plan.Features ?? "").Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                        var durationLabel = plan.DurationMonths >= 12
+                            ? (plan.DurationMonths / 12 == 1 ? "1 Year" : $"{plan.DurationMonths / 12} Years")
+                            : (plan.DurationMonths == 1 ? "1 Month" : $"{plan.DurationMonths} Months");
 
-                <!-- Standard Plan (Most Popular) -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm"
-                         style="border-radius:14px; border:2px solid #1f3f63;">
-                        <div class="card-body p-5 d-flex flex-column position-relative">
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <div class="card h-100 shadow-sm plan-card @(isFeatured ? "featured" : "border-0")"
+                                 data-plan-id="@plan.Id" data-plan-name="@plan.Name" data-plan-price="@plan.Price"
+                                 onclick="selectPlan(this)">
+                                <div class="card-body p-4 p-lg-5 d-flex flex-column position-relative">
 
-                            <!-- Most Popular pill -->
-                            <div class="position-absolute top-0 start-50 translate-middle">
-                                <span class="badge text-white"
-                                      style="background:#1f3f63; padding:7px 16px; border-radius:999px; font-weight:600;">
-                                    ☆ Most Popular
-                                </span>
+                                    @* Selected checkmark badge *@
+                                    <div class="selected-badge">
+                                        <i class="bi bi-check-lg"></i>
+                                    </div>
+
+                                    @* Most Popular pill *@
+                                    @if (isFeatured)
+                                    {
+                                        <div class="position-absolute top-0 start-50 translate-middle">
+                                            <span class="badge text-white"
+                                                  style="background:var(--brand);padding:7px 16px;border-radius:999px;font-weight:600;">
+                                                <i class="bi bi-star-fill me-1"></i> Most Popular
+                                            </span>
+                                        </div>
+                                    }
+
+                                    <!-- Plan Name -->
+                                    <h4 class="fw-bold text-center mb-2 @(isFeatured ? "mt-2" : "")">@plan.Name</h4>
+
+                                    @if (!string.IsNullOrWhiteSpace(plan.Description))
+                                    {
+                                        <p class="text-muted text-center small mb-3">@plan.Description</p>
+                                    }
+
+                                    <!-- Price -->
+                                    <div class="text-center mb-3">
+                                        <span class="plan-price">₱@string.Format("{0:N0}", plan.Price)</span>
+                                        <span class="plan-duration">/ @durationLabel</span>
+                                    </div>
+
+                                    <!-- Duration badge -->
+                                    <div class="text-center mb-3">
+                                        <span class="badge bg-light text-secondary border" style="font-size:.82rem;">
+                                            <i class="bi bi-calendar3 me-1"></i> @durationLabel subscription
+                                        </span>
+                                    </div>
+
+                                    <!-- Features -->
+                                    <hr class="my-2" />
+                                    <div class="mb-4 flex-grow-1">
+                                        @foreach (var feature in features)
+                                        {
+                                            <div class="feature-item">
+                                                <i class="bi bi-check-circle-fill feature-icon"></i>
+                                                <span>@feature.Trim()</span>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Select button -->
+                                    <button type="button" class="plan-btn btn @(isFeatured ? "btn-primary" : "btn-outline-secondary") mt-auto"
+                                            onclick="event.stopPropagation(); selectPlan(this.closest('.plan-card'));">
+                                        Select Plan
+                                    </button>
+                                </div>
                             </div>
-
-                            <h4 class="fw-bold text-center mb-4 mt-2">Standard Plan</h4>
-
-                            <div class="mb-4">
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>All Basic features</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Lessons Learned Module</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Best Practices Module</span>
-                                </div>
-                            </div>
-
-                            <a class="btn text-white mt-auto"
-                               style="background:#1f3f63; border-radius:10px; padding:10px 14px;"
-                               asp-controller="Home" asp-action="Login">
-                                Subscribe
-                            </a>
                         </div>
-                    </div>
+                    }
                 </div>
-
-                <!-- Enterprise Plan -->
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0" style="border-radius:14px;">
-                        <div class="card-body p-5 d-flex flex-column">
-                            <h4 class="fw-bold text-center mb-4">Enterprise Plan</h4>
-
-                            <div class="mb-4">
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Full ERP access</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Knowledge Sharing Portal</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 mb-3">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Audit Logs</span>
-                                </div>
-                                <div class="d-flex align-items-start gap-2">
-                                    <span class="text-success fw-bold">✓</span>
-                                    <span>Full system access</span>
-                                </div>
-                            </div>
-
-                            <a class="btn btn-outline-secondary mt-auto"
-                               style="border-radius:10px; padding:10px 14px;"
-                               asp-controller="Home" asp-action="Login">
-                                Subscribe
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+            }
         </div>
     </section>
 
+    <!-- ═══════ Sticky Subscribe Bottom Bar ═══════ -->
+    <div class="subscribe-bar" id="subscribeBar">
+        <div class="container d-flex align-items-center justify-content-between py-3">
+            <div>
+                <span class="fw-semibold" id="barPlanName">No plan selected</span>
+                <span class="text-muted ms-2" id="barPlanPrice"></span>
+            </div>
+            <a id="barSubscribeBtn" href="@Url.Action("Login", "Home")"
+               class="btn text-white px-4" style="background:var(--brand);border-radius:10px;">
+                <i class="bi bi-arrow-right-circle me-1"></i> Continue to Sign-up
+            </a>
+        </div>
+    </div>
 
-    <!-- Footer -->
-    <footer class="border-top bg-white py-4">
+    <!-- ═══════ Footer ═══════ -->
+    <footer class="border-top bg-white py-4" style="margin-bottom:0;">
         <div class="container text-center">
             <div class="d-flex align-items-center justify-content-center gap-2 mb-1">
                 <img src="~/images/jasmine-logo.png" alt="JAS-MINE" style="height:24px;width:24px;object-fit:contain;" />
-                <span class="fw-semibold text-primary">JAS-MINE ERP System</span>
+                <span class="fw-semibold" style="color:var(--brand);">JAS-MINE ERP System</span>
             </div>
             <div class="text-muted small mb-1">Barangay Knowledge Management ERP</div>
             <div class="text-muted">© @year JAS-MINE: An Integrated ERP-Based Knowledge Management System for Barangays. All rights reserved.</div>
@@ -322,5 +347,44 @@
     </footer>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedPlanId = null;
+
+        function selectPlan(card) {
+            // Deselect all
+            document.querySelectorAll('.plan-card').forEach(c => {
+                c.classList.remove('selected');
+                const btn = c.querySelector('.plan-btn');
+                if (btn) {
+                    btn.classList.remove('btn-success');
+                    btn.textContent = 'Select Plan';
+                    // Restore original class
+                    if (c.classList.contains('featured')) {
+                        btn.classList.add('btn-primary');
+                    } else {
+                        btn.classList.add('btn-outline-secondary');
+                    }
+                }
+            });
+
+            // Select this card
+            card.classList.add('selected');
+            selectedPlanId = card.dataset.planId;
+
+            const btn = card.querySelector('.plan-btn');
+            if (btn) {
+                btn.classList.remove('btn-primary', 'btn-outline-secondary');
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Selected';
+            }
+
+            // Show bottom bar
+            const bar = document.getElementById('subscribeBar');
+            document.getElementById('barPlanName').textContent = card.dataset.planName;
+            document.getElementById('barPlanPrice').textContent = '₱' + parseFloat(card.dataset.planPrice).toLocaleString();
+            document.getElementById('barSubscribeBtn').href = '@Url.Action("Login", "Home")' + '?planId=' + selectedPlanId;
+            bar.classList.add('visible');
+        }
+    </script>
 </body>
 </html>

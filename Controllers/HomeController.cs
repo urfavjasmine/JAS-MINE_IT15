@@ -175,22 +175,32 @@ namespace JAS_MINE_IT15.Controllers
         // GET: Home Index
         [AllowAnonymous]
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             // If already logged in, go dashboard
             if (IsLoggedIn())
                 return RedirectToDashboard();
 
-            // If not logged in, show landing page
+            // Load plans from DB for the landing page
+            ViewBag.Plans = await _context.SubscriptionPlans
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Price)
+                .ToListAsync();
+
             return View("LandingPage");
         }
 
         // GET: /Home/LandingPage
         [AllowAnonymous]
         [HttpGet]
-        public IActionResult LandingPage()
+        public async Task<IActionResult> LandingPage()
         {
-            // Public page (no login required)
+            // Load plans from DB for the landing page
+            ViewBag.Plans = await _context.SubscriptionPlans
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Price)
+                .ToListAsync();
+
             return View();
         }
 
