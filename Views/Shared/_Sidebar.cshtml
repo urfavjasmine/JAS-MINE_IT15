@@ -312,10 +312,7 @@
                     <div class="jm-text">User Management</div>
                 </a>
 
-                <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
-                    <div class="jm-icon"><i class="bi bi-bell"></i></div>
-                    <div class="jm-text">Announcements</div>
-                </a>
+                @* MULTI-TENANT ISOLATION: Announcements removed - barangay-specific data only *@
 
                 <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
                     <div class="jm-icon"><i class="bi bi-shield-check"></i></div>

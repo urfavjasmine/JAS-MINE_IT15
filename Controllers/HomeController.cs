@@ -125,6 +125,17 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction("Barangay", "Dashboard");
         }
 
+        /// <summary>
+        /// Checks if a barangay has at least one user with the 'barangay_admin' role.
+        /// </summary>
+        private async Task<bool> CheckBarangayAdminExistsAsync(int barangayId)
+        {
+            return await _context.BusinessUsers
+                .AnyAsync(u => u.BarangayId == barangayId 
+                    && u.Role == "barangay_admin" 
+                    && u.IsActive);
+        }
+
         #endregion
 
         /// <summary>
@@ -146,6 +157,7 @@ namespace JAS_MINE_IT15.Controllers
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
                 UserAgent = HttpContext.Request.Headers["User-Agent"].ToString(),
                 SessionId = HttpContext.Session.Id,
+                BarangayId = GetCurrentBarangayId(), // Multi-tenant: track which barangay
                 IsActive = true,
                 CreatedAt = DateTime.Now
             };
@@ -648,6 +660,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchivePayment(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -796,6 +809,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchivePlan(string id, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -972,7 +986,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
@@ -988,11 +1002,17 @@ namespace JAS_MINE_IT15.Controllers
             // ERP Rule: Only admin roles can view archived records
             if (!canArchive) archiveStatus = "active";
 
-            // TENANT FILTERING: filter by user's barangay only
+            // STRICT TENANT FILTERING: Only users from this barangay can access their data
             var barangayId = GetCurrentBarangayId();
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
+
             var query = _context.KnowledgeDocuments
                 .Where(d => d.IsActive)
-                .Where(d => d.BarangayId == barangayId)
+                .Where(d => d.BarangayId == barangayId.Value)
                 .Include(d => d.UploadedBy)
                 .AsQueryable();
 
@@ -1062,12 +1082,13 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_staff")]
         public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             title = (title ?? "").Trim();
@@ -1208,8 +1229,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(KnowledgeRepository));
             }
 
-            // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION: Users can only edit their barangay's documents
+            if (doc.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit documents from another barangay.";
                 return RedirectToAction(nameof(KnowledgeRepository));
@@ -1268,6 +1289,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1281,8 +1303,8 @@ namespace JAS_MINE_IT15.Controllers
                 var doc = await _context.KnowledgeDocuments.FindAsync(docId);
                 if (doc != null)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (doc.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot archive documents from another barangay.";
                         return RedirectToAction(nameof(KnowledgeRepository));
@@ -1302,6 +1324,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestoreDoc(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1316,7 +1339,8 @@ namespace JAS_MINE_IT15.Controllers
                 if (doc != null)
                 {
                     // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (doc.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot restore documents from another barangay.";
                         return RedirectToAction(nameof(KnowledgeRepository));
@@ -1348,8 +1372,8 @@ namespace JAS_MINE_IT15.Controllers
                 var doc = await _context.KnowledgeDocuments.FindAsync(docId);
                 if (doc != null && doc.IsActive)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (doc.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot approve documents from another barangay.";
                         return RedirectToAction(nameof(KnowledgeRepository));
@@ -1389,8 +1413,8 @@ namespace JAS_MINE_IT15.Controllers
                 var doc = await _context.KnowledgeDocuments.FindAsync(docId);
                 if (doc != null && doc.IsActive)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && doc.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (doc.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot reject documents from another barangay.";
                         return RedirectToAction(nameof(KnowledgeRepository));
@@ -1420,7 +1444,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
@@ -1435,17 +1459,19 @@ namespace JAS_MINE_IT15.Controllers
             // ERP Rule: Only admin roles can view archived records
             if (!canArchive) archiveStatus = "active";
 
-            // Filter by BarangayId for barangay roles
+            // STRICT TENANT FILTERING: Get barangay ID and validate
             var barangayIdStr = HttpContext.Session.GetString("BarangayId");
-            int.TryParse(barangayIdStr ?? "", out var bgyId);
+            if (!int.TryParse(barangayIdStr ?? "", out var bgyId) || bgyId == 0)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
 
             var query = _context.Policies
                 .Where(p => p.IsActive)
+                .Where(p => p.BarangayId == bgyId)
                 .Include(p => p.Author)
                 .AsQueryable();
-
-            if (bgyId > 0)
-                query = query.Where(p => p.BarangayId == bgyId);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -1512,12 +1538,13 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreatePolicy(string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_secretary" || role == "barangay_admin";
+            var canCreate = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canCreate) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             title = (title ?? "").Trim();
@@ -1596,8 +1623,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(PoliciesManagement), new { status, q });
             }
 
-            // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION
+            if (policy.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit policies from another barangay.";
                 return RedirectToAction(nameof(PoliciesManagement), new { status, q });
@@ -1618,6 +1645,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchivePolicy(string id, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1631,7 +1659,8 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(policyId);
                 if (policy != null)
                 {
-                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (policy.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot archive policies from another barangay.";
                         return RedirectToAction(nameof(PoliciesManagement), new { status, q });
@@ -1651,6 +1680,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestorePolicy(string id, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1664,7 +1694,8 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(rpolicyId);
                 if (policy != null)
                 {
-                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (policy.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot restore policies from another barangay.";
                         return RedirectToAction(nameof(PoliciesManagement), new { status, q });
@@ -1700,8 +1731,8 @@ namespace JAS_MINE_IT15.Controllers
                 var policy = await _context.Policies.FindAsync(policyId);
                 if (policy != null && policy.IsActive)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && policy.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (policy.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot change the status of policies from another barangay.";
                         return RedirectToAction(nameof(PoliciesManagement), new { status, q });
@@ -1738,11 +1769,18 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = GetCurrentBarangayId();
+            
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
+
             bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
             bool canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
@@ -1754,8 +1792,10 @@ namespace JAS_MINE_IT15.Controllers
             // ERP Rule: Only admin roles can view archived records
             if (!canArchive) archiveStatus = "active";
 
+            // STRICT TENANT FILTERING: Only this barangay's data
             var query = _context.LessonsLearned
-                .Where(l => l.IsActive && l.BarangayId == barangayId);
+                .Where(l => l.IsActive)
+                .Where(l => l.BarangayId == barangayId.Value);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -1811,9 +1851,12 @@ namespace JAS_MINE_IT15.Controllers
                 }
             }
 
-            // Available dates for filter
-            var availableDates = await _context.LessonsLearned
-                .Where(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId)
+            // Available dates for filter (strict tenant filtering)
+            var datesQuery = _context.LessonsLearned
+                .Where(l => l.IsActive && !l.IsArchived)
+                .Where(l => l.BarangayId == barangayId.Value);
+            
+            var availableDates = await datesQuery
                 .Select(l => l.DateRecorded)
                 .Distinct()
                 .OrderByDescending(d => d)
@@ -1829,14 +1872,25 @@ namespace JAS_MINE_IT15.Controllers
                 "Disaster Risk Reduction", "Education", "Environment"
             };
 
+            // Count queries with strict tenant filtering
+            var totalQuery = _context.LessonsLearned
+                .Where(l => l.IsActive && !l.IsArchived)
+                .Where(l => l.BarangayId == barangayId.Value);
+            var archivedQuery = _context.LessonsLearned
+                .Where(l => l.IsActive && l.IsArchived)
+                .Where(l => l.BarangayId == barangayId.Value);
+            var recentQuery = _context.LessonsLearned
+                .Where(l => l.IsActive && !l.IsArchived && l.DateRecorded >= DateTime.Now.AddDays(-30))
+                .Where(l => l.BarangayId == barangayId.Value);
+
             var vm = new LessonsLearnedViewModel
             {
                 CanSubmit = canSubmit,
                 CanModify = canModify,
                 CanArchive = canArchive,
-                TotalLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId),
-                RecentLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && !l.IsArchived && l.BarangayId == barangayId && l.DateRecorded >= DateTime.Now.AddDays(-30)),
-                ArchivedLessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.IsArchived && l.BarangayId == barangayId),
+                TotalLessons = await totalQuery.CountAsync(),
+                RecentLessons = await recentQuery.CountAsync(),
+                ArchivedLessons = await archivedQuery.CountAsync(),
                 SearchQuery = q,
                 DateFilter = dateFilter,
                 ArchiveStatus = archiveStatus,
@@ -1857,11 +1911,12 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreateLesson(string title, string problem, string actionTaken, string result, string recommendation)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff")
+            if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff" && role != "super_admin")
                 return RedirectToAction(nameof(LessonsLearned));
 
             var barangayId = GetCurrentBarangayId();
@@ -1916,7 +1971,8 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION
+            if (lesson.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit lessons from another barangay.";
                 return RedirectToAction(nameof(LessonsLearned));
@@ -1947,6 +2003,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveLesson(int id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1957,7 +2014,8 @@ namespace JAS_MINE_IT15.Controllers
             var lesson = await _context.LessonsLearned.FindAsync(id);
             if (lesson != null)
             {
-                if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+                // STRICT TENANT VALIDATION
+                if (lesson.BarangayId != GetCurrentBarangayId())
                 {
                     TempData["Error"] = "You cannot archive lessons from another barangay.";
                     return RedirectToAction(nameof(LessonsLearned));
@@ -1976,6 +2034,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestoreLesson(int id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1986,7 +2045,8 @@ namespace JAS_MINE_IT15.Controllers
             var lesson = await _context.LessonsLearned.FindAsync(id);
             if (lesson != null)
             {
-                if (!IsSuperAdmin() && lesson.BarangayId != GetCurrentBarangayId())
+                // STRICT TENANT VALIDATION
+                if (lesson.BarangayId != GetCurrentBarangayId())
                 {
                     TempData["Error"] = "You cannot restore lessons from another barangay.";
                     return RedirectToAction(nameof(LessonsLearned));
@@ -2008,7 +2068,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             q = (q ?? "").Trim().ToLower();
@@ -2017,6 +2077,13 @@ namespace JAS_MINE_IT15.Controllers
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = GetCurrentBarangayId();
+            
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
+
             bool canManage = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
             bool canModify = canManage;
             bool canArchive = role == "barangay_admin" || role == "super_admin";
@@ -2025,7 +2092,11 @@ namespace JAS_MINE_IT15.Controllers
             if (!canArchive) archiveStatus = "active";
 
             var query = _context.BestPractices
-                .Where(p => p.IsActive && p.BarangayId == barangayId);
+                .Where(p => p.IsActive);
+
+            // Filter by barangay (only if user has barangayId - super_admin sees all)
+            if (barangayId.HasValue)
+                query = query.Where(p => p.BarangayId == barangayId);
 
             // Filter by archive status
             if (archiveStatus == "active")
@@ -2098,11 +2169,12 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreatePractice(string title, string purpose, string steps, string resourcesNeeded, string ownerOffice, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary")
+            if (role != "barangay_admin" && role != "barangay_secretary" && role != "super_admin")
                 return RedirectToAction(nameof(BestPractices));
 
             var barangayId = GetCurrentBarangayId();
@@ -2156,7 +2228,8 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION
+            if (practice.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit practices from another barangay.";
                 return RedirectToAction(nameof(BestPractices));
@@ -2188,6 +2261,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchivePractice(int id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2198,7 +2272,8 @@ namespace JAS_MINE_IT15.Controllers
             var practice = await _context.BestPractices.FindAsync(id);
             if (practice != null)
             {
-                if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+                // STRICT TENANT VALIDATION
+                if (practice.BarangayId != GetCurrentBarangayId())
                 {
                     TempData["Error"] = "You cannot archive practices from another barangay.";
                     return RedirectToAction(nameof(BestPractices));
@@ -2217,6 +2292,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestorePractice(int id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2227,7 +2303,8 @@ namespace JAS_MINE_IT15.Controllers
             var practice = await _context.BestPractices.FindAsync(id);
             if (practice != null)
             {
-                if (!IsSuperAdmin() && practice.BarangayId != GetCurrentBarangayId())
+                // STRICT TENANT VALIDATION
+                if (practice.BarangayId != GetCurrentBarangayId())
                 {
                     TempData["Error"] = "You cannot restore practices from another barangay.";
                     return RedirectToAction(nameof(BestPractices));
@@ -2249,14 +2326,20 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = GetCurrentBarangayId();
+            
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
 
             bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
-            bool canAnnounce = role == "barangay_admin";
+            bool canAnnounce = role == "barangay_admin" || role == "super_admin";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             q = (q ?? "").Trim().ToLower();
@@ -2266,10 +2349,10 @@ namespace JAS_MINE_IT15.Controllers
             // ERP Rule: Only admin roles can view archived records
             if (!canArchive) archiveStatus = "active";
 
-            // Query discussions
+            // STRICT TENANT FILTERING: Query discussions from user's barangay only
             var query = _context.KnowledgeDiscussions
                 .Where(d => d.IsActive)
-                .Where(d => d.BarangayId == barangayId)
+                .Where(d => d.BarangayId == barangayId.Value)
                 .Include(d => d.Author)
                 .AsQueryable();
 
@@ -2336,12 +2419,13 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_staff")]
         public async Task<IActionResult> CreateDiscussion(string title, string content, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
 
             title = (title ?? "").Trim();
@@ -2409,7 +2493,8 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION
+            if (discussion.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit discussions from another barangay.";
                 return RedirectToAction(nameof(KnowledgeSharing));
@@ -2431,6 +2516,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveDiscussion(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2445,7 +2531,8 @@ namespace JAS_MINE_IT15.Controllers
                 if (discussion != null)
                 {
                     // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (discussion.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot archive discussions from another barangay.";
                         return RedirectToAction(nameof(KnowledgeSharing));
@@ -2466,6 +2553,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestoreDiscussion(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2480,7 +2568,8 @@ namespace JAS_MINE_IT15.Controllers
                 if (discussion != null)
                 {
                     // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && discussion.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (discussion.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot restore discussions from another barangay.";
                         return RedirectToAction(nameof(KnowledgeSharing));
@@ -2616,6 +2705,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreateUser(string name, string email, string password, string role, string barangay)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2752,6 +2842,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveUser(string id)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2779,11 +2870,17 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
-            // Super_admin cannot access barangay modules - redirect to system dashboard
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
             var barangayId = GetCurrentBarangayId();
+            
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
 
             bool canCreate = role == "barangay_admin" || role == "barangay_secretary";
             bool canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
@@ -2799,9 +2896,10 @@ namespace JAS_MINE_IT15.Controllers
             if (role == "council_member")
                 filter = "published";
 
+            // STRICT TENANT FILTERING: Query announcements from user's barangay only
             var query = _context.Announcements
                 .Where(a => a.IsActive)
-                .Where(a => a.BarangayId == barangayId)
+                .Where(a => a.BarangayId == barangayId.Value)
                 .Include(a => a.Author)
                 .AsQueryable();
 
@@ -2833,9 +2931,10 @@ namespace JAS_MINE_IT15.Controllers
                 })
                 .ToListAsync();
 
-            // Get counts from all active announcements for this barangay
+            // Get counts from all active announcements for this barangay (strict tenant filtering)
             var allAnnouncements = await _context.Announcements
-                .Where(a => a.IsActive && a.BarangayId == barangayId)
+                .Where(a => a.IsActive)
+                .Where(a => a.BarangayId == barangayId.Value)
                 .ToListAsync();
 
             var vm = new AnnouncementsViewModel
@@ -2864,12 +2963,13 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canCreate = role == "barangay_admin" || role == "barangay_secretary";
+            var canCreate = role == "barangay_admin" || role == "barangay_secretary" || role == "super_admin";
             if (!canCreate) return RedirectToAction(nameof(Announcements), new { filter });
 
             title = (title ?? "").Trim();
@@ -2939,8 +3039,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Announcements), new { filter });
             }
 
-            // TENANT OWNERSHIP VALIDATION
-            if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+            // STRICT TENANT VALIDATION
+            if (announcement.BarangayId != GetCurrentBarangayId())
             {
                 TempData["Error"] = "You cannot edit announcements from another barangay.";
                 return RedirectToAction(nameof(Announcements), new { filter });
@@ -2968,6 +3068,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2980,8 +3081,8 @@ namespace JAS_MINE_IT15.Controllers
                 var announcement = await _context.Announcements.FindAsync(announcementId);
                 if (announcement != null)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (announcement.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot archive announcements from another barangay.";
                         return RedirectToAction(nameof(Announcements), new { filter });
@@ -3001,6 +3102,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestoreAnnouncement(string id, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3013,8 +3115,8 @@ namespace JAS_MINE_IT15.Controllers
                 var announcement = await _context.Announcements.FindAsync(announcementId);
                 if (announcement != null)
                 {
-                    // TENANT OWNERSHIP VALIDATION
-                    if (!IsSuperAdmin() && announcement.BarangayId != GetCurrentBarangayId())
+                    // STRICT TENANT VALIDATION
+                    if (announcement.BarangayId != GetCurrentBarangayId())
                     {
                         TempData["Error"] = "You cannot restore announcements from another barangay.";
                         return RedirectToAction(nameof(Announcements), new { filter });
@@ -3088,19 +3190,23 @@ namespace JAS_MINE_IT15.Controllers
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
 
-            // Query real audit logs from DB
+            // STRICT TENANT ISOLATION: Query audit logs based on role
             var logQuery = _context.AuditLogs.Where(l => l.IsActive);
 
-            // Barangay admin: only show logs from users in their barangay
-            if (role == "barangay_admin" && barangayId.HasValue)
+            // Super_admin: only see system-level logs (NULL BarangayId)
+            if (role == "super_admin")
             {
-                var barangayUserEmails = await _context.BusinessUsers
-                    .Where(u => u.BarangayId == barangayId.Value && u.Role != "super_admin")
-                    .Select(u => u.Email)
-                    .ToListAsync();
-
-                logQuery = logQuery.Where(l =>
-                    l.UserEmail != null && barangayUserEmails.Contains(l.UserEmail));
+                logQuery = logQuery.Where(l => l.BarangayId == null);
+            }
+            // Barangay roles: only see logs from their barangay
+            else if (barangayId.HasValue)
+            {
+                logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
+            }
+            // No barangay assigned: no logs visible
+            else
+            {
+                logQuery = logQuery.Where(l => false); // Return empty result
             }
 
             var allLogs = await logQuery
@@ -3146,6 +3252,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3629,6 +3736,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> CreateBarangay(string name, string? code, string? municipality,
             string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
         {
@@ -3684,6 +3792,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> ArchiveBarangay(int id, string q = "")
         {
             if (!IsSuperAdmin()) return RedirectToDashboard();
@@ -3707,23 +3816,29 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public async Task<IActionResult> KnowledgeDiscussions(string q = "", string category = "All Categories")
         {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            // MULTI-TENANT ISOLATION: Super_admin cannot access barangay internal data
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
+            
+            if (!barangayId.HasValue)
+            {
+                TempData["Error"] = "No barangay assigned to your account.";
+                return RedirectToAction("Barangay", "Dashboard");
+            }
+
             var canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
 
+            // STRICT TENANT FILTERING: Only fetch discussions from user's barangay
             var discussions = await _context.KnowledgeDiscussions
                 .Include(d => d.Author)
                 .Where(d => d.IsActive)
+                .Where(d => d.BarangayId == barangayId.Value)
                 .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
-
-            // Filter by barangay
-            if (barangayId.HasValue)
-            {
-                discussions = discussions.Where(d => d.BarangayId == barangayId.Value).ToList();
-            }
 
             if (!string.IsNullOrWhiteSpace(q))
             {
@@ -3768,10 +3883,9 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [DenyViewOnly]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_staff")]
         public async Task<IActionResult> CreateKnowledgeDiscussion(string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
         {
-            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
-
             var userId = GetCurrentUserId();
             var barangayId = GetCurrentBarangayId();
             if (!userId.HasValue) return RedirectToAction("Login");
@@ -3801,8 +3915,6 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditKnowledgeDiscussion(int id, string title, string content, string? category, string q = "", string categoryFilter = "All Categories")
         {
-            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
-
             var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
             if (discussion != null)
             {
@@ -3820,10 +3932,9 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [DenyViewOnly]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ArchiveKnowledgeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
         {
-            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
-
             var role = HttpContext.Session.GetString("Role") ?? "";
             if (role != "barangay_admin" && role != "super_admin")
                 return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
@@ -3842,10 +3953,9 @@ namespace JAS_MINE_IT15.Controllers
         [HttpPost]
         [DenyViewOnly]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> RestoreKnowledgeDiscussion(int id, string q = "", string categoryFilter = "All Categories")
         {
-            if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
-
             var role = HttpContext.Session.GetString("Role") ?? "";
             if (role != "barangay_admin" && role != "super_admin")
                 return RedirectToAction("KnowledgeDiscussions", new { q, category = categoryFilter });
@@ -4169,8 +4279,153 @@ namespace JAS_MINE_IT15.Controllers
             await LogAuditAsync("Approve", "SubscriptionPayments", payment.Id, "Payment", label,
                 $"Approved payment of ₱{payment.Amount:N0} for {label}");
 
+            // PART 1: Check if barangay has at least one admin
+            var barangayId = payment.Subscription?.BarangayId;
+            if (barangayId.HasValue)
+            {
+                var hasAdmin = await CheckBarangayAdminExistsAsync(barangayId.Value);
+                if (!hasAdmin)
+                {
+                    // No admin exists - redirect to create one
+                    TempData["Info"] = $"Payment approved! Please create a Barangay Administrator for this subscription.";
+                    return RedirectToAction(nameof(CreateBarangayAdmin), new
+                    {
+                        barangayId = barangayId.Value,
+                        subscriptionId = payment.Subscription!.Id,
+                        paymentId = payment.Id
+                    });
+                }
+            }
+
             TempData["Success"] = $"Payment {label} approved. Subscription is now active.";
             return RedirectToAction(nameof(PendingPayments));
+        }
+
+        // GET: /Home/CreateBarangayAdmin — Super Admin creates a barangay admin after payment approval
+        [HttpGet]
+        public async Task<IActionResult> CreateBarangayAdmin(int barangayId, int subscriptionId, int paymentId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            // Verify barangay exists
+            var barangay = await _context.Barangays.FindAsync(barangayId);
+            if (barangay == null)
+            {
+                TempData["Error"] = "Barangay not found.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+
+            // Check if admin already exists (prevent duplicate creation)
+            var hasAdmin = await CheckBarangayAdminExistsAsync(barangayId);
+            if (hasAdmin)
+            {
+                TempData["Info"] = "This barangay already has an administrator.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+
+            var model = new CreateBarangayAdminViewModel
+            {
+                BarangayId = barangayId,
+                BarangayName = barangay.Name,
+                SubscriptionId = subscriptionId,
+                PaymentId = paymentId
+            };
+
+            ViewData["Title"] = "Create Barangay Administrator";
+            return View(model);
+        }
+
+        // POST: /Home/CreateBarangayAdmin — Create the barangay admin user
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateBarangayAdmin(CreateBarangayAdminViewModel model)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            // Check if admin already exists
+            var hasAdmin = await CheckBarangayAdminExistsAsync(model.BarangayId);
+            if (hasAdmin)
+            {
+                TempData["Error"] = "This barangay already has an administrator.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+
+            // Check if email already exists in Identity
+            var existingIdentityUser = await _userManager.FindByEmailAsync(model.Email);
+            if (existingIdentityUser != null)
+            {
+                ModelState.AddModelError("Email", "This email is already registered.");
+                return View(model);
+            }
+
+            // Check if email exists in BusinessUsers
+            var existingBusinessUser = await _context.BusinessUsers
+                .AnyAsync(u => u.Email == model.Email);
+            if (existingBusinessUser)
+            {
+                ModelState.AddModelError("Email", "This email is already registered.");
+                return View(model);
+            }
+
+            try
+            {
+                // 1. Create ASP.NET Identity user
+                var identityUser = new IdentityUser
+                {
+                    UserName = model.Email,
+                    Email = model.Email,
+                    EmailConfirmed = true
+                };
+
+                var result = await _userManager.CreateAsync(identityUser, model.Password);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    ModelState.AddModelError("", $"Failed to create user: {errors}");
+                    return View(model);
+                }
+
+                // 2. Assign barangay_admin role
+                await _userManager.AddToRoleAsync(identityUser, "barangay_admin");
+
+                // 3. Create BusinessUser record
+                var barangay = await _context.Barangays.FindAsync(model.BarangayId);
+                var businessUser = new Models.Entities.User
+                {
+                    FullName = model.FullName,
+                    Email = model.Email,
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = "barangay_admin",
+                    BarangayId = model.BarangayId,
+                    BarangayName = barangay?.Name ?? "",
+                    IsActive = true,
+                    CreatedAt = DateTime.Now,
+                    CreatedBy = GetCurrentUserId()
+                };
+
+                _context.BusinessUsers.Add(businessUser);
+                await _context.SaveChangesAsync();
+
+                // 4. Log the action
+                await LogAuditAsync("Create", "Users", businessUser.Id, "BarangayAdmin",
+                    $"{model.FullName} ({model.Email})",
+                    $"Barangay admin created after payment approval for {barangay?.Name ?? "barangay"}");
+
+                TempData["Success"] = $"Barangay Administrator '{model.FullName}' created successfully for {barangay?.Name}. They can now log in.";
+                return RedirectToAction(nameof(PendingPayments));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"An error occurred: {ex.Message}");
+                return View(model);
+            }
         }
 
         // POST: /Home/RejectPayment — Super Admin rejects a payment with reason
