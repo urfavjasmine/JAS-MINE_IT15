@@ -28,7 +28,7 @@ namespace JAS_MINE_IT15.Data
         {
             var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
 
-            string email = "superadmin@jas-mine.gov.ph";
+            string email = "admin@jasmine.gov.ph";
             string password = "JasMine@1234";
 
             var user = await userManager.FindByEmailAsync(email);
