@@ -1,0 +1,48 @@
+@* Shared pagination partial — pass TotalPages, Page as ViewData *@
+@{
+    var totalPages = (int)(ViewData["TotalPages"] ?? 1);
+    var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+    var baseUrl = (string)(ViewData["PaginationUrl"] ?? "");
+}
+
+@if (totalPages > 1)
+{
+    <nav aria-label="Page navigation">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+            <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                <a class="page-link" href="@baseUrl&page=@(currentPage - 1)">‹</a>
+            </li>
+            @{
+                var half = 2;
+                var start = Math.Max(1, currentPage - half);
+                var end = Math.Min(totalPages, start + 4);
+                start = Math.Max(1, end - 4);
+            }
+            @if (start > 1)
+            {
+                <li class="page-item"><a class="page-link" href="@baseUrl&page=1">1</a></li>
+                @if (start > 2)
+                {
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                }
+            }
+            @for (int i = start; i <= end; i++)
+            {
+                <li class="page-item @(i == currentPage ? "active" : "")">
+                    <a class="page-link" href="@baseUrl&page=@i">@i</a>
+                </li>
+            }
+            @if (end < totalPages)
+            {
+                @if (end < totalPages - 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                }
+                <li class="page-item"><a class="page-link" href="@baseUrl&page=@totalPages">@totalPages</a></li>
+            }
+            <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                <a class="page-link" href="@baseUrl&page=@(currentPage + 1)">›</a>
+            </li>
+        </ul>
+    </nav>
+}

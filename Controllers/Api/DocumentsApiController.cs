@@ -1,7 +1,9 @@
 using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models.Entities;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace JAS_MINE_IT15.Controllers.Api
@@ -13,6 +15,7 @@ namespace JAS_MINE_IT15.Controllers.Api
     [ApiController]
     [Authorize]
     [AutoValidateAntiforgeryToken]
+    [EnableRateLimiting("api")]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class DocumentsApiController : ControllerBase
@@ -20,14 +23,16 @@ namespace JAS_MINE_IT15.Controllers.Api
         private readonly ApplicationDbContext _context;
         private readonly ILogger<DocumentsApiController> _logger;
         private readonly IWebHostEnvironment _environment;
+        private readonly ITenantService _tenantService;
         private readonly string[] _allowedExtensions = { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".jpg", ".jpeg", ".png", ".gif" };
         private const long MaxFileSize = 50 * 1024 * 1024; // 50MB
 
-        public DocumentsApiController(ApplicationDbContext context, ILogger<DocumentsApiController> logger, IWebHostEnvironment environment)
+        public DocumentsApiController(ApplicationDbContext context, ILogger<DocumentsApiController> logger, IWebHostEnvironment environment, ITenantService tenantService)
         {
             _context = context;
             _logger = logger;
             _environment = environment;
+            _tenantService = tenantService;
         }
 
         #region DTO Classes
@@ -109,6 +114,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.KnowledgeDocuments
                 .Include(d => d.UploadedBy)
                 .Where(d => d.IsActive)
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .AsQueryable();
 
             // Apply filters

@@ -1,0 +1,137 @@
+@model JAS_MINE_IT15.Services.BarangayReportSummary
+@{
+    ViewData["Title"] = $"Barangay Detail — {Model.BarangayName}";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Reports")">Reports</a></li>
+        <li class="breadcrumb-item"><a href="@Url.Action("BarangaySummary", "Reports")">Barangay Summary</a></li>
+        <li class="breadcrumb-item active">@Model.BarangayName</li>
+    </ol>
+</nav>
+
+<h5 class="fw-bold mb-4"><i class="bi bi-geo-alt me-2"></i>@Model.BarangayName</h5>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-primary">@Model.TotalUsers</div>
+                <div class="text-muted small">Users</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-info">@Model.TotalDocuments</div>
+                <div class="text-muted small">Documents</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-warning">@Model.TotalPolicies</div>
+                <div class="text-muted small">Policies</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-success">@Model.TotalLessons</div>
+                <div class="text-muted small">Lessons</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-danger">@Model.TotalBestPractices</div>
+                <div class="text-muted small">Best Practices</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-secondary">@Model.TotalDiscussions</div>
+                <div class="text-muted small">Discussions</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-dark">@Model.TotalAnnouncements</div>
+                <div class="text-muted small">Announcements</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h6 class="fw-bold mb-3">Subscription</h6>
+        <div class="row">
+            <div class="col-md-4">
+                <span class="text-muted">Status:</span>
+                @{
+                    var cls = Model.SubscriptionStatus switch
+                    {
+                        "Active" => "bg-success",
+                        "Expired" => "bg-danger",
+                        _ => "bg-warning"
+                    };
+                }
+                <span class="badge @cls ms-2">@Model.SubscriptionStatus</span>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted">Plan:</span>
+                <strong class="ms-2">@Model.PlanName</strong>
+            </div>
+            <div class="col-md-4">
+                <span class="text-muted">Expiry:</span>
+                <strong class="ms-2">@(Model.SubscriptionExpiry?.ToString("MMMM dd, yyyy") ?? "—")</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Content Timeline Chart -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-bold">Content Created Over Time</div>
+    <div class="card-body">
+        <canvas id="timelineChart" height="120"></canvas>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        fetch('@Url.Action("ContentTimelineData", "Reports")?module=documents&months=12')
+            .then(r => r.json())
+            .then(data => {
+                new Chart(document.getElementById('timelineChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Documents Created',
+                            data: data.values,
+                            backgroundColor: 'rgba(13,110,253,.6)',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            });
+    </script>
+}

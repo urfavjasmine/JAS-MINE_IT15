@@ -10,7 +10,7 @@
     bool IsActive(string action, string controller = "Home")
     {
         var url = Url.Action(action, controller)?.ToLowerInvariant() ?? "";
-        return !string.IsNullOrEmpty(url) && path.StartsWith(url);
+        return !string.IsNullOrEmpty(url) && url != "/" && path.StartsWith(url);
     }
 }
 
@@ -352,6 +352,14 @@
                     <div class="jm-text">Payment Verification</div>
                 </a>
             </div>
+
+            <div class="jm-section">REPORTS</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("Index", "Reports") ? "active" : "")" href="@Url.Action("Index", "Reports")">
+                    <div class="jm-icon"><i class="bi bi-bar-chart-line"></i></div>
+                    <div class="jm-text">Reports & Analytics</div>
+                </a>
+            </div>
         }
 
         @* ===================== BARANGAY ADMIN ===================== *@
@@ -411,6 +419,11 @@
                 <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
                     <div class="jm-icon"><i class="bi bi-gear"></i></div>
                     <div class="jm-text">Settings</div>
+                </a>
+
+                <a class="jm-item @(IsActive("Index", "Reports") ? "active" : "")" href="@Url.Action("Index", "Reports")">
+                    <div class="jm-icon"><i class="bi bi-bar-chart-line"></i></div>
+                    <div class="jm-text">Reports</div>
                 </a>
             </div>
 

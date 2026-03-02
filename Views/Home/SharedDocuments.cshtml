@@ -109,7 +109,10 @@
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li>
                                                 <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                        onclick="openView('@d.Id','@d.Title','@d.FileName','@d.FileUrl','@d.SharedByName','@d.DownloadCount','@d.CreatedAt.ToString("yyyy-MM-dd")')">
+                                                        data-id="@d.Id" data-title="@d.Title" data-file-name="@d.FileName"
+                                                        data-file-url="@d.FileUrl" data-shared-by="@d.SharedByName"
+                                                        data-downloads="@d.DownloadCount" data-date="@d.CreatedAt.ToString("yyyy-MM-dd")"
+                                                        onclick="openView(this)">
                                                     View
                                                 </button>
                                             </li>
@@ -121,7 +124,9 @@
                                             {
                                                 <li>
                                                     <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                                            onclick="openEdit('@d.Id','@d.Title','@d.FileUrl','@d.FileName')">
+                                                            data-id="@d.Id" data-title="@d.Title"
+                                                            data-file-url="@d.FileUrl" data-file-name="@d.FileName"
+                                                            onclick="openEdit(this)">
                                                         Edit
                                                     </button>
                                                 </li>
@@ -177,6 +182,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form id="docForm" method="post">
+                @Html.AntiForgeryToken()
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalTitle">Share Document</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -216,21 +222,21 @@
         document.getElementById('fFileName').value = '';
     }
 
-    function openEdit(id, title, fileUrl, fileName) {
+    function openEdit(btn) {
         document.getElementById('modalTitle').textContent = 'Edit Document';
         document.getElementById('docForm').action = '@Url.Action("EditSharedDocument")';
-        document.getElementById('fId').value = id;
-        document.getElementById('fTitle').value = title;
-        document.getElementById('fFileUrl').value = fileUrl;
-        document.getElementById('fFileName').value = fileName;
+        document.getElementById('fId').value = btn.dataset.id;
+        document.getElementById('fTitle').value = btn.dataset.title;
+        document.getElementById('fFileUrl').value = btn.dataset.fileUrl || '';
+        document.getElementById('fFileName').value = btn.dataset.fileName || '';
     }
 
-    function openView(id, title, fileName, fileUrl, sharedBy, downloads, date) {
-        document.getElementById('vTitle').textContent = title;
-        document.getElementById('vFileName').textContent = fileName || '-';
-        document.getElementById('vSharedBy').textContent = sharedBy;
-        document.getElementById('vDownloads').textContent = downloads;
-        document.getElementById('vDate').textContent = date;
+    function openView(btn) {
+        document.getElementById('vTitle').textContent = btn.dataset.title;
+        document.getElementById('vFileName').textContent = btn.dataset.fileName || '-';
+        document.getElementById('vSharedBy').textContent = btn.dataset.sharedBy;
+        document.getElementById('vDownloads').textContent = btn.dataset.downloads;
+        document.getElementById('vDate').textContent = btn.dataset.date;
     }
 
     // Ensure Bootstrap dropdowns are initialized

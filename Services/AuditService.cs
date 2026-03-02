@@ -1,0 +1,62 @@
+using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Models.Entities;
+
+namespace JAS_MINE_IT15.Services
+{
+    public class AuditService : IAuditService
+    {
+        private readonly ApplicationDbContext _context;
+        private readonly ITenantService _tenantService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<AuditService> _logger;
+
+        public AuditService(
+            ApplicationDbContext context,
+            ITenantService tenantService,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<AuditService> logger)
+        {
+            _context = context;
+            _tenantService = tenantService;
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
+        }
+
+        public async Task LogAsync(string action, string module, int? targetId, string? targetType,
+            string? targetName, string description, int? barangayId = null)
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor.HttpContext;
+                var userIdStr = httpContext?.Session.GetString("UserId");
+                int.TryParse(userIdStr, out var userId);
+
+                var log = new AuditLog
+                {
+                    UserId = userId > 0 ? userId : null,
+                    UserEmail = _tenantService.GetCurrentUserEmail(),
+                    UserName = httpContext?.Session.GetString("UserName"),
+                    Action = action,
+                    Module = module,
+                    TargetId = targetId,
+                    TargetType = targetType,
+                    TargetName = targetName,
+                    Description = description,
+                    IpAddress = httpContext?.Connection.RemoteIpAddress?.ToString(),
+                    UserAgent = httpContext?.Request.Headers["User-Agent"].FirstOrDefault(),
+                    SessionId = httpContext?.Session.Id,
+                    BarangayId = barangayId ?? _tenantService.GetCurrentBarangayId(),
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.AuditLogs.Add(log);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to write audit log: {Action} {Module}", action, module);
+            }
+        }
+    }
+}

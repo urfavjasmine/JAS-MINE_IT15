@@ -57,17 +57,10 @@ namespace JAS_MINE_IT15.Data
             }
             else
             {
-                // Remove old password and set new one
-                var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                var resetResult = await userManager.ResetPasswordAsync(user, token, password);
-                if (resetResult.Succeeded)
-                {
-                    Console.WriteLine($"[Seeder] Reset password for: {email}");
-                }
-                else
-                {
-                    Console.WriteLine($"[Seeder] FAILED to reset password for {email}: {string.Join(", ", resetResult.Errors.Select(e => e.Description))}");
-                }
+                // Ensure role is assigned (do NOT reset password on every startup)
+                if (!await userManager.IsInRoleAsync(user, "super_admin"))
+                    await userManager.AddToRoleAsync(user, "super_admin");
+                Console.WriteLine($"[Seeder] super_admin already exists: {email}");
             }
         }
         public static async Task SeedDefaultUsers(IServiceProvider services)
@@ -97,12 +90,7 @@ namespace JAS_MINE_IT15.Data
 
                     await userManager.CreateAsync(user, d.Password);
                 }
-                else
-                {
-                    // Reset password if user already exists
-                    var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                    await userManager.ResetPasswordAsync(user, token, d.Password);
-                }
+                // Do NOT reset password on every startup — only seed on first creation
 
                 if (!await userManager.IsInRoleAsync(user, d.Role))
                     await userManager.AddToRoleAsync(user, d.Role);

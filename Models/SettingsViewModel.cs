@@ -1,4 +1,6 @@
-﻿namespace JAS_MINE_IT15.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace JAS_MINE_IT15.Models
 {
     public class SettingsViewModel
     {
@@ -6,8 +8,16 @@
         public string Tab { get; set; } = "general";
 
         // Profile
+        [Required(ErrorMessage = "Full name is required.")]
+        [StringLength(150, ErrorMessage = "Name cannot exceed 150 characters.")]
         public string FullName { get; set; } = "";
+
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        [StringLength(255, ErrorMessage = "Email cannot exceed 255 characters.")]
         public string Email { get; set; } = "";
+
+        [StringLength(200, ErrorMessage = "Barangay name cannot exceed 200 characters.")]
         public string Barangay { get; set; } = "";
         public string Language { get; set; } = "en"; // en / fil
 

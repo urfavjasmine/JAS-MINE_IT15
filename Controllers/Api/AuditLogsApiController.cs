@@ -1,7 +1,9 @@
 using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models.Entities;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -14,17 +16,20 @@ namespace JAS_MINE_IT15.Controllers.Api
     [ApiController]
     [Authorize]
     [AutoValidateAntiforgeryToken]
+    [EnableRateLimiting("api")]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class AuditLogsApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AuditLogsApiController> _logger;
+        private readonly ITenantService _tenantService;
 
-        public AuditLogsApiController(ApplicationDbContext context, ILogger<AuditLogsApiController> logger)
+        public AuditLogsApiController(ApplicationDbContext context, ILogger<AuditLogsApiController> logger, ITenantService tenantService)
         {
             _context = context;
             _logger = logger;
+            _tenantService = tenantService;
         }
 
         #region DTO Classes
@@ -112,8 +117,17 @@ namespace JAS_MINE_IT15.Controllers.Api
         {
             var query = _context.AuditLogs
                 .Include(a => a.User)
-                .Where(a => a.IsActive)
-                .AsQueryable();
+                .Where(a => a.IsActive);
+
+            // Tenant isolation: super_admin sees all, others see only their barangay
+            if (!_tenantService.IsSuperAdmin())
+            {
+                var barangayId = _tenantService.GetCurrentBarangayId();
+                if (barangayId.HasValue)
+                    query = query.Where(a => a.BarangayId == barangayId.Value);
+                else
+                    query = query.Where(_ => false);
+            }
 
             // Apply filters
             if (!string.IsNullOrWhiteSpace(filter.Action))

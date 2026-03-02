@@ -1,0 +1,19 @@
+@*
+    Shared empty-state component.
+    Usage: <partial name="_EmptyState" model='new { Icon = "bi-inbox", Message = "No items found." }' />
+    Or use ViewData: ViewData["EmptyIcon"] = "bi-folder"; ViewData["EmptyMessage"] = "Nothing here.";
+*@
+@{
+    var icon = ViewData["EmptyIcon"] as string ?? "bi-inbox";
+    var message = ViewData["EmptyMessage"] as string ?? "No items found.";
+    var submessage = ViewData["EmptySubMessage"] as string;
+}
+
+<div class="empty-state">
+    <i class="bi @icon"></i>
+    <p class="mb-1">@message</p>
+    @if (!string.IsNullOrEmpty(submessage))
+    {
+        <small class="text-muted">@submessage</small>
+    }
+</div>

@@ -27,6 +27,11 @@
     <!-- RIGHT SIDE -->
     <div class="d-flex align-items-center gap-2">
 
+        <!-- Dark Mode Toggle -->
+        <button type="button" class="btn btn-sm btn-outline-secondary border-0" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <i id="darkModeIcon" class="bi bi-moon"></i>
+        </button>
+
         <!-- Notifications Dropdown (ViewComponent) -->
         @await Component.InvokeAsync("Notifications")
     </div>

@@ -79,6 +79,11 @@
 </head>
 
 <body>
+    <!-- Loading spinner overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
     <div class="app-shell">
 
         <!-- Desktop Sidebar -->
@@ -103,6 +108,25 @@
                 @RenderBody()
             </main>
 
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmDeleteMessage">Are you sure?</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-danger btn-confirm-delete" id="confirmDeleteBtn">Delete</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -243,6 +267,14 @@
             hr.insertAdjacentHTML('beforebegin', itemHtml);
         }
     </script>
+
+    <!-- jQuery Validation (unobtrusive client-side) -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation-unobtrusive@4.0.0/dist/jquery.validate.unobtrusive.min.js"></script>
+
+    <!-- Site JS (loading spinner, dark mode, modal confirms) -->
+    <script src="~/js/site.js"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

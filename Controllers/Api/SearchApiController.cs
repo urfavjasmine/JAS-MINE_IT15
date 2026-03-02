@@ -1,6 +1,8 @@
 using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace JAS_MINE_IT15.Controllers.Api
@@ -12,17 +14,20 @@ namespace JAS_MINE_IT15.Controllers.Api
     [ApiController]
     [Authorize]
     [AutoValidateAntiforgeryToken]
+    [EnableRateLimiting("api")]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class SearchApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SearchApiController> _logger;
+        private readonly ITenantService _tenantService;
 
-        public SearchApiController(ApplicationDbContext context, ILogger<SearchApiController> logger)
+        public SearchApiController(ApplicationDbContext context, ILogger<SearchApiController> logger, ITenantService tenantService)
         {
             _context = context;
             _logger = logger;
+            _tenantService = tenantService;
         }
 
         #region DTO Classes
@@ -225,6 +230,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Search document titles
             var docs = await _context.KnowledgeDocuments
                 .Where(d => d.IsActive && !d.IsArchived && d.Title.ToLower().Contains(searchTerm))
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .Take(limit)
                 .Select(d => new AutocompleteResult { Text = d.Title, Type = "document", Id = d.Id })
                 .ToListAsync();
@@ -233,6 +239,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Search policy titles
             var policies = await _context.Policies
                 .Where(p => p.IsActive && !p.IsArchived && p.Title.ToLower().Contains(searchTerm))
+                .FilterByTenant(_tenantService, p => p.BarangayId)
                 .Take(limit)
                 .Select(p => new AutocompleteResult { Text = p.Title, Type = "policy", Id = p.Id })
                 .ToListAsync();
@@ -241,6 +248,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Search announcement titles
             var announcements = await _context.Announcements
                 .Where(a => a.IsActive && !a.IsArchived && a.Title.ToLower().Contains(searchTerm))
+                .FilterByTenant(_tenantService, a => a.BarangayId)
                 .Take(limit)
                 .Select(a => new AutocompleteResult { Text = a.Title, Type = "announcement", Id = a.Id })
                 .ToListAsync();
@@ -257,11 +265,11 @@ namespace JAS_MINE_IT15.Controllers.Api
         {
             var stats = new IndexStats
             {
-                TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && !d.IsArchived),
-                TotalPolicies = await _context.Policies.CountAsync(p => p.IsActive && !p.IsArchived),
-                TotalAnnouncements = await _context.Announcements.CountAsync(a => a.IsActive && !a.IsArchived),
-                TotalBestPractices = await _context.BestPractices.CountAsync(b => b.IsActive && !b.IsArchived),
-                TotalLessonsLearned = await _context.LessonsLearned.CountAsync(l => l.IsActive && !l.IsArchived),
+                TotalDocuments = await _context.KnowledgeDocuments.Where(d => d.IsActive && !d.IsArchived).FilterByTenant(_tenantService, d => d.BarangayId).CountAsync(),
+                TotalPolicies = await _context.Policies.Where(p => p.IsActive && !p.IsArchived).FilterByTenant(_tenantService, p => p.BarangayId).CountAsync(),
+                TotalAnnouncements = await _context.Announcements.Where(a => a.IsActive && !a.IsArchived).FilterByTenant(_tenantService, a => a.BarangayId).CountAsync(),
+                TotalBestPractices = await _context.BestPractices.Where(b => b.IsActive && !b.IsArchived).FilterByTenant(_tenantService, b => b.BarangayId).CountAsync(),
+                TotalLessonsLearned = await _context.LessonsLearned.Where(l => l.IsActive && !l.IsArchived).FilterByTenant(_tenantService, l => l.BarangayId).CountAsync(),
                 LastIndexed = DateTime.Now
             };
 
@@ -271,6 +279,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Get category counts from documents
             var docCategories = await _context.KnowledgeDocuments
                 .Where(d => d.IsActive && !d.IsArchived)
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .GroupBy(d => d.Category)
                 .Select(g => new { Category = g.Key, Count = g.Count() })
                 .ToListAsync();
@@ -290,6 +299,7 @@ namespace JAS_MINE_IT15.Controllers.Api
 
             categories["document"] = await _context.KnowledgeDocuments
                 .Where(d => d.IsActive && !d.IsArchived)
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .Select(d => d.Category)
                 .Distinct()
                 .OrderBy(c => c)
@@ -297,6 +307,7 @@ namespace JAS_MINE_IT15.Controllers.Api
 
             categories["policy"] = await _context.Policies
                 .Where(p => p.IsActive && !p.IsArchived && p.Category != null)
+                .FilterByTenant(_tenantService, p => p.BarangayId)
                 .Select(p => p.Category!)
                 .Distinct()
                 .OrderBy(c => c)
@@ -304,6 +315,7 @@ namespace JAS_MINE_IT15.Controllers.Api
 
             categories["bestpractice"] = await _context.BestPractices
                 .Where(b => b.IsActive && !b.IsArchived && b.Category != null)
+                .FilterByTenant(_tenantService, b => b.BarangayId)
                 .Select(b => b.Category!)
                 .Distinct()
                 .OrderBy(c => c)
@@ -324,7 +336,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             var recentDocs = await _context.KnowledgeDocuments
                 .Include(d => d.UploadedBy)
                 .Where(d => d.IsActive && !d.IsArchived)
-                .Where(d => !barangayId.HasValue || d.BarangayId == barangayId)
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .OrderByDescending(d => d.CreatedAt)
                 .Take(limit)
                 .Select(d => new SearchResult
@@ -348,7 +360,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             var recentAnnouncements = await _context.Announcements
                 .Include(a => a.Author)
                 .Where(a => a.IsActive && !a.IsArchived)
-                .Where(a => !barangayId.HasValue || a.BarangayId == barangayId)
+                .FilterByTenant(_tenantService, a => a.BarangayId)
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(limit)
                 .Select(a => new SearchResult
@@ -400,10 +412,8 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.KnowledgeDocuments
                 .Include(d => d.UploadedBy)
                 .Where(d => d.IsActive && !d.IsArchived)
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .AsQueryable();
-
-            if (request.BarangayId.HasValue)
-                query = query.Where(d => d.BarangayId == request.BarangayId);
 
             if (!string.IsNullOrWhiteSpace(request.Category))
                 query = query.Where(d => d.Category == request.Category);
@@ -455,10 +465,8 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.Policies
                 .Include(p => p.Author)
                 .Where(p => p.IsActive && !p.IsArchived)
+                .FilterByTenant(_tenantService, p => p.BarangayId)
                 .AsQueryable();
-
-            if (request.BarangayId.HasValue)
-                query = query.Where(p => p.BarangayId == request.BarangayId);
 
             if (!string.IsNullOrWhiteSpace(request.Category))
                 query = query.Where(p => p.Category == request.Category);
@@ -508,10 +516,8 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.Announcements
                 .Include(a => a.Author)
                 .Where(a => a.IsActive && !a.IsArchived)
+                .FilterByTenant(_tenantService, a => a.BarangayId)
                 .AsQueryable();
-
-            if (request.BarangayId.HasValue)
-                query = query.Where(a => a.BarangayId == request.BarangayId);
 
             if (!string.IsNullOrWhiteSpace(request.Status))
                 query = query.Where(a => a.Status == request.Status);
@@ -557,10 +563,8 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.BestPractices
                 .Include(b => b.SubmittedBy)
                 .Where(b => b.IsActive && !b.IsArchived)
+                .FilterByTenant(_tenantService, b => b.BarangayId)
                 .AsQueryable();
-
-            if (request.BarangayId.HasValue)
-                query = query.Where(b => b.BarangayId == request.BarangayId);
 
             if (!string.IsNullOrWhiteSpace(request.Category))
                 query = query.Where(b => b.Category == request.Category);
@@ -610,10 +614,8 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.LessonsLearned
                 .Include(l => l.SubmittedBy)
                 .Where(l => l.IsActive && !l.IsArchived)
+                .FilterByTenant(_tenantService, l => l.BarangayId)
                 .AsQueryable();
-
-            if (request.BarangayId.HasValue)
-                query = query.Where(l => l.BarangayId == request.BarangayId);
 
             // LessonLearned uses ProjectType instead of Category
             if (!string.IsNullOrWhiteSpace(request.Category))
@@ -690,6 +692,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Get similar titles from documents
             var docTitles = await _context.KnowledgeDocuments
                 .Where(d => d.IsActive && !d.IsArchived && d.Title.ToLower().Contains(searchTerm))
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .Select(d => d.Title)
                 .Take(3)
                 .ToListAsync();
@@ -698,6 +701,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             // Get categories
             var categories = await _context.KnowledgeDocuments
                 .Where(d => d.IsActive && !d.IsArchived && d.Category.ToLower().Contains(searchTerm))
+                .FilterByTenant(_tenantService, d => d.BarangayId)
                 .Select(d => d.Category)
                 .Distinct()
                 .Take(2)

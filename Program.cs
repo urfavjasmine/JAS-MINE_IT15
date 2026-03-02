@@ -2,9 +2,17 @@ using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Hubs;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Serilog structured logging ──
+builder.Host.UseSerilog((context, config) =>
+    config.ReadFrom.Configuration(context.Configuration)
+          .Enrich.FromLogContext());
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
@@ -15,6 +23,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Domain services
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IReportingService, ReportingService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -51,6 +65,37 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
+// ── Rate Limiting ──
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Login: 5 attempts per 1 minute per IP
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // API: 60 requests per minute per user
+    options.AddPolicy("api", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User?.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 2
+            }));
+});
+
+// ── Background Subscription Expiry Service ──
+builder.Services.AddHostedService<SubscriptionExpiryService>();
+
 var app = builder.Build();
 
 // Pipeline
@@ -67,11 +112,30 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
+// ── Security Headers Middleware ──
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " +
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
+        "img-src 'self' data: blob:; " +
+        "connect-src 'self' wss: ws:;";
+    await next();
+});
+
 app.UseRouting();
 
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllerRoute(
     name: "default",
@@ -88,116 +152,16 @@ using (var scope = app.Services.CreateScope())
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
 
-        // ── Ensure all required columns exist (safe idempotent ALTER TABLE) ──
-        // This runs BEFORE MigrateAsync so the app works even if EF migrations
-        // can't apply (e.g. deployed DB created from raw SQL schema).
-        var ensureColumnsSql = @"
-            -- Policies
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Policies') AND name = 'IsArchived')
-                ALTER TABLE dbo.Policies ADD IsArchived BIT NOT NULL DEFAULT 0;
-
-            -- LessonsLearned
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Problem')
-                ALTER TABLE dbo.LessonsLearned ADD Problem NVARCHAR(MAX) NOT NULL DEFAULT '';
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'ActionTaken')
-                ALTER TABLE dbo.LessonsLearned ADD ActionTaken NVARCHAR(MAX) NOT NULL DEFAULT '';
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Result')
-                ALTER TABLE dbo.LessonsLearned ADD Result NVARCHAR(MAX) NOT NULL DEFAULT '';
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'Recommendation')
-                ALTER TABLE dbo.LessonsLearned ADD Recommendation NVARCHAR(MAX) NULL;
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'DateRecorded')
-                ALTER TABLE dbo.LessonsLearned ADD DateRecorded DATETIME2 NOT NULL DEFAULT '0001-01-01';
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LessonsLearned') AND name = 'IsArchived')
-                ALTER TABLE dbo.LessonsLearned ADD IsArchived BIT NOT NULL DEFAULT 0;
-
-            -- KnowledgeRepository
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeRepository') AND name = 'IsArchived')
-                ALTER TABLE dbo.KnowledgeRepository ADD IsArchived BIT NOT NULL DEFAULT 0;
-
-            -- KnowledgeDiscussions
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeDiscussions') AND name = 'IsArchived')
-                ALTER TABLE dbo.KnowledgeDiscussions ADD IsArchived BIT NOT NULL DEFAULT 0;
-
-            -- BestPractices
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'IsArchived')
-                ALTER TABLE dbo.BestPractices ADD IsArchived BIT NOT NULL DEFAULT 0;
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'OwnerOffice')
-                ALTER TABLE dbo.BestPractices ADD OwnerOffice NVARCHAR(200) NULL;
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Purpose')
-                ALTER TABLE dbo.BestPractices ADD Purpose NVARCHAR(MAX) NULL;
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'ResourcesNeeded')
-                ALTER TABLE dbo.BestPractices ADD ResourcesNeeded NVARCHAR(MAX) NULL;
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Status')
-                ALTER TABLE dbo.BestPractices ADD Status NVARCHAR(20) NOT NULL DEFAULT '';
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.BestPractices') AND name = 'Steps')
-                ALTER TABLE dbo.BestPractices ADD Steps NVARCHAR(MAX) NOT NULL DEFAULT '';
-
-            -- Announcements
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Announcements') AND name = 'IsArchived')
-                ALTER TABLE dbo.Announcements ADD IsArchived BIT NOT NULL DEFAULT 0;
-
-            -- KnowledgeRepository FileType expansion
-            IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.KnowledgeRepository') AND name = 'FileType' AND max_length = 100)
-                ALTER TABLE dbo.KnowledgeRepository ALTER COLUMN FileType NVARCHAR(255) NULL;
-
-            -- Invoices table
-            IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID('dbo.Invoices') AND type = 'U')
-            BEGIN
-                CREATE TABLE dbo.Invoices (
-                    Id INT IDENTITY(1,1) PRIMARY KEY,
-                    InvoiceNumber NVARCHAR(50) NOT NULL,
-                    SubscriptionId INT NOT NULL,
-                    BarangayId INT NULL,
-                    Amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-                    DueDate DATE NULL,
-                    Status NVARCHAR(20) NOT NULL DEFAULT 'Unpaid',
-                    IssuedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
-                    PaidAt DATETIME2 NULL,
-                    Notes NVARCHAR(500) NULL,
-                    IsActive BIT NOT NULL DEFAULT 1,
-                    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
-                    UpdatedAt DATETIME2 NULL,
-                    CONSTRAINT FK_Invoices_Subscription FOREIGN KEY (SubscriptionId) REFERENCES dbo.BarangaySubscriptions(Id),
-                    CONSTRAINT FK_Invoices_Barangay FOREIGN KEY (BarangayId) REFERENCES dbo.Barangays(Id)
-                );
-                CREATE UNIQUE INDEX IX_Invoices_InvoiceNumber ON dbo.Invoices(InvoiceNumber);
-            END
-
-            -- SubscriptionPayments new columns
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'InvoiceId')
-                ALTER TABLE dbo.SubscriptionPayments ADD InvoiceId INT NULL CONSTRAINT FK_SubscriptionPayments_Invoice FOREIGN KEY REFERENCES dbo.Invoices(Id);
-
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProofOfPaymentUrl')
-                ALTER TABLE dbo.SubscriptionPayments ADD ProofOfPaymentUrl NVARCHAR(500) NULL;
-
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'RejectionReason')
-                ALTER TABLE dbo.SubscriptionPayments ADD RejectionReason NVARCHAR(500) NULL;
-
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProcessedAt')
-                ALTER TABLE dbo.SubscriptionPayments ADD ProcessedAt DATETIME2 NULL;
-
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'ProcessedById')
-                ALTER TABLE dbo.SubscriptionPayments ADD ProcessedById INT NULL;
-
-            -- Expand SubscriptionPayments.Status from 20 to 30 if needed
-            IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'Status' AND max_length < 60)
-                ALTER TABLE dbo.SubscriptionPayments ALTER COLUMN Status NVARCHAR(30) NOT NULL;
-
-            -- SubscriptionPlans UserLimit column
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPlans') AND name = 'UserLimit')
-                ALTER TABLE dbo.SubscriptionPlans ADD UserLimit INT NOT NULL DEFAULT 4;
-        ";
-        await db.Database.ExecuteSqlRawAsync(ensureColumnsSql);
-        logger.LogInformation("Ensured all required database columns exist.");
-
-        // Now run EF migrations (may no-op if columns already exist)
+        // ── Run EF Migrations (includes ConsolidateSchemaColumns) ──
+        // All column-ensure DDL has been moved to Data/Migrations/20260302000000_ConsolidateSchemaColumns.cs
         try
         {
             await db.Database.MigrateAsync();
+            logger.LogInformation("EF migrations applied successfully.");
         }
         catch (Exception migEx)
         {
-            logger.LogWarning(migEx, "EF MigrateAsync had issues (columns already ensured above).");
+            logger.LogWarning(migEx, "EF MigrateAsync had issues — columns may already exist.");
         }
 
         await IdentitySeeder.SeedRoles(services);

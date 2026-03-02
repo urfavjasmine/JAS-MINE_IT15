@@ -14,116 +14,36 @@ using System.Text;
 using Microsoft.AspNetCore.Identity;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JAS_MINE_IT15.Controllers
 {
     [Authorize]
-    public class HomeController : Controller
+    public class HomeController : BaseAppController
     {
         // ✅ Identity services (needed for DB login)
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly UserManager<IdentityUser> _userManager;
-        private readonly ApplicationDbContext _context;
+        private new readonly ApplicationDbContext _context;
         private readonly INotificationService _notificationService;
+        private readonly ILogger<HomeController> _logger;
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
             UserManager<IdentityUser> userManager,
             ApplicationDbContext context,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILogger<HomeController> logger)
+            : base(context)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _context = context;
             _notificationService = notificationService;
+            _logger = logger;
         }
 
-        #region Helper Methods
-
-        private bool IsLoggedIn() =>
-            !string.IsNullOrEmpty(HttpContext.Session.GetString("UserName"));
-
-        private bool IsAdminRole()
-        {
-            var role = HttpContext.Session.GetString("Role");
-            return role == "super_admin" || role == "barangay_admin";
-        }
-
-        /// <summary>
-        /// Gets the current user's role from session.
-        /// </summary>
-        private string GetCurrentRole()
-        {
-            return HttpContext.Session.GetString("Role") ?? "";
-        }
-
-        /// <summary>
-        /// Gets the current user's BarangayId from session.
-        /// </summary>
-        private int? GetCurrentBarangayId()
-        {
-            var barangayIdStr = HttpContext.Session.GetString("BarangayId");
-            if (int.TryParse(barangayIdStr, out var id))
-                return id;
-            return null;
-        }
-
-        /// <summary>
-        /// Checks if current user is super_admin (system-wide access).
-        /// </summary>
-        private bool IsSuperAdmin()
-        {
-            return GetCurrentRole() == "super_admin";
-        }
-
-        /// <summary>
-        /// Gets the current user's ID from session.
-        /// </summary>
-        private int? GetCurrentUserId()
-        {
-            var userIdStr = HttpContext.Session.GetString("UserId");
-            if (int.TryParse(userIdStr, out var id))
-                return id;
-            return null;
-        }
-
-        /// <summary>
-        /// Checks if current user has view-only access (council_member).
-        /// </summary>
-        private bool IsViewOnly()
-        {
-            return GetCurrentRole() == "council_member";
-        }
-
-        /// <summary>
-        /// Checks if current user can create/edit/delete (not council_member).
-        /// </summary>
-        private bool CanModify()
-        {
-            var role = GetCurrentRole();
-            return role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
-        }
-
-        /// <summary>
-        /// Checks if current user is a barangay role (not super_admin).
-        /// Super_admin only monitors system, does not access barangay modules.
-        /// </summary>
-        private bool IsBarangayRole()
-        {
-            var role = GetCurrentRole();
-            return role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff" || role == "council_member";
-        }
-
-        /// <summary>
-        /// Redirects to the appropriate dashboard based on current user's role.
-        /// </summary>
-        private IActionResult RedirectToDashboard()
-        {
-            var role = GetCurrentRole();
-            if (role == "super_admin")
-                return RedirectToAction("System", "Dashboard");
-            return RedirectToAction("Barangay", "Dashboard");
-        }
+        // Helper methods inherited from BaseAppController
 
         /// <summary>
         /// Checks if a barangay has at least one user with the 'barangay_admin' role.
@@ -134,42 +54,6 @@ namespace JAS_MINE_IT15.Controllers
                 .AnyAsync(u => u.BarangayId == barangayId 
                     && u.Role == "barangay_admin" 
                     && u.IsActive);
-        }
-
-        #endregion
-
-        /// <summary>
-        /// Writes an audit log entry to the database for any system action.
-        /// </summary>
-        private async Task LogAuditAsync(string action, string module, int? targetId = null, string? targetType = null, string? targetName = null, string? description = null)
-        {
-            var log = new AuditLog
-            {
-                UserId = GetCurrentUserId(),
-                UserEmail = HttpContext.Session.GetString("UserName"),
-                UserName = HttpContext.Session.GetString("UserName"),
-                Action = action,
-                Module = module,
-                TargetId = targetId,
-                TargetType = targetType,
-                TargetName = targetName,
-                Description = description,
-                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                UserAgent = HttpContext.Request.Headers["User-Agent"].ToString(),
-                SessionId = HttpContext.Session.Id,
-                BarangayId = GetCurrentBarangayId(), // Multi-tenant: track which barangay
-                IsActive = true,
-                CreatedAt = DateTime.Now
-            };
-            _context.AuditLogs.Add(log);
-            await _context.SaveChangesAsync();
-        }
-
-        private static string ComputeStatus(string endDate)
-        {
-            if (DateTime.TryParse(endDate, out var end))
-                return end.Date >= DateTime.Today ? "Active" : "Expired";
-            return "Expired";
         }
 
         // GET: Home Index
@@ -879,6 +763,7 @@ namespace JAS_MINE_IT15.Controllers
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (!ModelState.IsValid)
@@ -891,16 +776,18 @@ namespace JAS_MINE_IT15.Controllers
             model.Password = (model.Password ?? "").Trim();
 
             Console.WriteLine($"[Login] Attempting login for: {model.Email}");
+            _logger.LogInformation("Login attempt for: {Email}", model.Email);
 
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
                 Console.WriteLine($"[Login] User NOT found: {model.Email}");
+                _logger.LogWarning("Failed login attempt — user not found: {Email}", model.Email);
                 model.ErrorMessage = "Invalid email or password.";
                 return View(model);
             }
 
-            Console.WriteLine($"[Login] User found: {user.Email}, UserName: {user.UserName}");
+            _logger.LogInformation("User found: {Email}", user.Email);
 
             var result = await _signInManager.PasswordSignInAsync(
                 user.UserName!,
@@ -909,10 +796,11 @@ namespace JAS_MINE_IT15.Controllers
                 lockoutOnFailure: false
             );
 
-            Console.WriteLine($"[Login] SignIn result: Succeeded={result.Succeeded}, IsLockedOut={result.IsLockedOut}, IsNotAllowed={result.IsNotAllowed}, RequiresTwoFactor={result.RequiresTwoFactor}");
+            _logger.LogInformation("SignIn result for {Email}: Succeeded={Succeeded}", model.Email, result.Succeeded);
 
             if (!result.Succeeded)
             {
+                _logger.LogWarning("Failed login attempt for: {Email} — Succeeded={Succeeded}, IsLockedOut={IsLockedOut}", model.Email, result.Succeeded, result.IsLockedOut);
                 model.ErrorMessage = "Invalid email or password.";
                 return View(model);
             }
@@ -939,7 +827,7 @@ namespace JAS_MINE_IT15.Controllers
                 };
                 _context.BusinessUsers.Add(businessUser);
                 await _context.SaveChangesAsync();
-                Console.WriteLine($"[Login] Auto-created BusinessUser for: {model.Email}, Id: {businessUser.Id}");
+                _logger.LogInformation("Auto-created BusinessUser for: {Email}, Id: {Id}", model.Email, businessUser.Id);
             }
 
             int? barangayId = businessUser.BarangayId;
@@ -963,7 +851,7 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.SetString("BarangayId", barangayId?.ToString() ?? "");
             HttpContext.Session.SetString("Barangay", barangayName);
 
-            Console.WriteLine($"[Login] Role: {role}, BarangayId: {barangayId}, BarangayName: {barangayName}");
+            _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", model.Email, role, barangayId);
 
             // Redirect based on role
             if (role == "super_admin")
@@ -1197,7 +1085,7 @@ namespace JAS_MINE_IT15.Controllers
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
-                fileName = file.FileName;
+                fileName = Path.GetFileName(file.FileName);
                 var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
                 var fullPath = Path.Combine(uploadsFolder, uniqueFileName);
 
@@ -1248,6 +1136,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         public async Task<IActionResult> EditDoc(string id, string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -1297,7 +1186,7 @@ namespace JAS_MINE_IT15.Controllers
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
-                var fileName = file.FileName;
+                var fileName = Path.GetFileName(file.FileName);
                 var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
                 var fullPath = Path.Combine(uploadsFolder, uniqueFileName);
 
@@ -3334,6 +3223,8 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> ClearAllLogs()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3350,6 +3241,8 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> ExportLogsCsv(string q = "", string module = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3358,8 +3251,19 @@ namespace JAS_MINE_IT15.Controllers
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
 
-            var allLogs = await _context.AuditLogs
-                .Where(l => l.IsActive)
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+
+            // STRICT TENANT ISOLATION: same as AuditLogs GET
+            var logQuery = _context.AuditLogs.Where(l => l.IsActive);
+            if (role == "super_admin")
+                logQuery = logQuery.Where(l => l.BarangayId == null);
+            else if (barangayId.HasValue)
+                logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
+            else
+                logQuery = logQuery.Where(l => false);
+
+            var allLogs = await logQuery
                 .OrderByDescending(l => l.CreatedAt)
                 .Select(l => new LogItem
                 {
@@ -3457,6 +3361,12 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
+            if (string.IsNullOrWhiteSpace(model.FullName))
+            {
+                TempData["Error"] = "Full name is required.";
+                return RedirectToAction(nameof(Settings), new { tab = "general" });
+            }
+
             var userId = GetCurrentUserId();
             if (userId.HasValue)
             {
@@ -3474,6 +3384,7 @@ namespace JAS_MINE_IT15.Controllers
                         HttpContext.Session.SetString("Barangay", user.BarangayName);
 
                     await LogAuditAsync("Edit", "Settings", user.Id, "User", user.FullName, "Updated profile settings");
+                    _logger.LogInformation("Profile updated for user {UserId}: {FullName}", user.Id, user.FullName);
                 }
             }
 
@@ -3544,6 +3455,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             await LogAuditAsync("PasswordChange", "Settings", GetCurrentUserId(), "User", email, "Changed password");
+            _logger.LogInformation("Password changed for user: {Email}", email);
 
             TempData["Success"] = "Password updated. Your password has been changed.";
             return RedirectToAction(nameof(Settings), new { tab = "security" });

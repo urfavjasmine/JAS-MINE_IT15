@@ -1,0 +1,171 @@
+@model List<JAS_MINE_IT15.Services.MonthlyRevenuePoint>
+@{
+    ViewData["Title"] = "Revenue Trends";
+    var distribution = ViewData["PlanDistribution"] as Dictionary<string, int> ?? new Dictionary<string, int>();
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Reports")">Reports</a></li>
+        <li class="breadcrumb-item active">Revenue Trends</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Revenue Trends</h5>
+    <a href="@Url.Action("ExportRevenueCsv")" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-download me-1"></i>Export CSV
+    </a>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-success">₱@Model.Sum(m => m.Revenue).ToString("N2")</div>
+                <div class="text-muted small">Total Revenue (12 mo)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                @{
+                    var latest = Model.LastOrDefault();
+                    var avgGrowth = Model.Where(m => m.Growth != 0).DefaultIfEmpty().Average(m => m?.Growth ?? 0);
+                }
+                <div class="fs-3 fw-bold text-primary">₱@(latest?.Revenue.ToString("N2") ?? "0.00")</div>
+                <div class="text-muted small">This Month</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body">
+                <div class="fs-3 fw-bold @(avgGrowth >= 0 ? "text-success" : "text-danger")">
+                    @(avgGrowth >= 0 ? "+" : "")@avgGrowth.ToString("N1")%
+                </div>
+                <div class="text-muted small">Avg MoM Growth</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Revenue Chart -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">Monthly Revenue</div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="140"></canvas>
+            </div>
+        </div>
+    </div>
+    <!-- Plan Distribution -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">Plan Distribution</div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                @if (distribution.Count == 0)
+                {
+                    <p class="text-muted">No active subscriptions</p>
+                }
+                else
+                {
+                    <canvas id="planChart" height="200"></canvas>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Table -->
+<div class="card border-0 shadow-sm mt-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Month</th>
+                    <th class="text-end">Revenue</th>
+                    <th class="text-end">MoM Growth</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.AsEnumerable().Reverse())
+                {
+                    <tr>
+                        <td>@r.Month</td>
+                        <td class="text-end fw-semibold">₱@r.Revenue.ToString("N2")</td>
+                        <td class="text-end">
+                            @if (r.Growth > 0)
+                            {
+                                <span class="text-success">+@r.Growth%</span>
+                            }
+                            else if (r.Growth < 0)
+                            {
+                                <span class="text-danger">@r.Growth%</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // Revenue Line Chart
+        const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Month)));
+        const revenues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Revenue)));
+
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Revenue (₱)',
+                    data: revenues,
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25,135,84,.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Plan Distribution Doughnut
+        @if (distribution.Count > 0)
+        {
+            <text>
+        const planLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Keys));
+        const planValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Values));
+        const colors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#0dcaf0'];
+
+        new Chart(document.getElementById('planChart'), {
+            type: 'doughnut',
+            data: {
+                labels: planLabels,
+                datasets: [{
+                    data: planValues,
+                    backgroundColor: colors.slice(0, planLabels.length)
+                }]
+            },
+            options: { responsive: true }
+        });
+            </text>
+        }
+    </script>
+}

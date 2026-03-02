@@ -1,0 +1,113 @@
+@model JAS_MINE_IT15.Services.ReportDashboardCounts
+@{
+    ViewData["Title"] = "Reports & Analytics";
+    var role = Context.Session.GetString("Role") ?? "";
+}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
+        <li class="breadcrumb-item active">Reports</li>
+    </ol>
+</nav>
+
+<h4 class="fw-bold mb-4"><i class="bi bi-bar-chart-line me-2"></i>Reports & Analytics</h4>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    @if (role == "super_admin")
+    {
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="fs-2 fw-bold text-primary">@Model.TotalBarangays</div>
+                    <div class="text-muted small">Barangays</div>
+                </div>
+            </div>
+        </div>
+    }
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="fs-2 fw-bold text-success">@Model.TotalUsers</div>
+                <div class="text-muted small">Users</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="fs-2 fw-bold text-info">@Model.TotalDocuments</div>
+                <div class="text-muted small">Documents</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="fs-2 fw-bold text-warning">@Model.TotalPolicies</div>
+                <div class="text-muted small">Policies</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Links -->
+<div class="row g-3">
+    @if (role == "super_admin")
+    {
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="bi bi-geo-alt text-primary me-2"></i>Per-Barangay Drill-Down</h6>
+                    <p class="text-muted small mb-3">View detailed stats for each registered barangay — users, documents, policies, subscription status.</p>
+                    <a href="@Url.Action("BarangaySummary")" class="btn btn-sm btn-outline-primary">View Report</a>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="fw-bold"><i class="bi bi-people text-success me-2"></i>User Activity</h6>
+                <p class="text-muted small mb-3">Login frequency, content contributions per user with date-range filtering.</p>
+                <a href="@Url.Action("UserActivity")" class="btn btn-sm btn-outline-success">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="fw-bold"><i class="bi bi-arrow-repeat text-info me-2"></i>Content Lifecycle</h6>
+                <p class="text-muted small mb-3">Status distribution of documents, policies, lessons — draft to approved pipeline.</p>
+                <a href="@Url.Action("ContentLifecycle")" class="btn btn-sm btn-outline-info">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    @if (role == "super_admin")
+    {
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="bi bi-graph-up-arrow text-warning me-2"></i>Revenue Trends</h6>
+                    <p class="text-muted small mb-3">Month-over-month revenue, growth rate, plan distribution chart.</p>
+                    <a href="@Url.Action("RevenueTrends")" class="btn btn-sm btn-outline-warning">View Report</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="bi bi-arrow-down-circle text-danger me-2"></i>Subscription Churn</h6>
+                    <p class="text-muted small mb-3">Monthly churn rate — expired or cancelled subscriptions vs active.</p>
+                    <a href="@Url.Action("SubscriptionChurn")" class="btn btn-sm btn-outline-danger">View Report</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

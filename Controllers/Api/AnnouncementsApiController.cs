@@ -1,8 +1,10 @@
 using JAS_MINE_IT15.Data;
 using JAS_MINE_IT15.Models.Entities;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace JAS_MINE_IT15.Controllers.Api
 {
@@ -13,17 +15,20 @@ namespace JAS_MINE_IT15.Controllers.Api
     [ApiController]
     [Authorize]
     [AutoValidateAntiforgeryToken]
+    [EnableRateLimiting("api")]
     [Route("api/[controller]")]
     [Produces("application/json")]
     public class AnnouncementsApiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AnnouncementsApiController> _logger;
+        private readonly ITenantService _tenantService;
 
-        public AnnouncementsApiController(ApplicationDbContext context, ILogger<AnnouncementsApiController> logger)
+        public AnnouncementsApiController(ApplicationDbContext context, ILogger<AnnouncementsApiController> logger, ITenantService tenantService)
         {
             _context = context;
             _logger = logger;
+            _tenantService = tenantService;
         }
 
         #region DTO Classes
@@ -98,6 +103,7 @@ namespace JAS_MINE_IT15.Controllers.Api
             var query = _context.Announcements
                 .Include(a => a.Author)
                 .Where(a => a.IsActive)
+                .FilterByTenant(_tenantService, a => a.BarangayId)
                 .AsQueryable();
 
             // Apply filters
@@ -157,7 +163,9 @@ namespace JAS_MINE_IT15.Controllers.Api
         {
             var announcement = await _context.Announcements
                 .Include(a => a.Author)
-                .FirstOrDefaultAsync(a => a.Id == id && a.IsActive);
+                .Where(a => a.IsActive)
+                .FilterByTenant(_tenantService, a => a.BarangayId)
+                .FirstOrDefaultAsync(a => a.Id == id);
 
             if (announcement == null)
                 return NotFound(new { error = "Announcement not found" });

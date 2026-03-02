@@ -176,7 +176,10 @@
                                     <td class="text-end">
                                         <button class="btn btn-light action-btn" title="View"
                                                 data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                onclick="openView('@Html.Raw(log.Timestamp.Replace("'", "\\'"))','@Html.Raw(log.User.Replace("'", "\\'"))','@Html.Raw(log.Action.Replace("'", "\\'"))','@Html.Raw(log.Module.Replace("'", "\\'"))','@Html.Raw(log.Target.Replace("'", "\\'"))','@Html.Raw(log.Ip.Replace("'", "\\'"))')">
+                                                data-timestamp="@log.Timestamp" data-user="@log.User"
+                                                data-action="@log.Action" data-module="@log.Module"
+                                                data-target-name="@log.Target" data-ip="@log.Ip"
+                                                onclick="openView(this)">
                                             <i class="bi bi-eye"></i>
                                         </button>
 
@@ -299,13 +302,13 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    function openView(ts, user, action, module, target, ip) {
-        document.getElementById('vTimestamp').innerText = ts;
-        document.getElementById('vUser').innerText = user;
-        document.getElementById('vAction').innerText = action;
-        document.getElementById('vModule').innerText = module;
-        document.getElementById('vTarget').innerText = target;
-        document.getElementById('vIp').innerText = ip;
+    function openView(btn) {
+        document.getElementById('vTimestamp').innerText = btn.dataset.timestamp || '-';
+        document.getElementById('vUser').innerText = btn.dataset.user || '-';
+        document.getElementById('vAction').innerText = btn.dataset.action || '-';
+        document.getElementById('vModule').innerText = btn.dataset.module || '-';
+        document.getElementById('vTarget').innerText = btn.dataset.targetName || '-';
+        document.getElementById('vIp').innerText = btn.dataset.ip || '-';
     }
 
     function openArchive(id) {
