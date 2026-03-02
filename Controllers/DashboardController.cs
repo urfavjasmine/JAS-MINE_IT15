@@ -82,8 +82,9 @@ namespace JAS_MINE_IT15.Controllers
                 RoleLabel = HttpContext.Session.GetString("RoleLabel") ?? "Super Admin"
             };
 
-            // System-wide stats (no barangay filter)
+            // System-wide stats
             vm.TotalBarangays = await _context.Barangays.CountAsync(b => b.IsActive);
+            vm.ActiveBarangays = vm.TotalBarangays; // Will be adjusted below
             vm.TotalUsers = await _context.BusinessUsers.CountAsync(u => u.IsActive);
             vm.TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive);
             vm.TotalPolicies = await _context.Policies.CountAsync(p => p.IsActive);
@@ -91,15 +92,144 @@ namespace JAS_MINE_IT15.Controllers
             vm.TotalLessonsLearned = await _context.LessonsLearned.CountAsync(ll => ll.IsActive);
             vm.TotalAnnouncements = await _context.Announcements.CountAsync(a => a.IsActive);
 
-            // Active subscriptions
+            // Subscription stats
             vm.ActiveSubscriptions = await _context.BarangaySubscriptions
                 .CountAsync(s => s.IsActive && s.Status == "Active");
+            vm.ExpiredSubscriptions = await _context.BarangaySubscriptions
+                .CountAsync(s => s.IsActive && s.Status == "Expired");
+            vm.PendingSubscriptions = await _context.BarangaySubscriptions
+                .CountAsync(s => s.IsActive && s.Status == "Pending");
+
+            // Revenue
+            vm.TotalRevenue = await _context.SubscriptionPayments
+                .Where(p => p.IsActive && (p.Status == "Approved" || p.Status == "Paid"))
+                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+            var thisMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            vm.MonthlyRevenue = await _context.SubscriptionPayments
+                .Where(p => p.IsActive && (p.Status == "Approved" || p.Status == "Paid") && p.PaymentDate >= thisMonth)
+                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+            // Monthly revenue breakdown (last 12 months)
+            var twelveMonthsAgo = DateTime.Now.AddMonths(-11);
+            var startMonth = new DateTime(twelveMonthsAgo.Year, twelveMonthsAgo.Month, 1);
+            var monthlyData = await _context.SubscriptionPayments
+                .Where(p => p.IsActive && (p.Status == "Approved" || p.Status == "Paid") && p.PaymentDate >= startMonth)
+                .GroupBy(p => new { p.PaymentDate.Year, p.PaymentDate.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Total = g.Sum(p => p.Amount) })
+                .OrderBy(g => g.Year).ThenBy(g => g.Month)
+                .ToListAsync();
+
+            // Build full 12 months (fill gaps with 0)
+            for (int i = 0; i < 12; i++)
+            {
+                var d = startMonth.AddMonths(i);
+                var match = monthlyData.FirstOrDefault(m => m.Year == d.Year && m.Month == d.Month);
+                vm.MonthlyRevenueData.Add(new MonthlyRevenueItem
+                {
+                    Month = d.ToString("MMM yyyy"),
+                    Amount = match?.Total ?? 0m
+                });
+            }
 
             // Pending approvals
             vm.PendingDocuments = await _context.KnowledgeDocuments
                 .CountAsync(d => d.IsActive && d.Status == "pending");
             vm.PendingPolicies = await _context.Policies
                 .CountAsync(p => p.IsActive && p.Status == "pending");
+            vm.PendingPayments = await _context.SubscriptionPayments
+                .CountAsync(p => p.IsActive && p.Status == "PendingVerification");
+
+            // Barangay summaries (activity report)
+            var barangays = await _context.Barangays.Where(b => b.IsActive).ToListAsync();
+            foreach (var b in barangays)
+            {
+                var sub = await _context.BarangaySubscriptions
+                    .Include(s => s.Plan)
+                    .Where(s => s.BarangayId == b.Id && s.IsActive)
+                    .OrderByDescending(s => s.EndDate)
+                    .FirstOrDefaultAsync();
+
+                vm.BarangaySummaries.Add(new BarangaySummaryItem
+                {
+                    BarangayId = b.Id,
+                    BarangayName = b.Name,
+                    TotalUsers = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.BarangayId == b.Id),
+                    TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.BarangayId == b.Id),
+                    TotalPolicies = await _context.Policies.CountAsync(p => p.IsActive && p.BarangayId == b.Id),
+                    TotalLessonsLearned = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.BarangayId == b.Id),
+                    TotalBestPractices = await _context.BestPractices.CountAsync(bp => bp.IsActive && bp.BarangayId == b.Id),
+                    TotalAnnouncements = await _context.Announcements.CountAsync(a => a.IsActive && a.BarangayId == b.Id),
+                    PlanName = sub?.Plan?.Name ?? "None",
+                    SubscriptionStatus = sub?.Status ?? "None"
+                });
+            }
+
+            // Subscription report (per barangay)
+            var allSubs = await _context.BarangaySubscriptions
+                .Where(s => s.IsActive)
+                .Include(s => s.Barangay)
+                .Include(s => s.Plan)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            foreach (var sub in allSubs)
+            {
+                var lastPayment = await _context.SubscriptionPayments
+                    .Where(p => p.IsActive && p.SubscriptionId == sub.Id && (p.Status == "Approved" || p.Status == "Paid"))
+                    .OrderByDescending(p => p.PaymentDate)
+                    .FirstOrDefaultAsync();
+
+                var latestInvoice = await _context.Invoices
+                    .Where(i => i.IsActive && i.SubscriptionId == sub.Id)
+                    .OrderByDescending(i => i.IssuedAt)
+                    .FirstOrDefaultAsync();
+
+                var paymentStatus = latestInvoice?.Status ?? "No Invoice";
+
+                vm.SubscriptionReport.Add(new SubscriptionReportItem
+                {
+                    BarangayName = sub.Barangay?.Name ?? "Unknown",
+                    PlanName = sub.Plan?.Name ?? "Unknown",
+                    PaymentStatus = paymentStatus,
+                    LastPaymentDate = lastPayment?.PaymentDate.ToString("yyyy-MM-dd") ?? "N/A",
+                    ExpiryDate = sub.EndDate.ToString("yyyy-MM-dd"),
+                    Amount = sub.Plan?.Price ?? 0m
+                });
+            }
+
+            // Inactive barangays (no login in last 30 days or no transactions)
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            foreach (var b in barangays)
+            {
+                var hasRecentLogin = await _context.AuditLogs
+                    .AnyAsync(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= thirtyDaysAgo
+                        && _context.BusinessUsers.Any(u => u.Id == a.UserId && u.BarangayId == b.Id));
+
+                var hasRecentTransaction = await _context.AuditLogs
+                    .AnyAsync(a => a.IsActive && a.CreatedAt >= thirtyDaysAgo && a.Action != "Login"
+                        && _context.BusinessUsers.Any(u => u.Id == a.UserId && u.BarangayId == b.Id));
+
+                if (!hasRecentLogin && !hasRecentTransaction)
+                {
+                    var lastActivity = await _context.AuditLogs
+                        .Where(a => a.IsActive && _context.BusinessUsers.Any(u => u.Id == a.UserId && u.BarangayId == b.Id))
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    vm.InactiveBarangays.Add(new InactiveBarangayItem
+                    {
+                        BarangayId = b.Id,
+                        BarangayName = b.Name,
+                        LastActivityDate = lastActivity != default ? lastActivity.ToString("yyyy-MM-dd HH:mm") : "Never",
+                        Reason = !hasRecentLogin ? "No login in last 30 days" : "No transactions recorded"
+                    });
+                }
+            }
+
+            // Count active vs inactive barangays
+            vm.ActiveBarangays = vm.TotalBarangays - vm.InactiveBarangays.Count;
 
             // Recent activity (last 10)
             vm.RecentActivity = await _context.AuditLogs
@@ -356,6 +486,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // System-wide counts
         public int TotalBarangays { get; set; }
+        public int ActiveBarangays { get; set; }
         public int TotalUsers { get; set; }
         public int TotalDocuments { get; set; }
         public int TotalPolicies { get; set; }
@@ -363,13 +494,70 @@ namespace JAS_MINE_IT15.Controllers
         public int TotalLessonsLearned { get; set; }
         public int TotalAnnouncements { get; set; }
         public int ActiveSubscriptions { get; set; }
+        public int ExpiredSubscriptions { get; set; }
+        public int PendingSubscriptions { get; set; }
+
+        // Revenue
+        public decimal TotalRevenue { get; set; }
+        public decimal MonthlyRevenue { get; set; }
+
+        // Monthly revenue breakdown (for chart)
+        public List<MonthlyRevenueItem> MonthlyRevenueData { get; set; } = new();
 
         // Pending approvals
         public int PendingDocuments { get; set; }
         public int PendingPolicies { get; set; }
+        public int PendingPayments { get; set; }
+
+        // Barangay summaries
+        public List<BarangaySummaryItem> BarangaySummaries { get; set; } = new();
+
+        // Subscription report
+        public List<SubscriptionReportItem> SubscriptionReport { get; set; } = new();
+
+        // Inactive barangays
+        public List<InactiveBarangayItem> InactiveBarangays { get; set; } = new();
 
         // Recent activity
         public List<ActivityItem> RecentActivity { get; set; } = new();
+    }
+
+    public class MonthlyRevenueItem
+    {
+        public string Month { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
+
+    public class BarangaySummaryItem
+    {
+        public int BarangayId { get; set; }
+        public string BarangayName { get; set; } = "";
+        public int TotalUsers { get; set; }
+        public int TotalDocuments { get; set; }
+        public int TotalPolicies { get; set; }
+        public int TotalLessonsLearned { get; set; }
+        public int TotalBestPractices { get; set; }
+        public int TotalAnnouncements { get; set; }
+        public string PlanName { get; set; } = "None";
+        public string SubscriptionStatus { get; set; } = "None";
+    }
+
+    public class SubscriptionReportItem
+    {
+        public string BarangayName { get; set; } = "";
+        public string PlanName { get; set; } = "";
+        public string PaymentStatus { get; set; } = "";
+        public string LastPaymentDate { get; set; } = "N/A";
+        public string ExpiryDate { get; set; } = "";
+        public decimal Amount { get; set; }
+    }
+
+    public class InactiveBarangayItem
+    {
+        public int BarangayId { get; set; }
+        public string BarangayName { get; set; } = "";
+        public string LastActivityDate { get; set; } = "Never";
+        public string Reason { get; set; } = "";
     }
 
     public class BarangayDashboardViewModel

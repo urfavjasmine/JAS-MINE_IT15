@@ -67,6 +67,7 @@ namespace JAS_MINE_IT15.Models
             public string Description { get; set; } = "";
             public decimal Price { get; set; }
             public int DurationMonths { get; set; }
+            public int UserLimit { get; set; }
             public string? Features { get; set; }
         }
     }

@@ -77,12 +77,11 @@
     else
     {
         <div class="row g-4">
-            @{ var idx = 0; }
             @foreach (var plan in Model.Plans)
             {
-                idx++;
                 var isSelected = Model.SelectedPlanId.HasValue && Model.SelectedPlanId.Value == plan.Id;
-                var isFeatured = isSelected || idx == Model.Plans.Count; // highlight selected or most expensive
+                var isProfessional = plan.Name == "Professional";
+                var isFeatured = isSelected || isProfessional;
                 var borderClass = isFeatured ? "border-primary shadow" : "border-0 shadow-sm";
 
                 <div class="col-12 col-md-6 col-lg-4">
@@ -100,13 +99,13 @@
                             <div class="text-center mb-3">
                                 <h5 class="fw-bold mb-1">@plan.Name</h5>
                                 <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2">
-                                    @DurationLabel(plan.DurationMonths)
+                                    <i class="bi bi-people me-1"></i> Up to @plan.UserLimit users
                                 </span>
                             </div>
 
                             <div class="text-center mb-3">
                                 <span class="fs-2 fw-bold text-primary">@Peso(plan.Price)</span>
-                                <span class="text-muted">/ @DurationLabel(plan.DurationMonths)</span>
+                                <span class="text-muted">/ month</span>
                             </div>
 
                             @if (!string.IsNullOrWhiteSpace(plan.Description))
@@ -143,11 +142,11 @@
                                 }
                                 else
                                 {
-                                    <form asp-action="SubscribeToPlan" method="post" onsubmit="return confirm('Subscribe to @plan.Name for @Peso(plan.Price)? An invoice will be generated.');">
+                                    <form asp-action="SubscribeToPlan" method="post" onsubmit="return confirm('Subscribe to @plan.Name for @Peso(plan.Price)/month? An invoice will be generated.');">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="planId" value="@plan.Id" />
                                         <button type="submit" class="btn @(isFeatured ? "btn-primary" : "btn-outline-primary") w-100">
-                                            <i class="bi bi-cart-check me-1"></i> Select Plan
+                                            <i class="bi bi-cart-check me-1"></i> Subscribe Now
                                         </button>
                                     </form>
                                 }

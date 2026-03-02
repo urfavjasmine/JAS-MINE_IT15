@@ -179,7 +179,8 @@ namespace JAS_MINE_IT15.Data
             builder.Entity<SubscriptionPlan>(entity =>
             {
                 entity.Property(e => e.Price).HasDefaultValue(0.00m);
-                entity.Property(e => e.DurationMonths).HasDefaultValue(12);
+                entity.Property(e => e.DurationMonths).HasDefaultValue(1);
+                entity.Property(e => e.UserLimit).HasDefaultValue(4);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
             });

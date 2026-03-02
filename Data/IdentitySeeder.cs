@@ -166,20 +166,19 @@ namespace JAS_MINE_IT15.Data
         }
 
         /// <summary>
-        /// Seeds 2 subscription plans: Professional and Enterprise.
-        /// Deactivates any old Standard/Basic/Premium plans. Skips if plans already exist.
+        /// Seeds 3 subscription plans: Basic, Professional, and Enterprise (monthly).
+        /// Deactivates any old Standard/Premium plans. Skips if plans already exist.
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
-            // Hard-delete old plans that are no longer offered (Basic, Standard, Premium)
-            var unwantedNames = new[] { "Standard", "Basic", "Premium" };
+            // Hard-delete old plans that are no longer offered
+            var unwantedNames = new[] { "Standard", "Premium" };
             var oldPlans = await context.SubscriptionPlans
                 .Where(p => unwantedNames.Contains(p.Name))
                 .ToListAsync();
 
             foreach (var old in oldPlans)
             {
-                // Only delete if no subscriptions reference this plan
                 var hasSubscriptions = await context.BarangaySubscriptions
                     .AnyAsync(s => s.PlanId == old.Id);
 
@@ -200,27 +199,45 @@ namespace JAS_MINE_IT15.Data
             {
                 new
                 {
-                    Name        = "Professional",
-                    Description = "Everything you need to manage your barangay records.",
-                    Price       = 5999.00m,
-                    Duration    = 12,
+                    Name        = "Basic",
+                    Description = "Essential tools for small barangays getting started.",
+                    Price       = 299.00m,
+                    Duration    = 1,
+                    UserLimit   = 4,
                     Features    = string.Join(";",
+                        "Up to 4 users",
                         "View records",
                         "Add and manage records",
-                        "Create announcements",
-                        "Generate reports")
+                        "View announcements",
+                        "Basic reports")
+                },
+                new
+                {
+                    Name        = "Professional",
+                    Description = "Everything you need to manage your barangay records efficiently.",
+                    Price       = 599.00m,
+                    Duration    = 1,
+                    UserLimit   = 10,
+                    Features    = string.Join(";",
+                        "Up to 10 users",
+                        "All Basic features",
+                        "Create and manage announcements",
+                        "Better reports",
+                        "Activity logs")
                 },
                 new
                 {
                     Name        = "Enterprise",
-                    Description = "Complete ERP access with advanced tools.",
-                    Price       = 9999.00m,
-                    Duration    = 12,
+                    Description = "Complete access with advanced tools and detailed tracking.",
+                    Price       = 999.00m,
+                    Duration    = 1,
+                    UserLimit   = 20,
                     Features    = string.Join(";",
+                        "Up to 20 users",
                         "All Professional features",
                         "Dashboard (summary view)",
                         "Archive and restore data",
-                        "More detailed tracking")
+                        "Detailed tracking")
                 }
             };
 
@@ -237,6 +254,7 @@ namespace JAS_MINE_IT15.Data
                         Description    = def.Description,
                         Price          = def.Price,
                         DurationMonths = def.Duration,
+                        UserLimit      = def.UserLimit,
                         Features       = def.Features,
                         IsActive       = true,
                         CreatedAt      = DateTime.Now
@@ -249,6 +267,7 @@ namespace JAS_MINE_IT15.Data
                     existing.Description    = def.Description;
                     existing.Price          = def.Price;
                     existing.DurationMonths = def.Duration;
+                    existing.UserLimit      = def.UserLimit;
                     existing.Features       = def.Features;
                     existing.IsActive       = true;
                     existing.UpdatedAt      = DateTime.Now;

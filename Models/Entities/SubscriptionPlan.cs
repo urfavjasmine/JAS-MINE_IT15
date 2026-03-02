@@ -27,7 +27,12 @@ namespace JAS_MINE_IT15.Models.Entities
         public int DurationMonths { get; set; } = 12;
 
         /// <summary>
-        /// JSON array of features
+        /// Maximum number of users allowed under this plan.
+        /// </summary>
+        public int UserLimit { get; set; } = 4;
+
+        /// <summary>
+        /// Semicolon-delimited list of features included in this plan.
         /// </summary>
         public string? Features { get; set; }
 

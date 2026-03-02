@@ -182,6 +182,10 @@ using (var scope = app.Services.CreateScope())
             -- Expand SubscriptionPayments.Status from 20 to 30 if needed
             IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPayments') AND name = 'Status' AND max_length < 60)
                 ALTER TABLE dbo.SubscriptionPayments ALTER COLUMN Status NVARCHAR(30) NOT NULL;
+
+            -- SubscriptionPlans UserLimit column
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPlans') AND name = 'UserLimit')
+                ALTER TABLE dbo.SubscriptionPlans ADD UserLimit INT NOT NULL DEFAULT 4;
         ";
         await db.Database.ExecuteSqlRawAsync(ensureColumnsSql);
         logger.LogInformation("Ensured all required database columns exist.");

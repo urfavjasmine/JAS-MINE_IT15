@@ -227,17 +227,17 @@
                     @for (int i = 0; i < planCount; i++)
                     {
                         var plan = plans[i];
-                        var isEnterprise = plan.Name == "Enterprise";
+                        var isProfessional = plan.Name == "Professional";
                         var features = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        var cardBorder = isEnterprise ? "border: 2px solid var(--brand);" : "border: 2px solid transparent;";
-                        var btnClass   = isEnterprise ? "btn-primary" : "btn-outline-primary";
-                        var priceColor = isEnterprise ? "var(--brand)" : "#0d6efd";
+                        var cardBorder = isProfessional ? "border: 2px solid var(--brand);" : "border: 2px solid transparent;";
+                        var btnClass   = isProfessional ? "btn-primary" : "btn-outline-primary";
+                        var priceColor = isProfessional ? "var(--brand)" : "#0d6efd";
 
-                        <div class="col-12 col-md-6 col-lg-5">
+                        <div class="col-12 col-md-6 col-lg-4">
                             <div class="card h-100 shadow-sm plan-card" style="@cardBorder">
                                 <div class="card-body p-4 p-lg-5 d-flex flex-column position-relative">
 
-                                    @if (isEnterprise)
+                                    @if (isProfessional)
                                     {
                                         <div class="position-absolute top-0 start-50 translate-middle">
                                             <span class="badge text-white"
@@ -247,7 +247,7 @@
                                         </div>
                                     }
 
-                                    <h4 class="fw-bold text-center mb-1 @(isEnterprise ? "mt-3" : "")"
+                                    <h4 class="fw-bold text-center mb-1 @(isProfessional ? "mt-3" : "")"
                                         style="color:@priceColor;">@plan.Name</h4>
 
                                     @if (!string.IsNullOrWhiteSpace(plan.Description))
@@ -257,12 +257,12 @@
 
                                     <div class="text-center mb-2">
                                         <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
-                                        <span class="plan-duration">/ year</span>
+                                        <span class="plan-duration">/ month</span>
                                     </div>
 
                                     <div class="text-center mb-3">
                                         <span class="badge bg-light text-secondary border" style="font-size:.82rem;">
-                                            <i class="bi bi-calendar3 me-1"></i> 12-month subscription
+                                            <i class="bi bi-people me-1"></i> Up to @plan.UserLimit users
                                         </span>
                                     </div>
 

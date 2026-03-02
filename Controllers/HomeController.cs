@@ -420,6 +420,19 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
+            // If subscription is expired and role is not admin, show dedicated expired page
+            if (expired && !IsSuperAdmin())
+            {
+                var bgId = GetCurrentBarangayId();
+                if (bgId.HasValue)
+                {
+                    var hasActive = await _context.BarangaySubscriptions
+                        .AnyAsync(s => s.BarangayId == bgId && s.IsActive && s.Status == "Active" && s.EndDate >= DateTime.Today);
+                    if (!hasActive)
+                        return View("SubscriptionExpired");
+                }
+            }
+
             var barangayId = GetCurrentBarangayId();
             var barangayName = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
 
@@ -708,6 +721,8 @@ namespace JAS_MINE_IT15.Controllers
                     Description = p.Description ?? "",
                     Price = p.Price,
                     DurationMonths = p.DurationMonths,
+                    UserLimit = p.UserLimit,
+                    Features = p.Features ?? "",
                     IsActive = p.IsActive
                 })
                 .ToListAsync();
@@ -2798,6 +2813,26 @@ namespace JAS_MINE_IT15.Controllers
                     barangay = HttpContext.Session.GetString("Barangay") ?? "";
             }
 
+            // Enforce user limit based on subscription plan
+            if (barangayId.HasValue)
+            {
+                var activeSub = await _context.BarangaySubscriptions
+                    .Include(s => s.Plan)
+                    .Where(s => s.IsActive && s.BarangayId == barangayId && s.Status == "Active" && s.EndDate >= DateTime.Today)
+                    .OrderByDescending(s => s.EndDate)
+                    .FirstOrDefaultAsync();
+
+                if (activeSub?.Plan != null)
+                {
+                    var currentCount = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.BarangayId == barangayId);
+                    if (currentCount >= activeSub.Plan.UserLimit)
+                    {
+                        TempData["Error"] = $"User limit reached! Your {activeSub.Plan.Name} plan allows up to {activeSub.Plan.UserLimit} users. Please upgrade your plan to add more users.";
+                        return RedirectToAction(nameof(UserManagement));
+                    }
+                }
+            }
+
             // 4. Create BusinessUser record
             var user = new Models.Entities.User
             {
@@ -4039,6 +4074,7 @@ namespace JAS_MINE_IT15.Controllers
                     Description = p.Description ?? "",
                     Price = p.Price,
                     DurationMonths = p.DurationMonths,
+                    UserLimit = p.UserLimit,
                     Features = p.Features
                 })
                 .ToListAsync();
@@ -4087,6 +4123,15 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(MySubscription));
             }
 
+            // Enforce user limit: check current users vs plan limit
+            var currentUserCount = await _context.BusinessUsers
+                .CountAsync(u => u.IsActive && u.BarangayId == barangayId);
+            if (currentUserCount > plan.UserLimit)
+            {
+                TempData["Error"] = $"Your barangay has {currentUserCount} users but the {plan.Name} plan only allows {plan.UserLimit}. Please choose a higher plan or remove some users.";
+                return RedirectToAction(nameof(SelectPlan));
+            }
+
             // Create subscription with Pending status
             var subscription = new BarangaySubscription
             {
@@ -4121,9 +4166,9 @@ namespace JAS_MINE_IT15.Controllers
 
             var barangayName = HttpContext.Session.GetString("Barangay") ?? "Barangay";
             await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
-                $"{barangayName} - {plan.Name}", $"Subscribed to {plan.Name}. Invoice {invoiceNumber} generated (₱{plan.Price:N0}).");
+                $"{barangayName} - {plan.Name}", $"Subscribed to {plan.Name} (₱{plan.Price:N0}/mo). Invoice {invoiceNumber} generated.");
 
-            TempData["Success"] = $"Subscription created. Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated. Please upload proof of payment.";
+            TempData["Success"] = $"Subscription created! Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated. Please upload proof of payment.";
             return RedirectToAction(nameof(MySubscription));
         }
 
