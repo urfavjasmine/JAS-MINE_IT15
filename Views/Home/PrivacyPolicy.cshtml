@@ -1,32 +1,65 @@
 @{
     ViewData["Title"] = "Privacy Policy - JAS-MINE";
-    Layout = "_Layout";
+    Layout = null;
 }
-
-<div class="container py-5">
-    <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-body p-5">
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"]</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+        }
+        .policy-container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 40px 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="policy-container">
             <h1 class="fw-bold mb-4">Privacy Policy</h1>
             <p class="text-muted mb-4">Last Updated: @DateTime.Now.ToString("MMMM dd, yyyy")</p>
 
-            <h5>1. Introduction</h5>
-            <p>Welcome to JAS-MINE ERP System. This Privacy Policy outlines how we collect, use, and protect your information when you use our centralized ERP-based Knowledge Management System designed for barangays.</p>
+            <div class="content lh-lg">
+                <h5 class="fw-bold mt-4">1. Introduction</h5>
+                <p>Welcome to JAS-MINE ERP System. This Privacy Policy outlines how we collect, use, and protect your information when you use our centralized ERP-based Knowledge Management System designed for barangays.</p>
 
-            <h5>2. Information We Collect</h5>
-            <p>We may collect personal information such as names, email addresses, and roles when you or your barangay administrator create an account. We also store documents, policies, and operational knowledge uploaded to the system.</p>
+                <h5 class="fw-bold mt-4">2. Information We Collect</h5>
+                <p>We may collect personal information such as names, email addresses, and roles when you or your barangay administrator create an account. We also store documents, policies, and operational knowledge uploaded to the system.</p>
 
-            <h5>3. How We Use Your Information</h5>
-            <p>The information collected is used exclusively to provide the JAS-MINE services to your barangay, including managing users, tracking audit logs, and facilitating knowledge sharing within the platform.</p>
+                <h5 class="fw-bold mt-4">3. How We Use Your Information</h5>
+                <p>The information collected is used exclusively to provide the JAS-MINE services to your barangay, including managing users, tracking audit logs, and facilitating knowledge sharing within the platform.</p>
 
-            <h5>4. Data Security</h5>
-            <p>We implement appropriate security measures to protect your data from unauthorized access, alteration, disclosure, or destruction. However, no internet-based service is 100% secure.</p>
+                <h5 class="fw-bold mt-4">4. Data Security</h5>
+                <p>We implement appropriate security measures to protect your data from unauthorized access, alteration, disclosure, or destruction. However, no internet-based service is 100% secure.</p>
 
-            <h5>5. Contact Us</h5>
-            <p>If you have any questions about this Privacy Policy, please contact us at support@jasmine.gov.ph.</p>
+                <h5 class="fw-bold mt-4">5. Contact Us</h5>
+                <p>If you have any questions about this Privacy Policy, please contact us at support@jasmine.gov.ph.</p>
+            </div>
             
-            <div class="mt-5">
-                <a href="javascript:history.back()" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> Back</a>
+            <div class="mt-5 pt-4 border-top">
+                <a href="@Url.Action("LandingPage", "Home")" class="btn btn-outline-primary rounded-pill px-4">
+                    <i class="bi bi-arrow-left me-2"></i> Back to Home
+                </a>
             </div>
         </div>
     </div>
-</div>
+</body>
+</html>
