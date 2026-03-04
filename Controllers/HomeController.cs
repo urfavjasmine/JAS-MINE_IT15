@@ -88,6 +88,20 @@ namespace JAS_MINE_IT15.Controllers
             return View();
         }
 
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult PrivacyPolicy()
+        {
+            return View();
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult TermsOfUse()
+        {
+            return View();
+        }
+
         // GET: /Home/BarangaySubscriptions
         [HttpGet]
         public async Task<IActionResult> BarangaySubscriptions(string q = "", string status = "all")

@@ -1,6 +1,6 @@
 ﻿@using JAS_MINE_IT15.Models.Entities
 @{
-    ViewData["Title"] = "JAS-MINE Landing";
+    ViewData["Title"] = "JAS-MINE – Barangay ERP System";
     Layout = null;
     var year = DateTime.Now.Year;
     var plans = (ViewBag.Plans as List<SubscriptionPlan>) ?? new List<SubscriptionPlan>();
@@ -12,192 +12,751 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="JAS-MINE is a centralized ERP-based Knowledge Management System designed to help barangays manage documents, policies, and operational knowledge efficiently and securely." />
     <title>@ViewData["Title"]</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
     <style>
-        :root { --brand: #1f3f63; --brand-light: #2a5a8a; --accent: #2e8b3c; }
+        /* ── Root tokens ─────────────────────────────────── */
+        :root {
+            --brand:        #1a3a5c;
+            --brand-mid:    #1e4d7a;
+            --brand-light:  #2563ab;
+            --accent:       #16a34a;
+            --accent-hover: #15803d;
+            --gold:         #f59e0b;
+            --surface:      #f8fafc;
+            --card-bg:      #ffffff;
+            --text-dark:    #0f172a;
+            --text-muted:   #64748b;
+            --border:       #e2e8f0;
+            --radius-lg:    20px;
+            --radius-md:    14px;
+            --radius-sm:    10px;
+            --shadow-sm:    0 2px 8px rgba(0,0,0,.06);
+            --shadow-md:    0 8px 24px rgba(0,0,0,.10);
+            --shadow-lg:    0 20px 48px rgba(0,0,0,.14);
+        }
 
+        *, *::before, *::after { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--surface);
+            color: var(--text-dark);
+            margin: 0;
+        }
+
+        /* ── Navbar ──────────────────────────────────────── */
+        .navbar-landing {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px) saturate(180%);
+            background: rgba(255,255,255,.88);
+            border-bottom: 1px solid rgba(226,232,240,.8);
+            padding: 0.6rem 0;
+            transition: box-shadow .3s;
+        }
+        .navbar-landing.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+        .nav-logo-text {
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--brand);
+            letter-spacing: -.3px;
+        }
+        .nav-logo-img { height: 44px; width: 44px; object-fit: contain; }
+
+        .btn-nav-login {
+            border: 1.5px solid var(--border);
+            background: white;
+            color: var(--text-dark);
+            padding: 7px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: .9rem;
+            transition: all .2s;
+            text-decoration: none;
+        }
+        .btn-nav-login:hover { border-color: var(--brand-light); color: var(--brand-light); background: #f0f7ff; }
+
+        .btn-nav-subscribe {
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            color: white;
+            padding: 7px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: .9rem;
+            transition: all .2s;
+            text-decoration: none;
+            box-shadow: 0 2px 12px rgba(26,58,92,.25);
+        }
+        .btn-nav-subscribe:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,58,92,.35); color: white; }
+
+        /* ── Hero ────────────────────────────────────────── */
         .hero {
-            min-height: 78vh;
+            position: relative;
+            min-height: 92vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at 70% 15%, rgba(47,222,173,.10) 0%, rgba(0,0,0,0) 55%),
-                        linear-gradient(180deg, #0b2f4d 0%, #0a3557 35%, #1b4d72 100%);
-            color: #fff;
-        }
-        .hero h1 { letter-spacing: .2px; }
-        .hero p  { max-width: 840px; }
-
-        .btn-hero { min-width: 120px; border-radius: 10px; padding: 12px 18px; font-weight: 400; }
-        .btn-subscribe { background: var(--accent); border-color: var(--accent); }
-        .btn-subscribe:hover { background: #267433; border-color: #267433; }
-
-        .section-pad { padding: 72px 0; }
-
-        .icon-badge {
-            height: 60px; width: 60px; border-radius: 12px;
-            display: inline-flex; align-items: center; justify-content: center;
-            background: rgba(13,110,253,.12); color: #0d6efd; font-size: 20px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #050e1a 0%, #0b2040 40%, #0d3060 70%, #0a3d7a 100%);
         }
 
-        .module-explain { font-size: .85rem; color: #6c757d; margin-top: 8px; line-height: 1.5; }
+        /* decorative mesh gradient overlay */
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 70% at 70% 10%, rgba(37,99,171,.45) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 60% at 10% 80%, rgba(22,163,74,.18) 0%, transparent 55%);
+            pointer-events: none;
+        }
 
-        /* ── Plan Cards ── */
+        /* animated grain */
+        .hero-grain {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: .5;
+            pointer-events: none;
+        }
+
+        /* floating circles */
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            animation: orbFloat 8s ease-in-out infinite;
+        }
+        .hero-orb-1 { width: 520px; height: 520px; background: rgba(37,99,171,.30); top: -120px; right: -80px; animation-delay: 0s; }
+        .hero-orb-2 { width: 380px; height: 380px; background: rgba(22,163,74,.18); bottom: -100px; left: -60px; animation-delay: -4s; }
+        .hero-orb-3 { width: 240px; height: 240px; background: rgba(245,158,11,.12); top: 30%; left: 55%; animation-delay: -2s; }
+
+        @@keyframes orbFloat {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50%       { transform: translateY(-30px) scale(1.04); }
+        }
+
+        .hero-content { position: relative; z-index: 1; }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,.10);
+            border: 1px solid rgba(255,255,255,.18);
+            color: #93c5fd;
+            padding: 6px 18px;
+            border-radius: 999px;
+            font-size: .82rem;
+            font-weight: 600;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            backdrop-filter: blur(8px);
+            margin-bottom: 1.6rem;
+        }
+        .hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; animation: pulse 2s infinite; }
+        @@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+        .hero h1 {
+            font-size: clamp(2.2rem, 5.5vw, 4rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -1.5px;
+            color: #ffffff;
+            margin-bottom: 1.25rem;
+        }
+        .hero h1 .highlight {
+            background: linear-gradient(90deg, #60a5fa 0%, #34d399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: 1.05rem;
+            line-height: 1.75;
+            color: rgba(255,255,255,.65);
+            max-width: 600px;
+            margin: 0 auto 2.2rem;
+        }
+
+        .btn-hero-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            border: none;
+            box-shadow: 0 4px 20px rgba(22,163,74,.40);
+            transition: all .25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(22,163,74,.50); color: white; }
+
+        .btn-hero-ghost {
+            background: rgba(255,255,255,.10);
+            color: white;
+            padding: 14px 32px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            border: 1.5px solid rgba(255,255,255,.25);
+            backdrop-filter: blur(8px);
+            transition: all .25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-hero-ghost:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.45); color: white; transform: translateY(-2px); }
+
+        /* scroll indicator */
+        .scroll-cue {
+            position: absolute;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255,255,255,.35);
+            font-size: .72rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            animation: scrollBounce 2s ease-in-out infinite;
+        }
+        @@keyframes scrollBounce { 0%,100%{transform:translateX(-50%) translateY(0);} 50%{transform:translateX(-50%) translateY(6px);} }
+        .scroll-cue i { font-size: 1.2rem; }
+
+        /* ── Stats bar ───────────────────────────────────── */
+        .stats-bar {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 0;
+        }
+        .stat-item { text-align: center; padding: 0.5rem 1rem; }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--brand);
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        .stat-label { font-size: .8rem; color: var(--text-muted); font-weight: 500; margin-top: 4px; letter-spacing: .3px; }
+        .stat-divider { width: 1px; background: var(--border); height: 48px; align-self: center; }
+
+        /* ── How it works ────────────────────────────────── */
+        .steps-section { padding: 90px 0; background: var(--surface); }
+
+        .step-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, rgba(37,99,171,.1) 0%, rgba(22,163,74,.1) 100%);
+            color: var(--brand-light);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: .78rem;
+            font-weight: 700;
+            letter-spacing: .8px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .step-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            height: 100%;
+            transition: all .3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .step-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--brand-light), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform .35s;
+        }
+        .step-card:hover { box-shadow: var(--shadow-md); transform: translateY(-4px); border-color: transparent; }
+        .step-card:hover::before { transform: scaleX(1); }
+
+        .step-number {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            color: white;
+            font-weight: 800;
+            font-size: .95rem;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 12px rgba(26,58,92,.25);
+        }
+        .step-card h5 { font-weight: 700; font-size: 1rem; margin-bottom: .5rem; }
+        .step-card p { font-size: .88rem; color: var(--text-muted); line-height: 1.65; margin: 0; }
+
+        /* ── Features ────────────────────────────────────── */
+        .features-section { padding: 90px 0; background: white; }
+
+        .section-eyebrow {
+            font-size: .78rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--brand-light);
+            margin-bottom: .6rem;
+        }
+        .section-title {
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 800;
+            letter-spacing: -.8px;
+            color: var(--text-dark);
+            line-height: 1.15;
+            margin-bottom: .8rem;
+        }
+        .section-sub { font-size: 1rem; color: var(--text-muted); max-width: 520px; line-height: 1.7; }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            height: 100%;
+            transition: all .3s cubic-bezier(.25,.8,.25,1);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, rgba(37,99,171,.03) 0%, rgba(22,163,74,.03) 100%);
+            opacity: 0;
+            transition: opacity .3s;
+        }
+        .feature-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); border-color: rgba(37,99,171,.15); }
+        .feature-card:hover::after { opacity: 1; }
+
+        .feature-icon-wrap {
+            width: 56px; height: 56px;
+            border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.2rem;
+            transition: transform .3s;
+        }
+        .feature-card:hover .feature-icon-wrap { transform: scale(1.1) rotate(-3deg); }
+
+        .feature-card h5 { font-weight: 700; font-size: 1.02rem; margin-bottom: .5rem; color: var(--text-dark); }
+        .feature-desc { font-size: .875rem; color: var(--text-muted); line-height: 1.65; margin-bottom: .8rem; }
+        .feature-detail { font-size: .82rem; color: #475569; background: #f8fafc; border-radius: 8px; padding: 10px 12px; border-left: 3px solid var(--brand-light); }
+
+        /* ── Pricing ─────────────────────────────────────── */
+        .pricing-section {
+            padding: 90px 0;
+            background: linear-gradient(180deg, #f0f5ff 0%, #e8f4f8 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .pricing-section::before {
+            content: '';
+            position: absolute;
+            top: -200px; right: -200px;
+            width: 600px; height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(37,99,171,.06) 0%, transparent 70%);
+        }
+
         .plan-card {
-            border-radius: 16px; cursor: pointer;
-            transition: transform .2s, box-shadow .2s, border-color .2s;
-            border: 2px solid transparent;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2.2rem 2rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: all .3s;
+            position: relative;
         }
-        .plan-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,.10); }
-        .plan-card.featured { border-color: var(--brand); }
+        .plan-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+        .plan-card.featured {
+            border-color: var(--brand);
+            background: linear-gradient(160deg, #ffffff 0%, #f0f7ff 100%);
+            box-shadow: 0 16px 48px rgba(26,58,92,.18);
+        }
 
-        .plan-price { font-size: 2.3rem; font-weight: 800; color: var(--brand); }
-        .plan-duration { color: #6c757d; font-size: .95rem; }
+        .plan-badge {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            color: white;
+            padding: 5px 20px;
+            border-radius: 999px;
+            font-size: .78rem;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 4px 14px rgba(26,58,92,.30);
+        }
 
-        .feature-item { display: flex; align-items: start; gap: 8px; margin-bottom: 10px; font-size: .93rem; }
-        .feature-icon { color: var(--accent); font-size: 1.1rem; margin-top: 2px; flex-shrink: 0; }
+        .plan-name {
+            font-size: 1.3rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: .3rem;
+        }
+        .plan-desc { font-size: .85rem; color: var(--text-muted); text-align: center; min-height: 36px; }
 
-        .plan-btn { border-radius: 10px; padding: 10px 14px; width: 100%; font-weight: 500; transition: all .2s; text-decoration: none; }
-        .plan-btn:hover { opacity: .88; transform: scale(1.02); }
+        .plan-price {
+            font-size: 2.8rem;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+        .plan-period { font-size: .88rem; color: var(--text-muted); font-weight: 400; }
+        .plan-users {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f0f7ff;
+            color: var(--brand-mid);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: .8rem;
+            font-weight: 600;
+            margin-top: .6rem;
+        }
+
+        .plan-divider { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+        .plan-feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: .88rem;
+            color: #334155;
+        }
+        .plan-check { color: var(--accent); font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .btn-plan {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: .95rem;
+            text-decoration: none;
+            transition: all .25s;
+            border: none;
+            margin-top: auto;
+        }
+        .btn-plan-primary {
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(26,58,92,.30);
+        }
+        .btn-plan-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,58,92,.40); color: white; }
+        .btn-plan-outline {
+            background: transparent;
+            color: var(--brand-light);
+            border: 1.5px solid var(--brand-light) !important;
+        }
+        .btn-plan-outline:hover { background: #f0f7ff; transform: translateY(-2px); color: var(--brand-light); }
+
+        /* ── CTA Banner ──────────────────────────────────── */
+        .cta-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 50%, #0d3060 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(22,163,74,.18) 0%, transparent 55%);
+        }
+        .cta-section .container { position: relative; z-index: 1; }
+
+        .cta-section h2 {
+            font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+            font-weight: 900;
+            color: white;
+            letter-spacing: -.8px;
+        }
+        .cta-section p { color: rgba(255,255,255,.7); font-size: 1rem; }
+
+        /* ── Footer ──────────────────────────────────────── */
+        .footer {
+            background: #0a1929;
+            color: rgba(255,255,255,.55);
+            padding: 60px 0 32px;
+        }
+        .footer-brand { color: white; font-weight: 800; font-size: 1.15rem; letter-spacing: -.2px; }
+        .footer-brand-sub { font-size: .82rem; color: rgba(255,255,255,.4); margin-top: 4px; }
+        .footer-heading { color: rgba(255,255,255,.85); font-weight: 700; font-size: .82rem; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 1rem; }
+        .footer-link { display: block; color: rgba(255,255,255,.5); font-size: .87rem; text-decoration: none; margin-bottom: 8px; transition: color .2s; }
+        .footer-link:hover { color: white; }
+        .footer-divider { border-color: rgba(255,255,255,.08); margin: 2rem 0 1.5rem; }
+        .footer-copy { font-size: .8rem; color: rgba(255,255,255,.3); transition: color .2s; }
+        .footer-copy:hover { color: white; }
+
+        /* ── Utility ─────────────────────────────────────── */
+        .gradient-text {
+            background: linear-gradient(90deg, var(--brand-light) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ── Responsive ──────────────────────────────────── */
+        @@media (max-width: 575px) {
+            .hero { min-height: 100svh; }
+            .hero h1 { font-size: 2rem; letter-spacing: -.8px; }
+            .hero-sub { font-size: .95rem; }
+            .btn-hero-primary, .btn-hero-ghost { width: 100%; justify-content: center; }
+            .stat-divider { display: none; }
+        }
+        @@media (max-width: 767px) {
+            .steps-section, .features-section, .pricing-section, .cta-section { padding: 60px 0; }
+        }
     </style>
 </head>
 
-<body class="bg-light">
+<body>
 
-    <!-- ═══════ Navbar ═══════ -->
-    <header style="background:#f3f4f6; border-bottom:1px solid #e5e7eb;">
-        <div class="container d-flex justify-content-between align-items-center py-3">
+    <!-- ═══════════════ NAVBAR ═══════════════ -->
+    <nav class="navbar-landing" id="mainNav">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a href="#" class="d-flex align-items-center gap-2 text-decoration-none">
+                <img src="~/images/jasmine-logo.png" class="nav-logo-img" alt="JAS-MINE Logo" />
+                <span class="nav-logo-text">JAS-MINE</span>
+            </a>
             <div class="d-flex align-items-center gap-2">
-                <img src="~/images/jasmine-logo.png" style="height:60px;width:60px;object-fit:contain;" />
-                <span style="font-weight:700;font-size:20px;color:var(--brand);">JAS-MINE</span>
-            </div>
-            <div class="d-flex gap-2">
-                <a asp-controller="Home" asp-action="Login"
-                   class="btn" style="border:1px solid #d1d5db;background:#fff;color:#374151;padding:6px 16px;border-radius:8px;">Login</a>
-                <a href="#plans-section"
-                   class="btn" style="background:var(--brand);color:white;padding:6px 16px;border-radius:8px;">Subscribe</a>
+                <a asp-controller="Home" asp-action="Login" class="btn-nav-login">Login</a>
+                <a href="#plans-section" class="btn-nav-subscribe">Subscribe</a>
             </div>
         </div>
-    </header>
+    </nav>
 
-    <!-- ═══════ Hero ═══════ -->
-    <section class="hero">
-        <div class="container text-center py-5">
-            <h1 class="fw-bold display-5">JAS-MINE ERP System for Barangays</h1>
-            <p class="mx-auto mt-3 text-white-50 fs-6">
-                Centralized ERP-based Knowledge Management System designed to help barangays manage documents,
-                policies, and operational knowledge efficiently and securely.
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <section class="hero" id="hero-section">
+        <div class="hero-grain"></div>
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+        <div class="hero-orb hero-orb-3"></div>
+
+        <div class="container text-center hero-content py-5">
+            <div class="d-flex justify-content-center">
+                <div class="hero-badge">
+                    <span class="dot"></span>
+                    Now available for all barangays
+                </div>
+            </div>
+
+            <h1>
+                Smart ERP for<br>
+                <span class="highlight">Barangay Management</span>
+            </h1>
+
+            <p class="hero-sub mx-auto">
+                JAS-MINE centralizes your documents, policies, and knowledge—so your barangay team always has the right information at the right time, securely and efficiently.
             </p>
-            <div class="mt-4 d-flex flex-column flex-sm-row gap-3 justify-content-center">
-                <a class="btn btn-light btn-hero" asp-controller="Home" asp-action="Login">Login</a>
-                <a class="btn btn-subscribe text-white btn-hero" href="#plans-section">
-                    Subscribe Now <span class="ms-2">&rarr;</span>
+
+            <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                <a href="#plans-section" class="btn-hero-primary">
+                    <i class="bi bi-rocket-takeoff-fill"></i>
+                    Get Started Free
+                </a>
+                <a asp-controller="Home" asp-action="Login" class="btn-hero-ghost">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Login to System
                 </a>
             </div>
         </div>
+
+        <div class="scroll-cue">
+            <span>Scroll</span>
+            <i class="bi bi-chevron-double-down"></i>
+        </div>
     </section>
 
-    <!-- ═══════ Features (Modules Explained) ═══════ -->
-    <section class="section-pad bg-white" id="features-section">
+    <!-- ═══════════════ STATS BAR ═══════════════ -->
+    <section class="stats-bar">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 gap-md-0">
+                <div class="stat-item flex-fill">
+                    <div class="stat-number">6</div>
+                    <div class="stat-label">Core Modules</div>
+                </div>
+                <div class="stat-divider d-none d-md-block"></div>
+                <div class="stat-item flex-fill">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Cloud-Based &amp; Secure</div>
+                </div>
+                <div class="stat-divider d-none d-md-block"></div>
+                <div class="stat-item flex-fill">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Document Access</div>
+                </div>
+                <div class="stat-divider d-none d-md-block"></div>
+                <div class="stat-item flex-fill">
+                    <div class="stat-number">₱299</div>
+                    <div class="stat-label">Starting per Month</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ HOW IT WORKS ═══════════════ -->
+    <section class="steps-section" id="how-it-works">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="fw-bold">Featured Modules</h2>
-                <p class="text-muted mb-0">Core modules powering barangay knowledge management</p>
+                <div class="step-pill"><i class="bi bi-lightning-charge-fill"></i> Simple & Fast</div>
+                <h2 class="section-title">Up and running in minutes</h2>
+                <p class="section-sub mx-auto">Three easy steps to digitize your barangay's knowledge management.</p>
+            </div>
+
+            <div class="row g-4 justify-content-center">
+                <div class="col-12 col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <h5>Choose a Plan</h5>
+                        <p>Select the subscription plan that matches your barangay's size and operational needs. No setup fees, no hidden charges.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <h5>Set Up Your Workspace</h5>
+                        <p>Create your barangay profile, invite staff, define roles, and configure access permissions in a few clicks.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <h5>Start Managing Knowledge</h5>
+                        <p>Upload documents, draft policies, share insights, and track every action—all from one centralized dashboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ FEATURES ═══════════════ -->
+    <section class="features-section" id="features-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <div class="section-eyebrow">Platform Modules</div>
+                <h2 class="section-title">Everything your barangay needs</h2>
+                <p class="section-sub mx-auto">Six powerful modules built specifically for Philippine barangay operations.</p>
             </div>
 
             <div class="row g-4">
-                <!-- Module 1: Knowledge Repository -->
+                <!-- 1 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3">📚</div>
-                            <h5 class="fw-semibold">Knowledge Repository</h5>
-                            <p class="text-muted mb-2">Store, organize, and access official barangay documents in a centralized and secure repository.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Upload barangay resolutions, ordinances, and official files.
-                                Search and retrieve documents anytime. Control who can view or edit each file.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(37,99,171,.10);color:#2563ab;">
+                            <i class="bi bi-archive-fill"></i>
+                        </div>
+                        <h5>Knowledge Repository</h5>
+                        <p class="feature-desc">Store, organize, and access official barangay documents in a centralized, secure repository with role-based access.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Upload resolutions, ordinances, and files. Search instantly. Control who can view or edit.
                         </div>
                     </div>
                 </div>
-
-                <!-- Module 2: Policy & Procedures -->
+                <!-- 2 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3">📄</div>
-                            <h5 class="fw-semibold">Policy &amp; Procedures Management</h5>
-                            <p class="text-muted mb-2">Create, update, and manage barangay policies and procedures with approval tracking.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Draft new policies and send them for approval.
-                                Track which policies are pending, approved, or rejected. Keep an organized history of all barangay rules.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(245,158,11,.10);color:#d97706;">
+                            <i class="bi bi-file-earmark-ruled-fill"></i>
+                        </div>
+                        <h5>Policy &amp; Procedures</h5>
+                        <p class="feature-desc">Create, update, and manage barangay policies with a structured approval workflow and full revision history.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Draft policies, route for approval, track status (pending / approved / rejected).
                         </div>
                     </div>
                 </div>
-
-                <!-- Module 3: Lessons Learned -->
+                <!-- 3 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3">💡</div>
-                            <h5 class="fw-semibold">Lessons Learned</h5>
-                            <p class="text-muted mb-2">Record and review lessons learned from past barangay activities to improve future decisions.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Document what worked and what didn't in past projects.
-                                Share insights so the whole team learns from every experience and avoids repeating mistakes.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(139,92,246,.10);color:#7c3aed;">
+                            <i class="bi bi-lightbulb-fill"></i>
+                        </div>
+                        <h5>Lessons Learned</h5>
+                        <p class="feature-desc">Record insights from past projects and activities so your team continuously improves and avoids repeated mistakes.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Log what worked and what didn't. Build an institutional knowledge base over time.
                         </div>
                     </div>
                 </div>
-
-                <!-- Module 4: Best Practices -->
+                <!-- 4 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3">🏆</div>
-                            <h5 class="fw-semibold">Best Practices Database</h5>
-                            <p class="text-muted mb-2">Maintain a collection of proven best practices to guide barangay staff operations.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Save step-by-step guides and proven methods for common tasks.
-                                New staff can quickly learn the right way to do things using your barangay's own playbook.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(22,163,74,.10);color:#16a34a;">
+                            <i class="bi bi-trophy-fill"></i>
+                        </div>
+                        <h5>Best Practices Database</h5>
+                        <p class="feature-desc">Maintain a collection of proven best practices that guide staff and onboard new members quickly and confidently.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Save step-by-step guides. Build your barangay's own operational playbook.
                         </div>
                     </div>
                 </div>
-
-                <!-- Module 5: Knowledge Sharing -->
+                <!-- 5 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3">🔗</div>
-                            <h5 class="fw-semibold">Knowledge Sharing Portal</h5>
-                            <p class="text-muted mb-2">Allow barangay staff to share discussions, announcements, and knowledge collaboratively.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Post announcements, start discussion threads, and share updates.
-                                Like a private social forum for your barangay team to communicate and collaborate.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(14,165,233,.10);color:#0284c7;">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <h5>Knowledge Sharing Portal</h5>
+                        <p class="feature-desc">A private collaborative space for barangay staff to post announcements, start discussions, and share updates.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Like a secure internal forum—communicate, collaborate, and share knowledge seamlessly.
                         </div>
                     </div>
                 </div>
-
-                <!-- Module 6: Audit Logs -->
+                <!-- 6 -->
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="icon-badge mb-3" style="background:rgba(220,53,69,.12);color:#dc3545;">🔒</div>
-                            <h5 class="fw-semibold">Audit Logs &amp; Security</h5>
-                            <p class="text-muted mb-2">Track every action in the system with detailed audit trails for accountability.</p>
-                            <div class="module-explain">
-                                <strong>What it does:</strong> Automatically records who did what and when.
-                                Ensures full transparency and helps resolve disputes with an unalterable activity log.
-                            </div>
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background:rgba(220,38,38,.10);color:#dc2626;">
+                            <i class="bi bi-shield-lock-fill"></i>
+                        </div>
+                        <h5>Audit Logs &amp; Security</h5>
+                        <p class="feature-desc">Track every action in the system with immutable audit trails that ensure full transparency and accountability.</p>
+                        <div class="feature-detail">
+                            <strong>What it does:</strong> Records who did what and when. Dispute-proof activity logs for full governance compliance.
                         </div>
                     </div>
                 </div>
@@ -205,20 +764,20 @@
         </div>
     </section>
 
-    <!-- ═══════ Subscription Plans ═══════ -->
-    <section class="py-5" style="background:#f5f6f8;" id="plans-section">
-        <div class="container py-4">
-
+    <!-- ═══════════════ PRICING ═══════════════ -->
+    <section class="pricing-section" id="plans-section">
+        <div class="container py-2">
             <div class="text-center mb-5">
-                <h2 class="fw-bold" style="font-size:36px;">Subscription Plans</h2>
-                <p class="text-muted" style="font-size:16px;">Choose a plan that fits your barangay's needs</p>
+                <div class="section-eyebrow">Pricing</div>
+                <h2 class="section-title">Transparent, simple pricing</h2>
+                <p class="section-sub mx-auto">Choose a plan that fits your barangay. Upgrade or downgrade anytime.</p>
             </div>
 
             @if (!plans.Any())
             {
                 <div class="text-center py-5">
-                    <i class="bi bi-inbox" style="font-size:3rem;color:#ced4da;"></i>
-                    <p class="text-muted mt-2">No subscription plans available at the moment. Please check back later.</p>
+                    <i class="bi bi-inbox" style="font-size:3rem;color:#cbd5e1;"></i>
+                    <p class="text-muted mt-3">No subscription plans available at the moment. Please check back later.</p>
                 </div>
             }
             else
@@ -226,68 +785,64 @@
                 <div class="row g-4 justify-content-center">
                     @for (int i = 0; i < planCount; i++)
                     {
-                        var plan = plans[i];
+                        var plan         = plans[i];
                         var isProfessional = plan.Name == "Professional";
-                        var features = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        var cardBorder = isProfessional ? "border: 2px solid var(--brand);" : "border: 2px solid transparent;";
-                        var btnClass   = isProfessional ? "btn-primary" : "btn-outline-primary";
-                        var priceColor = isProfessional ? "var(--brand)" : "#0d6efd";
+                        var features     = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        var priceColor   = isProfessional ? "var(--brand)" : "#0284c7";
 
                         <div class="col-12 col-md-6 col-lg-4">
-                            <div class="card h-100 shadow-sm plan-card" style="@cardBorder">
-                                <div class="card-body p-4 p-lg-5 d-flex flex-column position-relative">
+                            <div class="plan-card @(isProfessional ? "featured" : "")">
 
-                                    @if (isProfessional)
-                                    {
-                                        <div class="position-absolute top-0 start-50 translate-middle">
-                                            <span class="badge text-white"
-                                                  style="background:var(--brand);padding:7px 16px;border-radius:999px;font-weight:600;">
-                                                <i class="bi bi-star-fill me-1"></i> Recommended
-                                            </span>
-                                        </div>
-                                    }
+                                @if (isProfessional)
+                                {
+                                    <div class="plan-badge">
+                                        <i class="bi bi-star-fill me-1"></i> Most Popular
+                                    </div>
+                                }
 
-                                    <h4 class="fw-bold text-center mb-1 @(isProfessional ? "mt-3" : "")"
-                                        style="color:@priceColor;">@plan.Name</h4>
-
+                                <div class="@(isProfessional ? "mt-3" : "")">
+                                    <div class="plan-name" style="color:@priceColor;">@plan.Name</div>
                                     @if (!string.IsNullOrWhiteSpace(plan.Description))
                                     {
-                                        <p class="text-muted text-center small mb-3">@plan.Description</p>
+                                        <p class="plan-desc">@plan.Description</p>
                                     }
 
-                                    <div class="text-center mb-2">
-                                        <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
-                                        <span class="plan-duration">/ month</span>
+                                    <div class="text-center my-3">
+                                        <div>
+                                            <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
+                                            <span class="plan-period">/ month</span>
+                                        </div>
+                                        <div>
+                                            <span class="plan-users">
+                                                <i class="bi bi-people-fill"></i>
+                                                Up to @plan.UserLimit users
+                                            </span>
+                                        </div>
                                     </div>
-
-                                    <div class="text-center mb-3">
-                                        <span class="badge bg-light text-secondary border" style="font-size:.82rem;">
-                                            <i class="bi bi-people me-1"></i> Up to @plan.UserLimit users
-                                        </span>
-                                    </div>
-
-                                    <hr class="my-2" />
-                                    <div class="mb-4 flex-grow-1">
-                                        @foreach (var feature in features)
-                                        {
-                                            <div class="feature-item">
-                                                <i class="bi bi-check-circle-fill feature-icon"></i>
-                                                <span>@feature.Trim()</span>
-                                            </div>
-                                        }
-                                    </div>
-
-                                    @{
-                                        var subscribeUrl = User.Identity?.IsAuthenticated == true
-                                            ? Url.Action("SelectPlan", "Home") + "?planId=" + plan.Id
-                                            : Url.Action("Login", "Home") + "?planId=" + plan.Id;
-                                    }
-                                    <a href="@subscribeUrl"
-                                       class="plan-btn btn @btnClass mt-auto text-center"
-                                       style="border-radius:10px;padding:12px 14px;font-weight:600;">
-                                        <i class="bi bi-arrow-right-circle me-1"></i> Subscribe Now
-                                    </a>
                                 </div>
+
+                                <hr class="plan-divider" />
+
+                                <div class="mb-4 flex-grow-1">
+                                    @foreach (var feature in features)
+                                    {
+                                        <div class="plan-feature">
+                                            <i class="bi bi-check-circle-fill plan-check"></i>
+                                            <span>@feature.Trim()</span>
+                                        </div>
+                                    }
+                                </div>
+
+                                @{
+                                    var subscribeUrl = User.Identity?.IsAuthenticated == true
+                                        ? Url.Action("SelectPlan", "Home") + "?planId=" + plan.Id
+                                        : Url.Action("Login", "Home") + "?planId=" + plan.Id;
+                                }
+                                <a href="@subscribeUrl"
+                                   class="btn-plan @(isProfessional ? "btn-plan-primary" : "btn-plan-outline")">
+                                    <i class="bi bi-arrow-right-circle-fill"></i>
+                                    Subscribe Now
+                                </a>
                             </div>
                         </div>
                     }
@@ -296,18 +851,81 @@
         </div>
     </section>
 
-    <!-- ═══════ Footer ═══════ -->
-    <footer class="border-top bg-white py-4" style="margin-bottom:0;">
+    <!-- ═══════════════ CTA BANNER ═══════════════ -->
+    <section class="cta-section">
         <div class="container text-center">
-            <div class="d-flex align-items-center justify-content-center gap-2 mb-1">
-                <img src="~/images/jasmine-logo.png" alt="JAS-MINE" style="height:24px;width:24px;object-fit:contain;" />
-                <span class="fw-semibold" style="color:var(--brand);">JAS-MINE ERP System</span>
+            <h2 class="mb-3">Ready to modernize your barangay?</h2>
+            <p class="mb-4 mx-auto" style="max-width:480px;">
+                Join barangays already using JAS-MINE to manage their knowledge efficiently, transparently, and securely.
+            </p>
+            <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                <a href="#plans-section" class="btn-hero-primary">
+                    <i class="bi bi-rocket-takeoff-fill"></i>
+                    Start Today
+                </a>
+                <a asp-controller="Home" asp-action="Login" class="btn-hero-ghost">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    I already have an account
+                </a>
             </div>
-            <div class="text-muted small mb-1">Barangay Knowledge Management ERP</div>
-            <div class="text-muted">© @year JAS-MINE: An Integrated ERP-Based Knowledge Management System for Barangays. All rights reserved.</div>
+        </div>
+    </section>
+
+    <!-- ═══════════════ FOOTER ═══════════════ -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row g-4 mb-3">
+                <div class="col-12 col-md-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <img src="~/images/jasmine-logo.png" alt="JAS-MINE" style="height:36px;width:36px;object-fit:contain;filter:brightness(0) invert(1);" />
+                        <span class="footer-brand">JAS-MINE ERP</span>
+                    </div>
+                    <div class="footer-brand-sub">Barangay Knowledge Management System</div>
+                    <p class="mt-3" style="font-size:.83rem;line-height:1.7;">
+                        An integrated ERP-based platform designed to help Philippine barangays operate more efficiently, transparently, and securely.
+                    </p>
+                </div>
+
+                <div class="col-6 col-md-2 offset-md-2">
+                    <div class="footer-heading">Platform</div>
+                    <a href="#features-section" class="footer-link">Modules</a>
+                    <a href="#how-it-works" class="footer-link">How It Works</a>
+                    <a href="#plans-section" class="footer-link">Pricing</a>
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <div class="footer-heading">Account</div>
+                    <a asp-controller="Home" asp-action="Login" class="footer-link">Login</a>
+                    <a href="#plans-section" class="footer-link">Subscribe</a>
+                    <a asp-controller="Home" asp-action="ForgotPassword" class="footer-link">Forgot Password</a>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <div class="footer-heading">Contact</div>
+                    <span class="footer-link" style="cursor:default;">support@jasmine.gov.ph</span>
+                    <span class="footer-link" style="cursor:default;">Philippines</span>
+                </div>
+            </div>
+
+            <hr class="footer-divider" />
+
+            <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-2">
+                <div class="footer-copy">© @year JAS-MINE. An Integrated ERP-Based Knowledge Management System for Barangays. All rights reserved.</div>
+                <div class="d-flex gap-3">
+                    <a asp-controller="Home" asp-action="PrivacyPolicy" class="footer-copy text-decoration-none">Privacy Policy</a>
+                    <a asp-controller="Home" asp-action="TermsOfUse" class="footer-copy text-decoration-none">Terms of Use</a>
+                </div>
+            </div>
         </div>
     </footer>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Navbar scroll shadow
+        const nav = document.getElementById('mainNav');
+        window.addEventListener('scroll', () => {
+            nav.classList.toggle('scrolled', window.scrollY > 10);
+        });
+    </script>
 </body>
 </html>
