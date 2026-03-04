@@ -88,15 +88,8 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="mb-0">User Management</h3>
-            <div class="muted">Manage users and their roles across puroks.</div>
+            <div class="muted">Manage barangay admin accounts and their access status.</div>
         </div>
-        <button class="btn btn-primary d-flex align-items-center gap-2"
-                data-bs-toggle="modal"
-                data-bs-target="#createEditModal"
-                onclick="openCreate()">
-            <span style="font-weight:900;">+</span>
-            Add User
-        </button>
     </div>
 
     <!-- Stat cards -->
@@ -235,7 +228,7 @@
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#viewModal"
                                                         onclick="openView('@u.Id','@u.Name','@u.Email','@roleKey','@u.Status','@u.Barangay')">
-                                                    View
+                                                    <i class="bi bi-eye me-2"></i>View
                                                 </button>
                                             </li>
 
@@ -244,13 +237,31 @@
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#createEditModal"
                                                         onclick="openEdit('@u.Id','@u.Name','@u.Email','@roleKey','@u.Barangay')">
-                                                    Edit
+                                                    <i class="bi bi-pencil me-2"></i>Edit
                                                 </button>
                                             </li>
 
                                             <li><hr class="dropdown-divider"></li>
+
                                             <li>
-                                                <button class="dropdown-item text-warning"
+                                                <form method="post" action="@Url.Action("ToggleUserStatus", "Home")" class="m-0">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@u.Id" />
+                                                    <button type="submit" class="dropdown-item @(u.Status == "active" ? "text-warning" : "text-success")">
+                                                        @if (u.Status == "active")
+                                                        {
+                                                            <i class="bi bi-toggle-off me-2"></i><text>Deactivate</text>
+                                                        }
+                                                        else
+                                                        {
+                                                            <i class="bi bi-toggle-on me-2"></i><text>Activate</text>
+                                                        }
+                                                    </button>
+                                                </form>
+                                            </li>
+
+                                            <li>
+                                                <button class="dropdown-item text-danger"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#archiveUserModal"
                                                         onclick="openArchiveUser('@u.Id','@u.Name')">

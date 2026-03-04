@@ -76,10 +76,6 @@
                     <i class="bi bi-download me-2"></i>Export Logs
                 </button>
             </form>
-
-            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearAllModal">
-                <i class="bi bi-trash me-2"></i>Clear All
-            </button>
         </div>
     </div>
 
@@ -272,32 +268,6 @@
     </div>
 </div>
 
-<!-- Clear All Modal -->
-<div class="modal fade" id="clearAllModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-
-            <form method="post" action="@Url.Action("ClearAllLogs","Home")">
-                @Html.AntiForgeryToken()
-
-                <div class="modal-header">
-                    <h5 class="modal-title text-danger">Clear All Logs</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    This will remove all audit logs. Continue?
-                </div>
-
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-danger" type="submit">Clear All</button>
-                </div>
-            </form>
-
-        </div>
-    </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 

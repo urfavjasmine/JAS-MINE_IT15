@@ -23,9 +23,6 @@
         <h2 class="fw-bold mb-1">Subscription Plans</h2>
         <div class="text-muted">Manage subscription plans for barangays.</div>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
-        + Create Plan
-    </button>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
@@ -154,64 +151,6 @@
     </div>
 </div>
 
-<!-- CREATE MODAL -->
-<div class="modal fade" id="createModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="post" asp-action="CreatePlan">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="q" value="@Model.SearchQuery" />
-
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Plan</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">Plan Name</label>
-                            <input class="form-control" name="name" placeholder="Enter plan name" required />
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Price (₱)</label>
-                            <input class="form-control" type="number" name="price" min="0" step="0.01" placeholder="0" />
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Duration</label>
-                            <select class="form-select" name="durationMonths" required>
-                                <option value="1">Monthly</option>
-                                <option value="3">Quarterly</option>
-                                <option value="6">Semi-Annual</option>
-                                <option value="12">Yearly</option>
-                            </select>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3" placeholder="Plan description..."></textarea>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Status</label>
-                            <select class="form-select" name="isActive">
-                                <option value="true" selected>Active</option>
-                                <option value="false">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Plan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- EDIT MODAL -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">

@@ -2587,7 +2587,12 @@ namespace JAS_MINE_IT15.Controllers
             // Base query
             var userQuery = _context.BusinessUsers.AsQueryable();
 
-            if (role == "barangay_admin" && barangayId.HasValue)
+            if (role == "super_admin")
+            {
+                // Super admin: only shows barangay admin accounts (not all users)
+                userQuery = userQuery.Where(u => u.Role == "barangay_admin");
+            }
+            else if (role == "barangay_admin" && barangayId.HasValue)
             {
                 // Barangay admin: only show users in their barangay, exclude super_admin
                 userQuery = userQuery
@@ -2821,6 +2826,34 @@ namespace JAS_MINE_IT15.Controllers
                     await _context.SaveChangesAsync();
                     await LogAuditAsync("Archive", "UserManagement", user.Id, "User", user.FullName, $"Archived user: {user.Email}");
                     TempData["Success"] = $"User \"{user.FullName}\" archived.";
+                }
+            }
+
+            return RedirectToAction(nameof(UserManagement));
+        }
+
+        // POST: /Home/ToggleUserStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
+        public async Task<IActionResult> ToggleUserStatus(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToDashboard();
+
+            if (int.TryParse(id, out var userId))
+            {
+                var user = await _context.BusinessUsers.FindAsync(userId);
+                if (user != null)
+                {
+                    user.IsActive = !user.IsActive;
+                    user.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    var newStatus = user.IsActive ? "Active" : "Inactive";
+                    await LogAuditAsync("Updated", "UserManagement", user.Id, "User", user.FullName,
+                        $"Toggled status to {newStatus}: {user.Email}");
+                    TempData["Success"] = $"User \"{user.FullName}\" status changed to {newStatus}.";
                 }
             }
 

@@ -4,6 +4,81 @@
     var role = Context.Session.GetString("Role") ?? "";
 }
 
+<style>
+    .rep-header {
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f6cbd 100%);
+        border-radius: 16px;
+        padding: 32px 36px;
+        color: white;
+        margin-bottom: 28px;
+    }
+    .rep-kpi {
+        background: rgba(255,255,255,0.12);
+        border-radius: 12px;
+        padding: 18px 20px;
+        backdrop-filter: blur(6px);
+        text-align: center;
+    }
+    .rep-kpi .kpi-val { font-size: 36px; font-weight: 800; line-height: 1; }
+    .rep-kpi .kpi-lbl { font-size: 13px; opacity: 0.8; margin-top: 6px; }
+    .rep-card {
+        border: 1px solid #e5eaf3;
+        border-radius: 14px;
+        overflow: hidden;
+        transition: box-shadow .15s, transform .15s;
+        background: #fff;
+    }
+    .rep-card:hover { box-shadow: 0 8px 28px rgba(15,107,189,0.12); transform: translateY(-2px); }
+    .rep-card-top {
+        height: 6px;
+    }
+    .rep-card-body { padding: 22px 22px 18px; }
+    .rep-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 22px; margin-bottom: 14px;
+    }
+    .rep-card h6 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .rep-card p { font-size: 13px; color: #6b778a; margin-bottom: 18px; }
+</style>
+
+<!-- Hero header with live KPIs -->
+<div class="rep-header">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <i class="bi bi-bar-chart-line" style="font-size:22px;"></i>
+        <h4 class="mb-0 fw-bold">Reports &amp; Analytics</h4>
+    </div>
+    <div class="row g-3">
+        @if (role == "super_admin")
+        {
+            <div class="col-6 col-md-3">
+                <div class="rep-kpi">
+                    <div class="kpi-val">@Model.TotalBarangays</div>
+                    <div class="kpi-lbl"><i class="bi bi-geo-alt me-1"></i>Barangays</div>
+                </div>
+            </div>
+        }
+        <div class="col-6 col-md-3">
+            <div class="rep-kpi">
+                <div class="kpi-val">@Model.TotalUsers</div>
+                <div class="kpi-lbl"><i class="bi bi-people me-1"></i>Total Users</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="rep-kpi">
+                <div class="kpi-val">@Model.TotalDocuments</div>
+                <div class="kpi-lbl"><i class="bi bi-file-earmark-text me-1"></i>Documents</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="rep-kpi">
+                <div class="kpi-val">@Model.TotalPolicies</div>
+                <div class="kpi-lbl"><i class="bi bi-journal-text me-1"></i>Policies</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb mb-0">
@@ -12,78 +87,57 @@
     </ol>
 </nav>
 
-<h4 class="fw-bold mb-4"><i class="bi bi-bar-chart-line me-2"></i>Reports & Analytics</h4>
+<h5 class="fw-bold mb-3 text-muted">Available Report Modules</h5>
 
-<!-- Summary Cards -->
-<div class="row g-3 mb-4">
-    @if (role == "super_admin")
-    {
-        <div class="col-sm-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="fs-2 fw-bold text-primary">@Model.TotalBarangays</div>
-                    <div class="text-muted small">Barangays</div>
-                </div>
-            </div>
-        </div>
-    }
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <div class="fs-2 fw-bold text-success">@Model.TotalUsers</div>
-                <div class="text-muted small">Users</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <div class="fs-2 fw-bold text-info">@Model.TotalDocuments</div>
-                <div class="text-muted small">Documents</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <div class="fs-2 fw-bold text-warning">@Model.TotalPolicies</div>
-                <div class="text-muted small">Policies</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Report Links -->
-<div class="row g-3">
+<!-- Report Cards -->
+<div class="row g-4">
     @if (role == "super_admin")
     {
         <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="fw-bold"><i class="bi bi-geo-alt text-primary me-2"></i>Per-Barangay Drill-Down</h6>
-                    <p class="text-muted small mb-3">View detailed stats for each registered barangay — users, documents, policies, subscription status.</p>
-                    <a href="@Url.Action("BarangaySummary")" class="btn btn-sm btn-outline-primary">View Report</a>
+            <div class="rep-card h-100">
+                <div class="rep-card-top" style="background: linear-gradient(90deg, #0f6cbd, #1f9ef1);"></div>
+                <div class="rep-card-body">
+                    <div class="rep-icon" style="background:#e8f4ff; color:#0f6cbd;">
+                        <i class="bi bi-geo-alt"></i>
+                    </div>
+                    <h6>Per-Barangay Drill-Down</h6>
+                    <p>View detailed stats for each registered barangay — users, documents, policies, subscription status.</p>
+                    <a href="@Url.Action("BarangaySummary")" class="btn btn-primary btn-sm rounded-pill px-4">
+                        <i class="bi bi-arrow-right-circle me-1"></i> View Report
+                    </a>
                 </div>
             </div>
         </div>
     }
 
     <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="fw-bold"><i class="bi bi-people text-success me-2"></i>User Activity</h6>
-                <p class="text-muted small mb-3">Login frequency, content contributions per user with date-range filtering.</p>
-                <a href="@Url.Action("UserActivity")" class="btn btn-sm btn-outline-success">View Report</a>
+        <div class="rep-card h-100">
+            <div class="rep-card-top" style="background: linear-gradient(90deg, #198754, #2ecc71);"></div>
+            <div class="rep-card-body">
+                <div class="rep-icon" style="background:#e8fef0; color:#198754;">
+                    <i class="bi bi-people"></i>
+                </div>
+                <h6>User Activity</h6>
+                <p>Login frequency, content contributions per user with date-range filtering.</p>
+                <a href="@Url.Action("UserActivity")" class="btn btn-success btn-sm rounded-pill px-4">
+                    <i class="bi bi-arrow-right-circle me-1"></i> View Report
+                </a>
             </div>
         </div>
     </div>
 
     <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="fw-bold"><i class="bi bi-arrow-repeat text-info me-2"></i>Content Lifecycle</h6>
-                <p class="text-muted small mb-3">Status distribution of documents, policies, lessons — draft to approved pipeline.</p>
-                <a href="@Url.Action("ContentLifecycle")" class="btn btn-sm btn-outline-info">View Report</a>
+        <div class="rep-card h-100">
+            <div class="rep-card-top" style="background: linear-gradient(90deg, #0dcaf0, #48e3ff);"></div>
+            <div class="rep-card-body">
+                <div class="rep-icon" style="background:#e5faff; color:#0dcaf0;">
+                    <i class="bi bi-arrow-repeat"></i>
+                </div>
+                <h6>Content Lifecycle</h6>
+                <p>Status distribution of documents, policies, lessons — draft to approved pipeline.</p>
+                <a href="@Url.Action("ContentLifecycle")" class="btn btn-info btn-sm rounded-pill px-4 text-white">
+                    <i class="bi bi-arrow-right-circle me-1"></i> View Report
+                </a>
             </div>
         </div>
     </div>
@@ -91,21 +145,33 @@
     @if (role == "super_admin")
     {
         <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="fw-bold"><i class="bi bi-graph-up-arrow text-warning me-2"></i>Revenue Trends</h6>
-                    <p class="text-muted small mb-3">Month-over-month revenue, growth rate, plan distribution chart.</p>
-                    <a href="@Url.Action("RevenueTrends")" class="btn btn-sm btn-outline-warning">View Report</a>
+            <div class="rep-card h-100">
+                <div class="rep-card-top" style="background: linear-gradient(90deg, #ffc107, #ffdb4d);"></div>
+                <div class="rep-card-body">
+                    <div class="rep-icon" style="background:#fff9e5; color:#d39e00;">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <h6>Revenue Trends</h6>
+                    <p>Month-over-month revenue, growth rate, plan distribution chart.</p>
+                    <a href="@Url.Action("RevenueTrends")" class="btn btn-warning btn-sm rounded-pill px-4">
+                        <i class="bi bi-arrow-right-circle me-1"></i> View Report
+                    </a>
                 </div>
             </div>
         </div>
 
         <div class="col-md-6 col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="fw-bold"><i class="bi bi-arrow-down-circle text-danger me-2"></i>Subscription Churn</h6>
-                    <p class="text-muted small mb-3">Monthly churn rate — expired or cancelled subscriptions vs active.</p>
-                    <a href="@Url.Action("SubscriptionChurn")" class="btn btn-sm btn-outline-danger">View Report</a>
+            <div class="rep-card h-100">
+                <div class="rep-card-top" style="background: linear-gradient(90deg, #dc3545, #f97185);"></div>
+                <div class="rep-card-body">
+                    <div class="rep-icon" style="background:#fff0f2; color:#dc3545;">
+                        <i class="bi bi-arrow-down-circle"></i>
+                    </div>
+                    <h6>Subscription Churn</h6>
+                    <p>Monthly churn rate — expired or cancelled subscriptions vs active.</p>
+                    <a href="@Url.Action("SubscriptionChurn")" class="btn btn-danger btn-sm rounded-pill px-4">
+                        <i class="bi bi-arrow-right-circle me-1"></i> View Report
+                    </a>
                 </div>
             </div>
         </div>
