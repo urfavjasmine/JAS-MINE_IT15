@@ -19,6 +19,7 @@ html {
 
 body {
   margin-bottom: 60px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -28,6 +29,10 @@ body {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
+}
+
+.dashboard-header {
+  background-color: #ffffff;
 }
 
 /* ═══════════════════════════════════════════════
@@ -126,6 +131,11 @@ body {
 
 [data-theme="dark"] .card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+
+[data-theme="dark"] .dashboard-header {
+  background-color: #212529 !important;
+  border-bottom-color: #343a40 !important;
 }
 
 [data-theme="dark"] .table {

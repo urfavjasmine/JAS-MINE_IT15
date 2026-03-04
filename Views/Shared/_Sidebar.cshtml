@@ -18,7 +18,7 @@
     /* ===== Sidebar shell ===== */
     .jm-sidebar {
         width: 260px;
-        min-height: 100vh;
+        height: 100vh;
         background: #123252;
         color: #e8f0ff;
         position: sticky;
@@ -269,6 +269,31 @@
 
     .jm-sidebar.collapsed .jm-signout {
         justify-content: center;
+    }
+
+    /* Fixed logo size when collapsed */
+    .jm-sidebar.collapsed .jm-top {
+        padding: 18px 0;
+        justify-content: center;
+        flex-direction: column;
+    }
+    .jm-sidebar.collapsed .jm-brand {
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+    .jm-sidebar.collapsed .jm-logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+    }
+    .jm-sidebar.collapsed .jm-toggle {
+        width: 100%;
+        border-radius: 0;
+        background: transparent;
+        height: 28px;
+    }
+    .jm-sidebar.collapsed .jm-toggle:hover {
+        background: rgba(255,255,255,.05);
     }
 </style>
 
