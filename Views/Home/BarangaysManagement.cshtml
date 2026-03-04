@@ -27,22 +27,12 @@
 
 <div class="page-wrap">
 
-    <!-- Page title + Add Barangay -->
+    <!-- Page title -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="mb-0">Barangays Management</h3>
-            <div class="muted">Manage barangays registered in the system.</div>
+            <div class="muted">Barangays are registered automatically when a subscription is approved.</div>
         </div>
-        @if (Model.CanCreate)
-        {
-            <button class="btn btn-primary d-flex align-items-center gap-2"
-                    data-bs-toggle="modal"
-                    data-bs-target="#createEditModal"
-                    onclick="openCreate()">
-                <span style="font-weight:900;">+</span>
-                Add Barangay
-            </button>
-        }
     </div>
 
     <!-- Stat cards -->

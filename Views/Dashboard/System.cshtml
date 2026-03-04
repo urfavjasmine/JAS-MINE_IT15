@@ -106,96 +106,70 @@
 }
 
 <div class="dash-wrap">
-    <!-- ═══════ Top Stats ═══════ -->
+    <!-- ═══════ Top Stats (Super Admin relevant only) ═══════ -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
+        <div class="col-6 col-md-3">
+            <div class="stat-card h-100">
                 <div class="stat-label"><i class="bi bi-building me-1"></i> Total Barangays</div>
                 <div class="stat-value text-primary">@Model.TotalBarangays</div>
                 <small class="text-muted">@Model.ActiveBarangays active</small>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
-                <div class="stat-label"><i class="bi bi-people me-1"></i> Total Users</div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card h-100">
+                <div class="stat-label"><i class="bi bi-people me-1"></i> Barangay Admins</div>
                 <div class="stat-value text-info">@Model.TotalUsers</div>
+                <small class="text-muted">registered accounts</small>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
-                <div class="stat-label"><i class="bi bi-credit-card me-1"></i> Active Subs</div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card h-100">
+                <div class="stat-label"><i class="bi bi-credit-card me-1"></i> Active Subscriptions</div>
                 <div class="stat-value text-success">@Model.ActiveSubscriptions</div>
                 <small class="text-muted">@Model.ExpiredSubscriptions expired</small>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
-                <div class="stat-label"><i class="bi bi-file-earmark-text me-1"></i> Documents</div>
-                <div class="stat-value text-primary">@Model.TotalDocuments</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
-                <div class="stat-label"><i class="bi bi-journal-text me-1"></i> Policies</div>
-                <div class="stat-value text-info">@Model.TotalPolicies</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="stat-card">
-                <div class="stat-label"><i class="bi bi-megaphone me-1"></i> Announcements</div>
-                <div class="stat-value text-danger">@Model.TotalAnnouncements</div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card h-100">
+                <div class="stat-label"><i class="bi bi-cash-stack me-1"></i> Total Revenue</div>
+                <div class="stat-value text-warning">@Peso(Model.TotalRevenue)</div>
+                <small class="text-muted">@Peso(Model.MonthlyRevenue) this month</small>
             </div>
         </div>
     </div>
 
-    <!-- ═══════ Revenue Section ═══════ -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="revenue-card h-100">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <div class="rev-label">Total Revenue</div>
-                        <div class="rev-value">@Peso(Model.TotalRevenue)</div>
-                    </div>
-                    <i class="bi bi-currency-exchange" style="font-size: 28px; opacity: 0.7;"></i>
-                </div>
-                <div>
-                    <div class="rev-label">This Month</div>
-                    <div style="font-weight: 700; font-size: 18px;">@Peso(Model.MonthlyRevenue)</div>
-                </div>
-            </div>
+    <!-- ═══════ Revenue Chart ═══════ -->
+    <div class="panel-card mb-4">
+        <div class="panel-head">
+            <h5 class="panel-title"><i class="bi bi-bar-chart text-primary"></i> Monthly Revenue (Last 12 Months)</h5>
         </div>
-        <div class="col-md-8">
-            <div class="panel-card h-100">
-                <div class="panel-head">
-                    <h5 class="panel-title"><i class="bi bi-bar-chart text-primary"></i> Monthly Revenue (Last 12 Months)</h5>
-                </div>
-                <div class="panel-body">
-                    @if (Model.MonthlyRevenueData.Any(m => m.Amount > 0))
-                    {
-                        var maxRevenue = Model.MonthlyRevenueData.Max(m => m.Amount);
-                        maxRevenue = maxRevenue > 0 ? maxRevenue : 1;
+        <div class="panel-body">
+            @if (Model.MonthlyRevenueData.Any(m => m.Amount > 0))
+            {
+                var maxRevenue = Model.MonthlyRevenueData.Max(m => m.Amount);
+                maxRevenue = maxRevenue > 0 ? maxRevenue : 1;
 
-                        <div class="chart-bar" style="margin-bottom: 28px;">
-                            @foreach (var item in Model.MonthlyRevenueData)
+                <div class="chart-bar" style="margin-bottom: 28px;">
+                    @foreach (var item in Model.MonthlyRevenueData)
+                    {
+                        var heightPercent = maxRevenue > 0 ? (double)(item.Amount / maxRevenue) * 100 : 0;
+                        <div class="chart-bar-item" style="height: @(Math.Max(2, heightPercent))%;">
+                            @if (item.Amount > 0)
                             {
-                                var heightPercent = maxRevenue > 0 ? (double)(item.Amount / maxRevenue) * 100 : 0;
-                                <div class="chart-bar-item" style="height: @(Math.Max(2, heightPercent))%;">
-                                    @if (item.Amount > 0)
-                                    {
-                                        <span class="bar-value">@Peso(item.Amount)</span>
-                                    }
-                                    <span class="bar-label">@item.Month.Substring(0, 3)</span>
-                                </div>
+                                <span class="bar-value">@Peso(item.Amount)</span>
                             }
+                            <span class="bar-label">@item.Month.Substring(0, 3)</span>
                         </div>
                     }
-                    else
-                    {
-                        <p class="text-muted text-center mb-0">No revenue data yet.</p>
-                    }
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-bar-chart text-muted" style="font-size:48px; opacity:0.3;"></i>
+                    <p class="text-muted mt-2 mb-0">No revenue data yet. Revenue will appear here once barangays complete their subscription payments.</p>
+                </div>
+            }
         </div>
     </div>
 
@@ -208,16 +182,16 @@
                 </div>
                 <div class="panel-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="bi bi-file-earmark-text me-2"></i> Pending Documents</span>
+                        <span><i class="bi bi-building me-2"></i> Pending Subscriptions</span>
                         <span class="badge badge-pending">@Model.PendingDocuments</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="bi bi-journal-text me-2"></i> Pending Policies</span>
-                        <span class="badge badge-pending">@Model.PendingPolicies</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-receipt me-2"></i> Pending Payments</span>
                         <span class="badge badge-pending">@Model.PendingPayments</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-journal-bookmark me-2"></i> Pending Policies</span>
+                        <span class="badge badge-pending">@Model.PendingPolicies</span>
                     </div>
                 </div>
             </div>
