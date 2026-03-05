@@ -155,14 +155,13 @@ namespace JAS_MINE_IT15.Data
 
         /// <summary>
         /// Seeds 3 subscription plans: Basic, Professional, and Enterprise (monthly).
-        /// Deactivates any old Standard/Premium plans. Skips if plans already exist.
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
-            // Hard-delete old plans that are no longer offered
-            var unwantedNames = new[] { "Standard", "Premium", "Enterprise" };
+            // Ensure ONLY the three plans we want exist
+            var wantedNames = new[] { "Basic", "Professional", "Enterprise" };
             var oldPlans = await context.SubscriptionPlans
-                .Where(p => unwantedNames.Contains(p.Name))
+                .Where(p => !wantedNames.Contains(p.Name))
                 .ToListAsync();
 
             foreach (var old in oldPlans)
@@ -173,13 +172,13 @@ namespace JAS_MINE_IT15.Data
                 if (!hasSubscriptions)
                 {
                     context.SubscriptionPlans.Remove(old);
-                    Console.WriteLine($"[Seeder] Deleted old plan: {old.Name}");
+                    Console.WriteLine($"[Seeder] Deleted old/extra plan: {old.Name}");
                 }
                 else if (old.IsActive)
                 {
                     old.IsActive = false;
                     old.UpdatedAt = DateTime.Now;
-                    Console.WriteLine($"[Seeder] Deactivated old plan: {old.Name} (has subscriptions)");
+                    Console.WriteLine($"[Seeder] Deactivated old/extra plan: {old.Name} (has subscriptions)");
                 }
             }
 
@@ -187,41 +186,45 @@ namespace JAS_MINE_IT15.Data
             {
                 new
                 {
-                    Name        = "Basic Plan",
+                    Name        = "Basic",
                     Description = "Essential tools for small barangays getting started.",
-                    Price       = 500.00m,
+                    Price       = 299.00m,
                     Duration    = 1,
-                    UserLimit   = 5,
+                    UserLimit   = 4,
                     Features    = string.Join(";",
-                        "Knowledge Repository Module",
-                        "Policy Management Module",
-                        "Email Support")
+                        "Up to 4 users",
+                        "View records",
+                        "Add and manage records",
+                        "View announcements",
+                        "Basic reports")
                 },
                 new
                 {
-                    Name        = "Standard Plan",
+                    Name        = "Professional",
                     Description = "Everything you need to manage your barangay records efficiently.",
-                    Price       = 5000.00m,
-                    Duration    = 12,
+                    Price       = 599.00m,
+                    Duration    = 1,
+                    UserLimit   = 10,
+                    Features    = string.Join(";",
+                        "Up to 10 users",
+                        "All Basic features",
+                        "Create and manage announcements",
+                        "Better reports",
+                        "Activity logs")
+                },
+                new
+                {
+                    Name        = "Enterprise",
+                    Description = "Complete access with advanced tools and detailed tracking.",
+                    Price       = 999.00m,
+                    Duration    = 1,
                     UserLimit   = 20,
                     Features    = string.Join(";",
-                        "All Basic features",
-                        "Lessons Learned Module",
-                        "Best Practices Module",
-                        "Priority Support")
-                },
-                new
-                {
-                    Name        = "Enterprise Plan",
-                    Description = "Complete access with advanced tools and detailed tracking.",
-                    Price       = 8000.00m,
-                    Duration    = 12,
-                    UserLimit   = 999,
-                    Features    = string.Join(";",
-                        "Full ERP access",
-                        "Knowledge Sharing Portal",
-                        "Audit Logs",
-                        "Dedicated Support")
+                        "Up to 20 users",
+                        "All Professional features",
+                        "Dashboard (summary view)",
+                        "Archive and restore data",
+                        "Detailed tracking")
                 }
             };
 

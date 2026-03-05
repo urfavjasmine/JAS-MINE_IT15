@@ -750,39 +750,41 @@
                     @for (int i = 0; i < planCount; i++)
                     {
                         var plan         = plans[i];
-                        var isProfessional = plan.Name == "Standard Plan";
+                        var isRecommended = plan.Name == "Professional";
                         var features     = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        var priceColor   = isProfessional ? "var(--brand)" : "#0284c7";
+                        var priceColor   = isRecommended ? "var(--brand)" : "#0284c7";
 
                         <div class="col-12 col-md-6 col-lg-4">
-                            <div class="plan-card @(isProfessional ? "featured" : "")">
+                            <div class="plan-card @(isRecommended ? "featured" : "")">
 
-                                @if (isProfessional)
+                                @if (isRecommended)
                                 {
                                     <div class="plan-badge">
-                                        <i class="bi bi-star-fill me-1"></i> Most Popular
+                                        <i class="bi bi-star-fill me-1"></i> Recommended
                                     </div>
                                 }
 
-                                <div class="@(isProfessional ? "mt-3" : "")">
+                                <div class="@(isRecommended ? "mt-3" : "")">
                                     <div class="plan-name" style="color:@priceColor;">@plan.Name</div>
+                                    
+                                    <div class="text-center">
+                                        <span class="plan-users">
+                                            <i class="bi bi-people-fill"></i>
+                                            Up to @plan.UserLimit users
+                                        </span>
+                                    </div>
+
+                                    <div class="text-center my-3">
+                                        <div class="d-flex align-items-center justify-content-center">
+                                            <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
+                                            <span class="plan-period">/ month</span>
+                                        </div>
+                                    </div>
+
                                     @if (!string.IsNullOrWhiteSpace(plan.Description))
                                     {
                                         <p class="plan-desc">@plan.Description</p>
                                     }
-
-                                    <div class="text-center my-3">
-                                        <div>
-                                            <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
-                                            <span class="plan-period">/ @(plan.DurationMonths == 1 ? "month" : "year")</span>
-                                        </div>
-                                        <div>
-                                            <span class="plan-users">
-                                                <i class="bi bi-people-fill"></i>
-                                                Up to @(plan.UserLimit > 500 ? "Unlimited" : plan.UserLimit.ToString()) users
-                                            </span>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <hr class="plan-divider" />
@@ -803,7 +805,7 @@
                                         : Url.Action("Login", "Home") + "?planId=" + plan.Id;
                                 }
                                 <a asp-controller="Home" asp-action="Register"
-                                   class="btn-plan @(isProfessional ? "btn-plan-primary" : "btn-plan-outline")">
+                                   class="btn-plan @(isRecommended ? "btn-plan-primary" : "btn-plan-outline")">
                                     Get Started
                                 </a>
                             </div>
