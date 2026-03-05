@@ -1,5 +1,6 @@
 @model List<JAS_MINE_IT15.Services.MonthlyRevenuePoint>
 @{
+    Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "Revenue Trend Report";
     var distribution = ViewData["PlanDistribution"] as Dictionary<string, int> ?? new Dictionary<string, int>();
     var activeSubscribers = ViewData["ActiveSubscribers"] as int? ?? 0;

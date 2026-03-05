@@ -101,9 +101,10 @@
 
             @if (canCreate && archiveStatus != "archived")
             {
-                <button class="btn btn-primary d-flex align-items-center gap-2"
+                <button class="btn d-flex align-items-center gap-2 px-4"
                         data-bs-toggle="modal" data-bs-target="#createEditModal"
-                        onclick="openCreate()">
+                        onclick="openCreate()"
+                        style="background:#163a5f; border-color:#163a5f; color:#fff; height:44px; border-radius:10px; font-weight:700;">
                     <i class="bi bi-plus-lg"></i>
                     New Announcement
                 </button>

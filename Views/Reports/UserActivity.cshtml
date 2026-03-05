@@ -1,5 +1,6 @@
 @model JAS_MINE_IT15.Models.PagedResult<JAS_MINE_IT15.Services.UserActivityRow>
 @{
+    Layout = "~/Views/Shared/_Layout.cshtml";
     ViewData["Title"] = "User Activity Report";
     var fromDate = ViewData["FromDate"] as string ?? "";
     var toDate = ViewData["ToDate"] as string ?? "";
