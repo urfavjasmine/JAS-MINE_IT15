@@ -373,7 +373,7 @@ CREATE TABLE [dbo].[SubscriptionPayments] (
     [PaymentMethod]   NVARCHAR(50)      NULL, -- 'GCash', 'Bank Transfer', 'Cash', etc.
     [ReferenceNumber] NVARCHAR(100)     NULL,
     [Status]          NVARCHAR(20)      NOT NULL CONSTRAINT DF_SubscriptionPayments_Status DEFAULT ('Pending')
-                      CONSTRAINT CK_SubscriptionPayments_Status CHECK ([Status] IN ('Pending', 'Paid', 'Failed', 'Refunded')),
+                      CONSTRAINT CK_SubscriptionPayments_Status CHECK ([Status] IN ('Pending', 'Paid', 'Failed', 'Refunded', 'PendingVerification', 'Approved', 'Rejected')),
     [Notes]           NVARCHAR(500)     NULL,
     [ProcessedById]   INT               NULL,
     [IsActive]        BIT               NOT NULL CONSTRAINT DF_SubscriptionPayments_IsActive DEFAULT (1),
