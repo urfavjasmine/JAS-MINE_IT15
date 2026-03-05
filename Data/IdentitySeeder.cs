@@ -160,7 +160,7 @@ namespace JAS_MINE_IT15.Data
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
             // Hard-delete old plans that are no longer offered
-            var unwantedNames = new[] { "Standard", "Premium" };
+            var unwantedNames = new[] { "Standard", "Premium", "Enterprise" };
             var oldPlans = await context.SubscriptionPlans
                 .Where(p => unwantedNames.Contains(p.Name))
                 .ToListAsync();
@@ -195,8 +195,7 @@ namespace JAS_MINE_IT15.Data
                     Features    = string.Join(";",
                         "Knowledge Repository Module",
                         "Policy Management Module",
-                        "Email Support",
-                        "Up to 5 Users")
+                        "Email Support")
                 },
                 new
                 {
@@ -209,8 +208,7 @@ namespace JAS_MINE_IT15.Data
                         "All Basic features",
                         "Lessons Learned Module",
                         "Best Practices Module",
-                        "Priority Support",
-                        "Up to 20 Users")
+                        "Priority Support")
                 },
                 new
                 {
@@ -223,8 +221,7 @@ namespace JAS_MINE_IT15.Data
                         "Full ERP access",
                         "Knowledge Sharing Portal",
                         "Audit Logs",
-                        "Dedicated Support",
-                        "Unlimited Users")
+                        "Dedicated Support")
                 }
             };
 

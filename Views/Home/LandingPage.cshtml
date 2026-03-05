@@ -774,12 +774,12 @@
                                     <div class="text-center my-3">
                                         <div>
                                             <span class="plan-price" style="color:@priceColor;">₱@string.Format("{0:N0}", plan.Price)</span>
-                                            <span class="plan-period">/ month</span>
+                                            <span class="plan-period">/ @(plan.DurationMonths == 1 ? "month" : "year")</span>
                                         </div>
                                         <div>
                                             <span class="plan-users">
                                                 <i class="bi bi-people-fill"></i>
-                                                Up to @plan.UserLimit users
+                                                Up to @(plan.UserLimit > 500 ? "Unlimited" : plan.UserLimit.ToString()) users
                                             </span>
                                         </div>
                                     </div>
