@@ -400,7 +400,6 @@
         document.getElementById('fPassword').value = '';
         document.getElementById('fPassword').required = true;
         document.getElementById('fRole').value = 'barangay_staff';
-        document.getElementById('fBarangay').value = '';
     }
 
     function openEdit(id, name, email, role, barangay) {
@@ -412,7 +411,6 @@
         document.getElementById('fPassword').value = '';
         document.getElementById('fPassword').required = false;
         document.getElementById('fRole').value = role;
-        document.getElementById('fBarangay').value = barangay || '';
     }
 
     function openView(id, name, email, role, status, barangay) {
@@ -420,7 +418,6 @@
         document.getElementById('vEmail').textContent = email;
         document.getElementById('vRole').textContent = '@Model.RoleLabels'.includes(role) ? role : role;
         document.getElementById('vStatus').textContent = status;
-        document.getElementById('vBarangay').textContent = barangay || 'N/A';
     }
 
     function openArchiveUser(id, name) {
