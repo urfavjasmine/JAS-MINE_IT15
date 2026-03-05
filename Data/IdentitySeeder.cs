@@ -246,7 +246,7 @@ namespace JAS_MINE_IT15.Data
                         IsActive       = true,
                         CreatedAt      = DateTime.Now
                     });
-                    Console.WriteLine($"[Seeder] Added subscription plan: {def.Name}");
+                    Console.WriteLine($"[Seeder] Added subscription plan: {def.Name} ({def.Price})");
                 }
                 else
                 {
@@ -258,7 +258,7 @@ namespace JAS_MINE_IT15.Data
                     existing.Features       = def.Features;
                     existing.IsActive       = true;
                     existing.UpdatedAt      = DateTime.Now;
-                    Console.WriteLine($"[Seeder] Updated subscription plan: {def.Name}");
+                    Console.WriteLine($"[Seeder] Updated subscription plan: {def.Name} ({def.Price})");
                 }
             }
 
