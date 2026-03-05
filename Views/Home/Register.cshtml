@@ -358,12 +358,12 @@
                             <label asp-for="FirstName" class="form-label">First Name *</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person"></i></span>
-                                <input asp-for="FirstName" class="form-control" placeholder="Juan" required />
+                                <input asp-for="FirstName" class="form-control" required />
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label asp-for="LastName" class="form-label">Last Name *</label>
-                            <input asp-for="LastName" class="form-control" placeholder="Dela Cruz" required />
+                            <input asp-for="LastName" class="form-control" required />
                         </div>
                     </div>
 
@@ -371,13 +371,14 @@
                         <label asp-for="Email" class="form-label">Email Address *</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                            <input asp-for="Email" type="email" class="form-control" placeholder="juan@example.com" required />
+                            <input asp-for="Email" type="email" class="form-control" required />
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label asp-for="PhoneNumber" class="form-label"></label>
-                        <input asp-for="PhoneNumber" class="form-control" placeholder="09XX XXX XXXX" />
+                        <input asp-for="PhoneNumber" class="form-control" placeholder="09123456789" 
+                               maxlength="11" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)" />
                     </div>
 
                     <div class="mb-3">
@@ -385,6 +386,9 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock"></i></span>
                             <input asp-for="Password" type="password" class="form-control" placeholder="Create a password" required />
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('Password', this)">
+                                <i class="bi bi-eye"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -393,6 +397,9 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
                             <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Confirm your password" required />
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('ConfirmPassword', this)">
+                                <i class="bi bi-eye"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -415,18 +422,18 @@
                         <label asp-for="BarangayName" class="form-label">Barangay Name *</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-building"></i></span>
-                            <input asp-for="BarangayName" class="form-control" placeholder="e.g. Barangay San Jose" required />
+                            <input asp-for="BarangayName" class="form-control" required />
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label asp-for="Municipality" class="form-label">Municipality/City *</label>
-                            <input asp-for="Municipality" class="form-control" placeholder="e.g. Lipa City" required />
+                            <input asp-for="Municipality" class="form-control" required />
                         </div>
                         <div class="col-md-6">
                             <label asp-for="Province" class="form-label">Province *</label>
-                            <input asp-for="Province" class="form-control" placeholder="e.g. Batangas" required />
+                            <input asp-for="Province" class="form-control" required />
                         </div>
                     </div>
 
@@ -434,7 +441,7 @@
                         <label asp-for="Address" class="form-label">Complete Address</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                            <input asp-for="Address" class="form-control" placeholder="Street, Purok, etc." />
+                            <input asp-for="Address" class="form-control" />
                         </div>
                     </div>
 
@@ -618,6 +625,20 @@
             document.getElementById('rv-address').innerText = document.getElementById('Address').value || '---';
 
             nextStep();
+        }
+
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
         }
     </script>
 </body>

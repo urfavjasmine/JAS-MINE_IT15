@@ -19,7 +19,8 @@ namespace JAS_MINE_IT15.Models
         public string Email { get; set; } = string.Empty;
 
         [Display(Name = "Phone Number")]
-        [RegularExpression(@"^(09|\+639)\d{9}$", ErrorMessage = "Invalid Philippine phone number format.")]
+        [StringLength(11, MinimumLength = 11, ErrorMessage = "Phone number must be exactly 11 digits.")]
+        [RegularExpression(@"^09\d{9}$", ErrorMessage = "Invalid Philippine phone number format (e.g. 09123456789).")]
         public string? PhoneNumber { get; set; }
 
         [Required(ErrorMessage = "Password is required.")]
