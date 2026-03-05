@@ -96,7 +96,7 @@ namespace JAS_MINE_IT15.Controllers
             var payment = new SubscriptionPayment
             {
                 InvoiceId = invoice.Id,
-                BarangayId = invoice.BarangayId,
+                SubscriptionId = invoice.SubscriptionId,
                 Amount = amount,
                 PaymentDate = DateTime.Now,
                 PaymentMethod = "PayMongo",

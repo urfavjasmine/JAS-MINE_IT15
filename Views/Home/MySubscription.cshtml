@@ -267,18 +267,10 @@
                                             @if (inv.Status == "Unpaid" || inv.Status == "Overdue")
                                             {
                                                 <div class="d-flex flex-column gap-2">
-                                                    @* PayMongo Automated Flow *@
-                                                    <form asp-action="SubscribeToPlan" method="post">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="planId" value="@sub.PlanId" />
-                                                        <button type="submit" class="btn btn-sm btn-success w-100">
-                                                            <i class="bi bi- lightning-charge-fill me-1"></i>Pay with GCash/Maya
-                                                        </button>
-                                                    </form>
-
+                                                    @* Manual Upload Payment Proof *@
                                                     <a href="@Url.Action("SubmitPayment", "Home", new { invoiceId = inv.Id })" 
-                                                       class="btn btn-sm btn-outline-primary w-100">
-                                                        <i class="bi bi-upload me-1"></i>Manual Upload
+                                                       class="btn btn-sm btn-primary w-100">
+                                                        <i class="bi bi-upload me-1"></i>Upload Payment Proof
                                                     </a>
                                                 </div>
                                             }
