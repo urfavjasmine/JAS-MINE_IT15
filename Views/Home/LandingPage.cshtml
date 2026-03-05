@@ -563,7 +563,7 @@
             </a>
             <div class="d-flex align-items-center gap-2">
                 <a asp-controller="Home" asp-action="Login" class="btn-nav-login">Login</a>
-                <a asp-action="Register" class="btn-nav-subscribe">Get Started</a>
+                <a asp-action="Register" class="btn-nav-subscribe">Register</a>
             </div>
         </div>
     </nav>
@@ -584,22 +584,19 @@
             </div>
 
             <h1>
-                Smart ERP for<br>
-                <span class="highlight">Barangay Management</span>
+                JAS-MINE ERP System for Barangays
             </h1>
 
             <p class="hero-sub mx-auto">
-                JAS-MINE centralizes your documents, policies, and knowledge—so your barangay team always has the right information at the right time, securely and efficiently.
+                Centralized ERP-based Knowledge Management System designed to help barangays manage documents, policies, and operational knowledge efficiently and securely.
             </p>
 
             <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-                <a href="#plans-section" class="btn-hero-primary">
-                    <i class="bi bi-grid-3x3-gap-fill"></i>
-                    View Pricing
+                <a asp-controller="Home" asp-action="Login" class="btn-hero-ghost">
+                    Login
                 </a>
-                <a asp-action="Register" class="btn-hero-ghost">
-                    <i class="bi bi-person-plus"></i>
-                    Get Started Now
+                <a asp-action="Register" class="btn-hero-primary">
+                    Get Started <i class="bi bi-arrow-right"></i>
                 </a>
             </div>
         </div>
