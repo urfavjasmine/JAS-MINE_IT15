@@ -27,13 +27,15 @@ namespace JAS_MINE_IT15.Controllers
         private new readonly ApplicationDbContext _context;
         private readonly INotificationService _notificationService;
         private readonly ILogger<HomeController> _logger;
+        private readonly IPayMongoService _payMongoService;
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
             UserManager<IdentityUser> userManager,
             ApplicationDbContext context,
             INotificationService notificationService,
-            ILogger<HomeController> logger)
+            ILogger<HomeController> logger,
+            IPayMongoService payMongoService)
             : base(context)
         {
             _signInManager = signInManager;
@@ -41,6 +43,7 @@ namespace JAS_MINE_IT15.Controllers
             _context = context;
             _notificationService = notificationService;
             _logger = logger;
+            _payMongoService = payMongoService;
         }
 
         // Helper methods inherited from BaseAppController
@@ -752,6 +755,108 @@ namespace JAS_MINE_IT15.Controllers
 
             TempData["Success"] = "Plan archived.";
             return RedirectToAction(nameof(SubscriptionPlans), new { q });
+        }
+
+        // GET: /Home/Register
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult Register()
+        {
+            if (IsLoggedIn()) return RedirectToDashboard();
+            return View(new RegisterViewModel());
+        }
+
+        // POST: /Home/Register
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(RegisterViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            model.Email = (model.Email ?? "").Trim().ToLower();
+            model.BarangayName = (model.BarangayName ?? "").Trim();
+
+            // 1. Check if user already exists in Identity
+            var existingUser = await _userManager.FindByEmailAsync(model.Email);
+            if (existingUser != null)
+            {
+                model.ErrorMessage = "A user with this email already exists.";
+                return View(model);
+            }
+
+            // 2. Create the Barangay record
+            var barangay = new Barangay
+            {
+                Name = model.BarangayName,
+                Municipality = model.Municipality,
+                Province = model.Province,
+                Address = model.Address,
+                ContactEmail = model.Email,
+                ContactPhone = model.PhoneNumber,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.Barangays.Add(barangay);
+            await _context.SaveChangesAsync();
+
+            // 3. Create the Identity User
+            var user = new IdentityUser { UserName = model.Email, Email = model.Email, PhoneNumber = model.PhoneNumber };
+            var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (result.Succeeded)
+            {
+                // 4. Assign role 'barangay_admin'
+                await _userManager.AddToRoleAsync(user, "barangay_admin");
+
+                // 5. Create BusinessUser (User entity)
+                var businessUser = new Models.Entities.User
+                {
+                    Email = model.Email,
+                    FullName = $"{model.FirstName} {model.LastName}".Trim(),
+                    PhoneNumber = model.PhoneNumber,
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = "barangay_admin",
+                    BarangayId = barangay.Id,
+                    BarangayName = barangay.Name,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                _context.BusinessUsers.Add(businessUser);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("New Barangay Registered: {Barangay} by {Email}", barangay.Name, model.Email);
+                await LogAuditAsync("Register", "Authentication", businessUser.Id, "User", model.Email, $"New barangay registration: {barangay.Name}");
+
+                // 6. Log the user in
+                await _signInManager.SignInAsync(user, isPersistent: false);
+
+                // Set session values
+                HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
+                HttpContext.Session.SetString("UserName", model.Email);
+                HttpContext.Session.SetString("Role", "barangay_admin");
+                HttpContext.Session.SetString("RoleLabel", "Barangay Admin");
+                HttpContext.Session.SetString("BarangayId", barangay.Id.ToString());
+                HttpContext.Session.SetString("Barangay", barangay.Name);
+
+                TempData["Success"] = "Registration successful! Welcome to JAS-MINE. Please select a subscription plan to continue.";
+                return RedirectToAction(nameof(SelectPlan));
+            }
+
+            // If we got this far, something failed
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
+            
+            // Cleanup barangay if user creation failed
+            _context.Barangays.Remove(barangay);
+            await _context.SaveChangesAsync();
+
+            return View(model);
         }
 
         // GET: /Home/Login
@@ -4118,7 +4223,6 @@ namespace JAS_MINE_IT15.Controllers
                 Status = "Unpaid",
                 IssuedAt = DateTime.Now,
                 Notes = $"Subscription to {plan.Name} ({plan.DurationMonths} month{(plan.DurationMonths > 1 ? "s" : "")})",
-                IsActive = true,
                 CreatedAt = DateTime.Now
             };
             _context.Invoices.Add(invoice);
@@ -4128,7 +4232,65 @@ namespace JAS_MINE_IT15.Controllers
             await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
                 $"{barangayName} - {plan.Name}", $"Subscribed to {plan.Name} (₱{plan.Price:N0}/mo). Invoice {invoiceNumber} generated.");
 
-            TempData["Success"] = $"Subscription created! Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated. Please upload proof of payment.";
+            TempData["Success"] = $"Subscription created! Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated.";
+
+            // Redirect to the new "Checkout" style payment page
+            return RedirectToAction(nameof(SubmitPayment), new { invoiceId = invoice.Id });
+        }
+
+        // POST: /Home/InitiateOnlinePayment — Creates a PayMongo Checkout Session and redirects
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> InitiateOnlinePayment(int invoiceId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+            var invoice = await _context.Invoices
+                .Include(i => i.Subscription)
+                .ThenInclude(s => s.Plan)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive && i.BarangayId == barangayId);
+
+            if (invoice == null || invoice.Status == "Paid")
+            {
+                TempData["Error"] = "Invalid invoice or already paid.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            var scheme = Request.Scheme;
+            var host = Request.Host.Value;
+            var successUrl = $"{scheme}://{host}{Url.Action("PaymentSuccess", "Home", new { invoiceId = invoice.Id })}";
+            var cancelUrl = $"{scheme}://{host}{Url.Action("PaymentCancel", "Home", new { invoiceId = invoice.Id })}";
+
+            var checkoutUrl = await _payMongoService.CreateCheckoutSessionAsync(
+                invoice.Amount,
+                $"JAS-MINE: {invoice.Subscription?.Plan?.Name} Subscription",
+                successUrl,
+                cancelUrl,
+                invoice.InvoiceNumber
+            );
+
+            if (!string.IsNullOrEmpty(checkoutUrl))
+            {
+                return Redirect(checkoutUrl);
+            }
+
+            TempData["Error"] = "Could not initialize automated payment. Please try manual upload.";
+            return RedirectToAction(nameof(SubmitPayment), new { invoiceId = invoice.Id });
+        }
+
+        [HttpGet]
+        public IActionResult PaymentSuccess(int invoiceId)
+        {
+            TempData["Success"] = "Payment successful! Your subscription will be activated shortly once we receive the confirmation from PayMongo.";
+            return RedirectToAction(nameof(MySubscription));
+        }
+
+        [HttpGet]
+        public IActionResult PaymentCancel(int invoiceId)
+        {
+            TempData["Error"] = "Payment was cancelled. You can try paying again from your subscription page.";
             return RedirectToAction(nameof(MySubscription));
         }
 
@@ -4492,6 +4654,40 @@ namespace JAS_MINE_IT15.Controllers
 
             TempData["Success"] = $"Payment {label} rejected.";
             return RedirectToAction(nameof(PendingPayments));
+        }
+
+        // GET: /Home/SubmitPayment?invoiceId=... — Redesigned standalone manual payment page
+        public async Task<IActionResult> SubmitPayment(int invoiceId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+            var invoice = await _context.Invoices
+                .Include(i => i.Subscription)
+                .ThenInclude(s => s.Plan)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive && i.BarangayId == barangayId);
+
+            if (invoice == null)
+            {
+                TempData["Error"] = "Invoice not found.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            if (invoice.Status == "Paid")
+            {
+                TempData["Success"] = "This invoice has already been paid.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Check if there's already a pending payment
+            var hasPending = await _context.SubscriptionPayments
+                .AnyAsync(p => p.InvoiceId == invoiceId && p.IsActive && p.Status == "PendingVerification");
+
+            ViewBag.HasPending = hasPending;
+            ViewBag.BarangayName = HttpContext.Session.GetString("Barangay") ?? "Your Barangay";
+
+            return View(invoice);
         }
 
         private static string GetRoleLabel(string role)

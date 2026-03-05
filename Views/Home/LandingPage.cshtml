@@ -563,7 +563,7 @@
             </a>
             <div class="d-flex align-items-center gap-2">
                 <a asp-controller="Home" asp-action="Login" class="btn-nav-login">Login</a>
-                <a href="#plans-section" class="btn-nav-subscribe">Subscribe</a>
+                <a asp-action="Register" class="btn-nav-subscribe">Get Started</a>
             </div>
         </div>
     </nav>
@@ -595,11 +595,11 @@
             <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
                 <a href="#plans-section" class="btn-hero-primary">
                     <i class="bi bi-grid-3x3-gap-fill"></i>
-                    View Plans
+                    View Pricing
                 </a>
-                <a asp-controller="Home" asp-action="Login" class="btn-hero-ghost">
-                    <i class="bi bi-box-arrow-in-right"></i>
-                    Login to System
+                <a asp-action="Register" class="btn-hero-ghost">
+                    <i class="bi bi-person-plus"></i>
+                    Get Started Now
                 </a>
             </div>
         </div>
@@ -676,75 +676,55 @@
     <section class="features-section" id="features-section">
         <div class="container">
             <div class="text-center mb-5">
-                <div class="section-eyebrow">Platform Modules</div>
-                <h2 class="section-title">Everything your barangay needs</h2>
-                <p class="section-sub mx-auto">Five powerful modules built specifically for Philippine barangay operations.</p>
+                <div class="section-eyebrow">Smart Solutions</div>
+                <h2 class="section-title">Featured Modules</h2>
+                <p class="section-sub mx-auto">Core modules powering barangay knowledge management</p>
             </div>
 
-            <div class="row g-4">
-                <!-- 1 -->
-                <div class="col-12 col-md-6 col-lg-4">
+            <div class="row g-4 justify-content-center">
+                <div class="col-12 col-md-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrap" style="background:rgba(37,99,171,.10);color:#2563ab;">
-                            <i class="bi bi-archive-fill"></i>
+                        <div class="feature-icon-wrap" style="background:#f0f5ff;color:var(--brand-light);">
+                            <i class="bi bi-book"></i>
                         </div>
-                        <h5>Knowledge Repository</h5>
-                        <p class="feature-desc">Store, organize, and access official barangay documents in a centralized, secure repository with role-based access.</p>
-                        <div class="feature-detail">
-                            <strong>What it does:</strong> Upload resolutions, ordinances, and files. Search instantly. Control who can view or edit.
-                        </div>
+                        <h5>Knowledge Repository Module</h5>
+                        <p class="feature-desc">Store, organize, and access official barangay documents in a centralized and secure repository.</p>
                     </div>
                 </div>
-                <!-- 2 -->
-                <div class="col-12 col-md-6 col-lg-4">
+                <div class="col-12 col-md-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrap" style="background:rgba(245,158,11,.10);color:#d97706;">
-                            <i class="bi bi-file-earmark-ruled-fill"></i>
+                        <div class="feature-icon-wrap" style="background:#f0f7ff;color:var(--brand-light);">
+                            <i class="bi bi-file-earmark-text"></i>
                         </div>
-                        <h5>Policy &amp; Procedures</h5>
-                        <p class="feature-desc">Create, update, and manage barangay policies with a structured approval workflow and full revision history.</p>
-                        <div class="feature-detail">
-                            <strong>What it does:</strong> Draft policies, route for approval, track status (pending / approved / rejected).
-                        </div>
+                        <h5>Policy and Procedures Management Module</h5>
+                        <p class="feature-desc">Create, update, and manage barangay policies and procedures with approval tracking.</p>
                     </div>
                 </div>
-                <!-- 3 -->
-                <div class="col-12 col-md-6 col-lg-4">
+                <div class="col-12 col-md-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrap" style="background:rgba(139,92,246,.10);color:#7c3aed;">
-                            <i class="bi bi-lightbulb-fill"></i>
+                        <div class="feature-icon-wrap" style="background:#fffcf0;color:var(--gold);">
+                            <i class="bi bi-lightbulb"></i>
                         </div>
-                        <h5>Lessons Learned</h5>
-                        <p class="feature-desc">Record insights from past projects and activities so your team continuously improves and avoids repeated mistakes.</p>
-                        <div class="feature-detail">
-                            <strong>What it does:</strong> Log what worked and what didn't. Build an institutional knowledge base over time.
-                        </div>
+                        <h5>Lessons Learned Management Module</h5>
+                        <p class="feature-desc">Record and review lessons learned from past barangay activities to improve future decisions.</p>
                     </div>
                 </div>
-                <!-- 4 -->
-                <div class="col-12 col-md-6 col-lg-4">
+                <div class="col-12 col-md-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrap" style="background:rgba(22,163,74,.10);color:#16a34a;">
-                            <i class="bi bi-trophy-fill"></i>
+                        <div class="feature-icon-wrap" style="background:#f0faf0;color:var(--accent);">
+                            <i class="bi bi-award"></i>
                         </div>
-                        <h5>Best Practices Database</h5>
-                        <p class="feature-desc">Maintain a collection of proven best practices that guide staff and onboard new members quickly and confidently.</p>
-                        <div class="feature-detail">
-                            <strong>What it does:</strong> Save step-by-step guides. Build your barangay's own operational playbook.
-                        </div>
+                        <h5>Best Practices Database Module</h5>
+                        <p class="feature-desc">Maintain a collection of proven best practices to guide barangay staff operations.</p>
                     </div>
                 </div>
-                <!-- 5 -->
-                <div class="col-12 col-md-6 col-lg-4">
+                <div class="col-12 col-md-4">
                     <div class="feature-card">
-                        <div class="feature-icon-wrap" style="background:rgba(14,165,233,.10);color:#0284c7;">
-                            <i class="bi bi-people-fill"></i>
+                        <div class="feature-icon-wrap" style="background:#f5faff;color:#0284c7;">
+                            <i class="bi bi-share"></i>
                         </div>
-                        <h5>Knowledge Sharing Portal</h5>
-                        <p class="feature-desc">A private collaborative space for barangay staff to post announcements, start discussions, and share updates.</p>
-                        <div class="feature-detail">
-                            <strong>What it does:</strong> Like a secure internal forum—communicate, collaborate, and share knowledge seamlessly.
-                        </div>
+                        <h5>Knowledge Sharing Portal Module</h5>
+                        <p class="feature-desc">Allow barangay staff to share discussions, announcements, and knowledge collaboratively.</p>
                     </div>
                 </div>
             </div>
@@ -755,9 +735,9 @@
     <section class="pricing-section" id="plans-section">
         <div class="container py-2">
             <div class="text-center mb-5">
-                <div class="section-eyebrow">Pricing</div>
-                <h2 class="section-title">Transparent, simple pricing</h2>
-                <p class="section-sub mx-auto">Choose a plan that fits your barangay. Upgrade or downgrade anytime.</p>
+                <div class="section-eyebrow">Pricing Plans</div>
+                <h2 class="section-title">Subscription Plans</h2>
+                <p class="section-sub mx-auto">Choose a plan that fits your barangay's needs</p>
             </div>
 
             @if (!plans.Any())
@@ -773,7 +753,7 @@
                     @for (int i = 0; i < planCount; i++)
                     {
                         var plan         = plans[i];
-                        var isProfessional = plan.Name == "Professional";
+                        var isProfessional = plan.Name == "Standard Plan";
                         var features     = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                         var priceColor   = isProfessional ? "var(--brand)" : "#0284c7";
 
@@ -825,10 +805,9 @@
                                         ? Url.Action("SelectPlan", "Home") + "?planId=" + plan.Id
                                         : Url.Action("Login", "Home") + "?planId=" + plan.Id;
                                 }
-                                <a href="@subscribeUrl"
+                                <a asp-controller="Home" asp-action="Register"
                                    class="btn-plan @(isProfessional ? "btn-plan-primary" : "btn-plan-outline")">
-                                    <i class="bi bi-arrow-right-circle-fill"></i>
-                                    Subscribe Now
+                                    Get Started
                                 </a>
                             </div>
                         </div>

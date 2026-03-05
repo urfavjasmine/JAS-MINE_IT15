@@ -1,0 +1,624 @@
+@model JAS_MINE_IT15.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Barangay Registration - JAS-MINE";
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"]</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <style>
+        :root {
+            --brand:        #1a3a5c;
+            --brand-mid:    #1e4d7a;
+            --brand-light:  #2563ab;
+            --accent:       #16a34a;
+            --surface:      #f4f7fa;
+            --card-bg:      #ffffff;
+            --text-dark:    #1e293b;
+            --text-muted:   #64748b;
+            --border:       #e2e8f0;
+            --radius-lg:    12px;
+            --radius-md:    10px;
+            --radius-sm:    8px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--surface);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            margin: 0;
+        }
+
+        .reg-wrapper {
+            width: 100%;
+            max-width: 650px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reg-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .reg-logo {
+            height: 54px;
+            margin-bottom: 0.75rem;
+        }
+
+        .reg-title {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--brand);
+            margin-bottom: 0.25rem;
+        }
+
+        .reg-subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* --- Stepper --- */
+        .stepper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+
+        .step-label {
+            font-weight: 500;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .step-item.active .step-circle {
+            background: var(--brand);
+            border-color: var(--brand);
+            color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(26,58,92,0.1);
+        }
+
+        .step-item.active .step-label {
+            color: var(--brand);
+            font-weight: 700;
+        }
+
+        .step-item.completed .step-circle {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+        }
+
+        .step-item.completed .step-label {
+            color: var(--text-dark);
+        }
+
+        .step-line {
+            height: 1px;
+            background: var(--border);
+            width: 80px;
+            margin: 0 15px;
+        }
+
+        /* --- Card --- */
+        .reg-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+            padding: 2.5rem;
+        }
+
+        .section-title {
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.88rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .form-control {
+            border-radius: var(--radius-sm);
+            padding: 0.7rem 1rem;
+            border: 1px solid var(--border);
+            font-size: 0.95rem;
+            background-color: #f8fafc;
+            color: var(--text-dark);
+        }
+
+        .form-control:focus {
+            background-color: #ffffff;
+            border-color: var(--brand-light);
+            box-shadow: 0 0 0 3px rgba(37,99,171,0.08);
+        }
+
+        .input-group-text {
+            background-color: #f8fafc;
+            border-color: var(--border);
+            color: var(--text-muted);
+        }
+
+        .btn-next {
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-next:hover {
+            background: var(--brand-mid);
+            color: white;
+            transform: translateX(2px);
+        }
+
+        .btn-back {
+            background: #ffffff;
+            color: var(--text-dark);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-back:hover {
+            background: #f8fafc;
+            border-color: var(--text-muted);
+        }
+
+        .auth-footer {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .auth-footer a {
+            color: var(--brand);
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        /* --- Review Styles --- */
+        .review-box {
+            background: #f8fafc;
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+
+        .review-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+            color: var(--brand);
+        }
+
+        .review-group {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            margin-bottom: 6px;
+            font-size: 0.88rem;
+        }
+
+        .review-label {
+            color: var(--text-muted);
+        }
+
+        .review-value {
+            font-weight: 600;
+        }
+
+        .review-value.badge-role {
+            color: var(--accent);
+        }
+
+        .alert-info-custom {
+            background: #f0fdf4;
+            border: 1px solid #dcfce7;
+            color: #166534;
+            font-size: 0.82rem;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Hide steps initially */
+        .reg-step {
+            display: none;
+        }
+
+        .reg-step.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="reg-wrapper">
+        <div class="reg-header">
+            <a href="/" class="text-decoration-none">
+                <img src="/images/jasmine-logo.png" class="reg-logo" alt="JAS-MINE Logo" />
+            </a>
+            <div class="reg-title">JAS-MINE</div>
+            <div class="reg-subtitle">Barangay Registration</div>
+        </div>
+
+        <!-- Stepper -->
+        <div class="stepper">
+            <div class="step-item active" id="step-marker-1">
+                <div class="step-circle" id="circle-1">1</div>
+                <div class="step-label">Personal Details</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step-item" id="step-marker-2">
+                <div class="step-circle" id="circle-2">2</div>
+                <div class="step-label">Barangay Details</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step-item" id="step-marker-3">
+                <div class="step-circle" id="circle-3">3</div>
+                <div class="step-label">Review</div>
+            </div>
+        </div>
+
+        <div class="reg-card">
+            @if (!ViewData.ModelState.IsValid)
+            {
+                 <div class="alert alert-danger mb-4" style="border-radius:8px; font-size:0.85rem;">
+                     <ul class="mb-0 ps-3">
+                         @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                         {
+                             <li>@error.ErrorMessage</li>
+                         }
+                     </ul>
+                 </div>
+            }
+
+            <form asp-action="Register" method="post" id="regForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="CurrentStep" id="current-step-input" />
+
+                <!-- --- STEP 1: Personal Details --- -->
+                <div class="reg-step active" id="step-1">
+                    <h3 class="section-title">Personal Details</h3>
+                    <p class="section-desc">Enter your personal information to create an admin account.</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="FirstName" class="form-label">First Name *</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input asp-for="FirstName" class="form-control" placeholder="Juan" required />
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="LastName" class="form-label">Last Name *</label>
+                            <input asp-for="LastName" class="form-control" placeholder="Dela Cruz" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label">Email Address *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input asp-for="Email" type="email" class="form-control" placeholder="juan@example.com" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="PhoneNumber" class="form-label"></label>
+                        <input asp-for="PhoneNumber" class="form-control" placeholder="09XX XXX XXXX" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label">Password *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Create a password" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="ConfirmPassword" class="form-label">Confirm Password *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                            <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Confirm your password" required />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="auth-footer">
+                            Already have an account? <a asp-action="Login">Login</a>
+                        </div>
+                        <button type="button" class="btn-next" onclick="nextStep()">
+                            Next <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- --- STEP 2: Barangay Details --- -->
+                <div class="reg-step" id="step-2">
+                    <h3 class="section-title">Barangay Details</h3>
+                    <p class="section-desc">Provide your barangay details to set up your organization.</p>
+
+                    <div class="mb-3">
+                        <label asp-for="BarangayName" class="form-label">Barangay Name *</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-building"></i></span>
+                            <input asp-for="BarangayName" class="form-control" placeholder="e.g. Barangay San Jose" required />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Municipality" class="form-label">Municipality/City *</label>
+                            <input asp-for="Municipality" class="form-control" placeholder="e.g. Lipa City" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Province" class="form-label">Province *</label>
+                            <input asp-for="Province" class="form-control" placeholder="e.g. Batangas" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Address" class="form-label">Complete Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                            <input asp-for="Address" class="form-control" placeholder="Street, Purok, etc." />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn-back" onclick="prevStep()">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn-next" onclick="prepareReview()">
+                            Next <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- --- STEP 3: Review --- -->
+                <div class="reg-step" id="step-3">
+                    <h3 class="section-title">Review</h3>
+                    <p class="section-desc">Review your details before completing registration.</p>
+
+                    <div class="review-box">
+                        <div class="review-header">
+                            <i class="bi bi-person"></i> Personal Details
+                        </div>
+                        <div class="row g-0">
+                            <div class="col-6">
+                                <div class="review-group">
+                                    <span class="review-label">Name:</span>
+                                    <span class="review-value" id="rv-name">---</span>
+                                </div>
+                                <div class="review-group">
+                                    <span class="review-label">Phone:</span>
+                                    <span class="review-value" id="rv-phone">---</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="review-group">
+                                    <span class="review-label">Email:</span>
+                                    <span class="review-value" id="rv-email">---</span>
+                                </div>
+                                <div class="review-group">
+                                    <span class="review-label">Role:</span>
+                                    <span class="review-value badge-role">Barangay Administrator</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="review-box">
+                        <div class="review-header">
+                            <i class="bi bi-building"></i> Barangay Details
+                        </div>
+                        <div class="row g-0">
+                            <div class="col-6">
+                                <div class="review-group">
+                                    <span class="review-label">Barangay:</span>
+                                    <span class="review-value" id="rv-brgy">---</span>
+                                </div>
+                                <div class="review-group">
+                                    <span class="review-label">Province:</span>
+                                    <span class="review-value" id="rv-province">---</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="review-group">
+                                    <span class="review-label">Municipality:</span>
+                                    <span class="review-value" id="rv-city">---</span>
+                                </div>
+                                <div class="review-group">
+                                    <span class="review-label">Address:</span>
+                                    <span class="review-value" id="rv-address">---</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert-info-custom d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle-fill mt-1"></i>
+                        <div>After registration, you'll be redirected to select a subscription plan and pay to activate your account.</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn-back" onclick="prevStep()">
+                            <i class="bi bi-arrow-left"></i> Back
+                        </button>
+                        <button type="submit" class="btn-next" style="background: #1e4d7a;">
+                            Complete Registration
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+
+        <div class="text-center mt-4 mb-2">
+            <div class="footer-copy text-muted small">&copy; @DateTime.Now.Year JAS-MINE. All rights reserved.</div>
+        </div>
+    </div>
+
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let currentStep = 1;
+
+        function updateStepper() {
+            // Update circles
+            for (let i = 1; i <= 3; i++) {
+                const marker = document.getElementById('step-marker-' + i);
+                const circle = document.getElementById('circle-' + i);
+                
+                if (i < currentStep) {
+                    marker.classList.remove('active');
+                    marker.classList.add('completed');
+                    marker.querySelector('.step-circle').innerHTML = '<i class="bi bi-check-lg"></i>';
+                } else if (i === currentStep) {
+                    marker.classList.add('active');
+                    marker.classList.remove('completed');
+                    marker.querySelector('.step-circle').innerHTML = i;
+                } else {
+                    marker.classList.remove('active');
+                    marker.classList.remove('completed');
+                    marker.querySelector('.step-circle').innerHTML = i;
+                }
+            }
+        }
+
+        function nextStep() {
+            // Basic validation for Step 1
+            if (currentStep === 1) {
+                const fname = document.getElementById('FirstName').value;
+                const lname = document.getElementById('LastName').value;
+                const email = document.getElementById('Email').value;
+                const pass = document.getElementById('Password').value;
+                const cpass = document.getElementById('ConfirmPassword').value;
+
+                if (!fname || !lname || !email || !pass || !cpass) {
+                    alert('Please fill out all required fields.');
+                    return;
+                }
+                if (pass !== cpass) {
+                    alert('Passwords do not match.');
+                    return;
+                }
+            }
+
+            document.getElementById('step-' + currentStep).classList.remove('active');
+            currentStep++;
+            document.getElementById('step-' + currentStep).classList.add('active');
+            document.getElementById('current-step-input').value = currentStep;
+            updateStepper();
+            window.scrollTo(0, 0);
+        }
+
+        function prevStep() {
+            document.getElementById('step-' + currentStep).classList.remove('active');
+            currentStep--;
+            document.getElementById('step-' + currentStep).classList.add('active');
+            document.getElementById('current-step-input').value = currentStep;
+            updateStepper();
+            window.scrollTo(0, 0);
+        }
+
+        function prepareReview() {
+            // Validation for Step 2
+            const brgy = document.getElementById('BarangayName').value;
+            const city = document.getElementById('Municipality').value;
+            const prov = document.getElementById('Province').value;
+
+            if (!brgy || !city || !prov) {
+                alert('Please fill out all required fields.');
+                return;
+            }
+
+            // Map values to Review page
+            document.getElementById('rv-name').innerText = document.getElementById('FirstName').value + ' ' + document.getElementById('LastName').value;
+            document.getElementById('rv-email').innerText = document.getElementById('Email').value;
+            document.getElementById('rv-phone').innerText = document.getElementById('PhoneNumber').value || '---';
+            
+            document.getElementById('rv-brgy').innerText = brgy;
+            document.getElementById('rv-city').innerText = city;
+            document.getElementById('rv-province').innerText = prov;
+            document.getElementById('rv-address').innerText = document.getElementById('Address').value || '---';
+
+            nextStep();
+        }
+    </script>
+</body>
+</html>

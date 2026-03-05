@@ -187,45 +187,44 @@ namespace JAS_MINE_IT15.Data
             {
                 new
                 {
-                    Name        = "Basic",
+                    Name        = "Basic Plan",
                     Description = "Essential tools for small barangays getting started.",
-                    Price       = 299.00m,
+                    Price       = 500.00m,
                     Duration    = 1,
-                    UserLimit   = 4,
+                    UserLimit   = 5,
                     Features    = string.Join(";",
-                        "Up to 4 users",
-                        "View records",
-                        "Add and manage records",
-                        "View announcements",
-                        "Basic reports")
+                        "Knowledge Repository Module",
+                        "Policy Management Module",
+                        "Email Support",
+                        "Up to 5 Users")
                 },
                 new
                 {
-                    Name        = "Professional",
+                    Name        = "Standard Plan",
                     Description = "Everything you need to manage your barangay records efficiently.",
-                    Price       = 599.00m,
-                    Duration    = 1,
-                    UserLimit   = 10,
-                    Features    = string.Join(";",
-                        "Up to 10 users",
-                        "All Basic features",
-                        "Create and manage announcements",
-                        "Better reports",
-                        "Activity logs")
-                },
-                new
-                {
-                    Name        = "Enterprise",
-                    Description = "Complete access with advanced tools and detailed tracking.",
-                    Price       = 999.00m,
-                    Duration    = 1,
+                    Price       = 5000.00m,
+                    Duration    = 12,
                     UserLimit   = 20,
                     Features    = string.Join(";",
-                        "Up to 20 users",
-                        "All Professional features",
-                        "Dashboard (summary view)",
-                        "Archive and restore data",
-                        "Detailed tracking")
+                        "All Basic features",
+                        "Lessons Learned Module",
+                        "Best Practices Module",
+                        "Priority Support",
+                        "Up to 20 Users")
+                },
+                new
+                {
+                    Name        = "Enterprise Plan",
+                    Description = "Complete access with advanced tools and detailed tracking.",
+                    Price       = 8000.00m,
+                    Duration    = 12,
+                    UserLimit   = 999,
+                    Features    = string.Join(";",
+                        "Full ERP access",
+                        "Knowledge Sharing Portal",
+                        "Audit Logs",
+                        "Dedicated Support",
+                        "Unlimited Users")
                 }
             };
 

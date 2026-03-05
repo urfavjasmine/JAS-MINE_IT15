@@ -29,6 +29,7 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
+builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")

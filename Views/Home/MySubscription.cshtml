@@ -266,69 +266,20 @@
                                         <td class="text-center">
                                             @if (inv.Status == "Unpaid" || inv.Status == "Overdue")
                                             {
-                                                <button type="button" class="btn btn-sm btn-primary"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#uploadModal-@inv.Id">
-                                                    <i class="bi bi-upload me-1"></i>Upload Proof
-                                                </button>
+                                                <div class="d-flex flex-column gap-2">
+                                                    @* PayMongo Automated Flow *@
+                                                    <form asp-action="SubscribeToPlan" method="post">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="planId" value="@sub.PlanId" />
+                                                        <button type="submit" class="btn btn-sm btn-success w-100">
+                                                            <i class="bi bi- lightning-charge-fill me-1"></i>Pay with GCash/Maya
+                                                        </button>
+                                                    </form>
 
-                                                <!-- Upload Modal -->
-                                                <div class="modal fade" id="uploadModal-@inv.Id" tabindex="-1" aria-hidden="true">
-                                                    <div class="modal-dialog modal-dialog-centered">
-                                                        <div class="modal-content">
-                                                            <form asp-action="UploadPaymentProof" method="post" enctype="multipart/form-data">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="invoiceId" value="@inv.Id" />
-
-                                                                <div class="modal-header">
-                                                                    <h6 class="modal-title fw-bold">
-                                                                        <i class="bi bi-upload me-1"></i> Upload Payment Proof
-                                                                    </h6>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                                </div>
-
-                                                                <div class="modal-body">
-                                                                    <div class="mb-3 p-3 bg-light rounded">
-                                                                        <div class="small text-muted">Invoice</div>
-                                                                        <div class="fw-semibold font-monospace">@inv.InvoiceNumber</div>
-                                                                        <div class="text-primary fw-bold">@Peso(inv.Amount)</div>
-                                                                    </div>
-
-                                                                    <div class="mb-3">
-                                                                        <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
-                                                                        <select name="paymentMethod" class="form-select" required>
-                                                                            <option value="">Select method...</option>
-                                                                            <option value="GCash">GCash</option>
-                                                                            <option value="Bank Transfer">Bank Transfer</option>
-                                                                            <option value="Cash">Cash</option>
-                                                                            <option value="Check">Check</option>
-                                                                            <option value="Maya">Maya</option>
-                                                                        </select>
-                                                                    </div>
-
-                                                                    <div class="mb-3">
-                                                                        <label class="form-label fw-semibold">Reference Number</label>
-                                                                        <input type="text" name="referenceNumber" class="form-control"
-                                                                               placeholder="Transaction ref #" maxlength="100" />
-                                                                    </div>
-
-                                                                    <div class="mb-0">
-                                                                        <label class="form-label fw-semibold">Proof of Payment <span class="text-danger">*</span></label>
-                                                                        <input type="file" name="proofFile" class="form-control"
-                                                                               accept=".jpg,.jpeg,.png,.pdf" required />
-                                                                        <div class="form-text">JPG, PNG, or PDF — max 5 MB</div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                                                                    <button type="submit" class="btn btn-primary btn-sm">
-                                                                        <i class="bi bi-upload me-1"></i> Submit Payment
-                                                                    </button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
+                                                    <a href="@Url.Action("SubmitPayment", "Home", new { invoiceId = inv.Id })" 
+                                                       class="btn btn-sm btn-outline-primary w-100">
+                                                        <i class="bi bi-upload me-1"></i>Manual Upload
+                                                    </a>
                                                 </div>
                                             }
                                             else
