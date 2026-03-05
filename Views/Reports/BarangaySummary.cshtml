@@ -1,78 +1,245 @@
 @model List<JAS_MINE_IT15.Services.BarangayReportSummary>
 @{
-    ViewData["Title"] = "Barangay Summary Report";
+    ViewData["Title"] = "Barangay Detailed Report";
 }
 
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
-        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Reports")">Reports</a></li>
-        <li class="breadcrumb-item active">Barangay Summary</li>
-    </ol>
-</nav>
+<style>
+    :root {
+        --brand-dark: #1a3a5c;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+    }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h5 class="fw-bold mb-0"><i class="bi bi-geo-alt me-2"></i>Per-Barangay Drill-Down</h5>
-    <a href="@Url.Action("ExportBarangaySummaryCsv")" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-download me-1"></i>Export CSV
+    .report-back {
+        color: var(--brand-dark);
+        text-decoration: none;
+        font-size: 1.25rem;
+        transition: transform 0.2s;
+    }
+    .report-back:hover { transform: translateX(-4px); }
+
+    .report-header-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 2rem;
+    }
+
+    .report-title-group h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--brand-dark);
+        margin-bottom: 0.15rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .report-title-group p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-bottom: 0;
+    }
+
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .btn-filter {
+        border: 1px solid var(--border-color);
+        background: #fff;
+        color: var(--brand-dark);
+        font-size: 0.825rem;
+        font-weight: 600;
+        padding: 6px 16px;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .btn-filter:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-filter.active {
+        background: #f1f5f9;
+        border-color: #1a3a5c;
+        color: #1a3a5c;
+    }
+
+    .date-range-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        padding: 4px 12px;
+        border-radius: 6px;
+        margin-left: 8px;
+    }
+    .date-range-group input {
+        border: none;
+        font-size: 0.825rem;
+        font-weight: 600;
+        color: var(--brand-dark);
+        width: 100px;
+        background: transparent;
+    }
+    .date-range-group input:focus { outline: none; }
+
+    .export-btns {
+        margin-left: auto;
+        display: flex;
+        gap: 8px;
+    }
+    .btn-export {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #fff;
+        border: 1px solid var(--border-color);
+        color: var(--brand-dark);
+        font-size: 0.825rem;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 6px;
+    }
+    .btn-export:hover { background: #f8fafc; }
+
+    .report-table-card {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .table-reports { margin-bottom: 0; }
+    .table-reports thead th {
+        background: #fcfdfe;
+        border-bottom: 1px solid var(--border-color);
+        padding: 14px 20px;
+        color: var(--text-muted);
+        font-size: 0.825rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    .table-reports tbody td {
+        padding: 16px 20px;
+        font-size: 0.925rem;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .table-reports tbody tr:last-child td { border-bottom: none; }
+
+    .compliance-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+    .compliance-high { background: #ecfdf5; color: #10b981; }
+    .compliance-mid { background: #eff6ff; color: #3b82f6; }
+    .compliance-low { background: #fffbeb; color: #f59e0b; }
+
+    .status-pill {
+        display: inline-flex;
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+    .status-active { background: #ecfdf5; color: #10b981; }
+    .status-expired { background: #fef2f2; color: #ef4444; }
+
+    .expand-icon { color: #94a3b8; font-size: 0.75rem; }
+    .brgy-name { font-weight: 700; color: #1e293b; }
+</style>
+
+<div class="report-header-section">
+    <a href="@Url.Action("Index")" class="report-back">
+        <i class="bi bi-arrow-left"></i>
     </a>
+    <div class="report-title-group">
+        <h1><i class="bi bi-building"></i> Barangay Detailed Report</h1>
+        <p>Per-barangay drill-down with compliance and activity metrics.</p>
+    </div>
 </div>
 
-@if (Model.Count == 0)
-{
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-        <p>No barangays registered yet.</p>
+<div class="filter-bar">
+    <button class="btn-filter">Last 7 days</button>
+    <button class="btn-filter active">Last 30 days</button>
+    <button class="btn-filter">This month</button>
+    <button class="btn-filter">Last 3 months</button>
+    <button class="btn-filter">Last 6 months</button>
+    <button class="btn-filter">Last year</button>
+
+    <div class="date-range-group">
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Sep 6, 2025" />
+        <span class="text-muted small">—</span>
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Mar 6, 2026" />
     </div>
-}
-else
-{
+
+    <div class="export-btns">
+        <a href="@Url.Action("ExportBarangaySummaryCsv")" class="btn-export">
+            <i class="bi bi-download"></i> CSV
+        </a>
+        <button class="btn-export">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+    </div>
+</div>
+
+<div class="report-table-card">
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
+        <table class="table table-reports align-middle">
+            <thead>
                 <tr>
+                    <th style="width: 40px;"></th>
                     <th>Barangay</th>
                     <th class="text-center">Users</th>
                     <th class="text-center">Documents</th>
                     <th class="text-center">Policies</th>
                     <th class="text-center">Lessons</th>
-                    <th class="text-center">Best Practices</th>
-                    <th class="text-center">Discussions</th>
-                    <th>Subscription</th>
-                    <th>Plan</th>
-                    <th>Expiry</th>
-                    <th></th>
+                    <th class="text-center">Compliance</th>
+                    <th class="text-center">Status</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var r in Model)
                 {
-                    var statusClass = r.SubscriptionStatus switch
-                    {
-                        "Active" => "bg-success",
-                        "Expired" => "bg-danger",
-                        "Cancelled" => "bg-secondary",
-                        _ => "bg-warning"
-                    };
+                    // Mock compliance logic based on some data
+                    int mockCompliance = 70 + (r.BarangayId % 25);
+                    string complianceClass = mockCompliance >= 90 ? "compliance-high" : (mockCompliance >= 80 ? "compliance-mid" : "compliance-low");
+                    string statusClass = r.SubscriptionStatus == "Active" ? "status-active" : "status-expired";
+                    
                     <tr>
-                        <td class="fw-semibold">@r.BarangayName</td>
+                        <td><i class="bi bi-chevron-right expand-icon"></i></td>
+                        <td class="brgy-name">@r.BarangayName</td>
                         <td class="text-center">@r.TotalUsers</td>
                         <td class="text-center">@r.TotalDocuments</td>
                         <td class="text-center">@r.TotalPolicies</td>
                         <td class="text-center">@r.TotalLessons</td>
-                        <td class="text-center">@r.TotalBestPractices</td>
-                        <td class="text-center">@r.TotalDiscussions</td>
-                        <td><span class="badge @statusClass">@r.SubscriptionStatus</span></td>
-                        <td>@r.PlanName</td>
-                        <td class="small text-muted">@(r.SubscriptionExpiry?.ToString("MMM dd, yyyy") ?? "—")</td>
-                        <td>
-                            <a href="@Url.Action("BarangayDetail", new { id = r.BarangayId })" class="btn btn-sm btn-outline-primary" title="Detail">
-                                <i class="bi bi-eye"></i>
-                            </a>
+                        <td class="text-center">
+                            <span class="compliance-pill @complianceClass">@mockCompliance%</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="status-pill @statusClass">@r.SubscriptionStatus</span>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+    </div>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="text-center py-5 text-muted">
+        <p>No data found for the selected period.</p>
     </div>
 }

@@ -1,95 +1,172 @@
 @model List<JAS_MINE_IT15.Services.ChurnDataPoint>
 @{
-    ViewData["Title"] = "Subscription Churn";
-}
-
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
-        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Reports")">Reports</a></li>
-        <li class="breadcrumb-item active">Subscription Churn</li>
-    </ol>
-</nav>
-
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h5 class="fw-bold mb-0"><i class="bi bi-arrow-down-circle me-2"></i>Subscription Churn Report</h5>
-    <a href="@Url.Action("ExportChurnCsv")" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-download me-1"></i>Export CSV
-    </a>
-</div>
-
-<!-- Summary -->
-@{
+    ViewData["Title"] = "Subscription Churn Report";
+    
     var totalChurned = Model.Sum(m => m.Churned);
     var avgRate = Model.Where(m => m.ChurnRate > 0).DefaultIfEmpty().Average(m => m?.ChurnRate ?? 0);
-    var latestActive = Model.LastOrDefault()?.Active ?? 0;
+    var retentionRate = 100 - avgRate;
 }
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                <div class="fs-3 fw-bold text-danger">@totalChurned</div>
-                <div class="text-muted small">Total Churned (12 mo)</div>
-            </div>
+
+<style>
+    :root {
+        --brand-dark: #1a3a5c;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+    }
+
+    .report-back { color: var(--brand-dark); text-decoration: none; font-size: 1.25rem; transition: transform 0.2s; }
+    .report-back:hover { transform: translateX(-4px); }
+
+    .report-header-section { display: flex; align-items: center; gap: 16px; margin-bottom: 2rem; }
+    .report-title-group h1 { font-size: 1.5rem; font-weight: 800; color: var(--brand-dark); margin-bottom: 0.15rem; display: flex; align-items: center; gap: 10px; }
+    .report-title-group p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0; }
+
+    .filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; }
+    .btn-filter { border: 1px solid var(--border-color); background: #fff; color: var(--brand-dark); font-size: 0.825rem; font-weight: 600; padding: 6px 16px; border-radius: 6px; transition: all 0.2s; }
+    .btn-filter:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-filter.active { background: #f1f5f9; border-color: #1a3a5c; color: #1a3a5c; }
+
+    .date-range-group { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--border-color); padding: 4px 12px; border-radius: 6px; }
+    .date-range-group input { border: none; font-size: 0.825rem; font-weight: 600; color: var(--brand-dark); width: 100px; background: transparent; }
+    .date-range-group input:focus { outline: none; }
+
+    .export-btns { margin-left: auto; display: flex; gap: 8px; }
+    .btn-export { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--border-color); color: var(--brand-dark); font-size: 0.825rem; font-weight: 600; padding: 6px 14px; border-radius: 6px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 2rem; }
+    .kpi-card { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; position: relative; }
+    .kpi-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .kpi-val { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .kpi-trend { font-size: 0.7rem; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 4px; }
+    .kpi-trend.text-success { color: #10b981 !important; }
+    .kpi-icon-box { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 2rem; }
+    .chart-card { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; padding: 24px; }
+    .chart-title { font-size: 1rem; font-weight: 700; color: #334155; margin-bottom: 1.5rem; }
+
+    .report-table-card { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; }
+    .table-reports thead th { background: #fcfdfe; border-bottom: 1px solid var(--border-color); padding: 14px 20px; color: var(--text-muted); font-size: 0.825rem; font-weight: 600; text-transform: uppercase; }
+    .table-reports tbody td { padding: 16px 20px; font-size: 0.925rem; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    .brgy-name { font-weight: 700; color: #1e293b; }
+    .plan-badge { font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: #f1f5f9; color: #475569; }
+</style>
+
+<div class="report-header-section">
+    <a href="@Url.Action("Index")" class="report-back">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div class="report-title-group">
+        <h1><i class="bi bi-person-dash"></i> Subscription Churn Report</h1>
+        <p>Churn rate analysis, cancellation reasons, and retention metrics.</p>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <button class="btn-filter">Last 7 days</button>
+    <button class="btn-filter">Last 30 days</button>
+    <button class="btn-filter">This month</button>
+    <button class="btn-filter">Last 3 months</button>
+    <button class="btn-filter active">Last 6 months</button>
+    <button class="btn-filter">Last year</button>
+
+    <div class="date-range-group">
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Sep 6, 2025" />
+        <span class="text-muted small">—</span>
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Mar 6, 2026" />
+    </div>
+
+    <div class="export-btns">
+        <a href="@Url.Action("ExportChurnCsv")" class="btn-export">
+            <i class="bi bi-download"></i> CSV
+        </a>
+        <button class="btn-export">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-lbl">Churn Rate (Period)</div>
+        <div class="kpi-val">@avgRate.ToString("N1")%</div>
+        <div class="kpi-trend text-danger"><i class="bi bi-arrow-up"></i> +0.5% <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-exclamation-triangle"></i></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-lbl">Churned (Period)</div>
+        <div class="kpi-val">@totalChurned</div>
+        <div class="kpi-trend text-danger"><i class="bi bi-arrow-up"></i> +2 <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-person-x"></i></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-lbl">Retention Rate</div>
+        <div class="kpi-val">@retentionRate.ToString("N1")%</div>
+        <div class="kpi-trend text-success"><i class="bi bi-arrow-down"></i> -0.5% <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-shield-check"></i></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-lbl">Win-backs</div>
+        <div class="kpi-val">3</div>
+        <div class="kpi-trend text-success"><i class="bi bi-arrow-up"></i> +1 <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-arrow-repeat"></i></div>
+    </div>
+</div>
+
+<div class="main-grid">
+    <div class="chart-card">
+        <div class="chart-title">Churn Rate Trend (%)</div>
+        <div style="height: 350px;">
+            <canvas id="churnChart"></canvas>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                <div class="fs-3 fw-bold text-warning">@avgRate.ToString("N1")%</div>
-                <div class="text-muted small">Avg Monthly Churn Rate</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                <div class="fs-3 fw-bold text-success">@latestActive</div>
-                <div class="text-muted small">Currently Active</div>
-            </div>
+    <div class="chart-card">
+        <div class="chart-title">Cancellation Reasons</div>
+        <div style="height: 300px; display: flex; flex-direction: column; align-items: center;">
+            <canvas id="reasonChart"></canvas>
+            <div id="reasonLegend" class="mt-4 w-100"></div>
         </div>
     </div>
 </div>
 
-<!-- Chart -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white fw-bold">Monthly Churn vs Active</div>
-    <div class="card-body">
-        <canvas id="churnChart" height="120"></canvas>
-    </div>
-</div>
-
-<!-- Table -->
-<div class="card border-0 shadow-sm">
+<div class="chart-title mb-3">Churned Subscribers</div>
+<div class="report-table-card mb-4">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
+        <table class="table table-reports align-middle">
+            <thead>
                 <tr>
-                    <th>Month</th>
-                    <th class="text-center">Active</th>
-                    <th class="text-center">Churned</th>
-                    <th class="text-center">Churn Rate</th>
+                    <th>Barangay</th>
+                    <th>Plan</th>
+                    <th class="text-center">Churn Date</th>
+                    <th>Reason</th>
+                    <th class="text-center">Status</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var r in Model.AsEnumerable().Reverse())
+                @{
+                    var mockChurned = new[] {
+                        new { Name = "Barangay San Jose", Plan = "Enterprise", Date = "2026-02-15", Reason = "Pricing", Status = "Churned" },
+                        new { Name = "Barangay Lusakan", Plan = "Professional", Date = "2026-02-10", Reason = "Competitor", Status = "Churned" },
+                        new { Name = "Barangay Maligaya", Plan = "Basic", Date = "2026-01-28", Reason = "Feature Gap", Status = "Win-back Pending" }
+                    };
+                }
+                @foreach (var c in mockChurned)
                 {
                     <tr>
-                        <td>@r.Month</td>
-                        <td class="text-center text-success fw-semibold">@r.Active</td>
-                        <td class="text-center text-danger fw-semibold">@r.Churned</td>
+                        <td class="brgy-name">@c.Name</td>
+                        <td><span class="plan-badge">@c.Plan</span></td>
+                        <td class="text-center text-muted small">@c.Date</td>
+                        <td class="small">@c.Reason</td>
                         <td class="text-center">
-                            @if (r.ChurnRate > 5)
+                            @if (c.Status.Contains("Win-back"))
                             {
-                                <span class="badge bg-danger">@r.ChurnRate%</span>
-                            }
-                            else if (r.ChurnRate > 0)
-                            {
-                                <span class="badge bg-warning text-dark">@r.ChurnRate%</span>
+                                <span class="badge bg-info-subtle text-info border border-info-subtle">@c.Status</span>
                             }
                             else
                             {
-                                <span class="badge bg-success">0%</span>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">@c.Status</span>
                             }
                         </td>
                     </tr>
@@ -100,35 +177,76 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Month)));
-        const active = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Active)));
-        const churned = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Churned)));
+        const churnRates = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.ChurnRate)));
 
+        // Churn Rate Line Chart
         new Chart(document.getElementById('churnChart'), {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: labels,
-                datasets: [
-                    {
-                        label: 'Active',
-                        data: active,
-                        backgroundColor: 'rgba(25,135,84,.6)',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Churned',
-                        data: churned,
-                        backgroundColor: 'rgba(220,53,69,.6)',
-                        borderRadius: 4
-                    }
-                ]
+                datasets: [{
+                    label: 'Churn Rate %',
+                    data: churnRates,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#ef4444'
+                }]
             },
             options: {
                 responsive: true,
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' }, ticks: { callback: val => val + '%' } },
+                    x: { grid: { display: false } }
+                }
             }
+        });
+
+        // Reason Doughnut
+        const reasonCtx = document.getElementById('reasonChart').getContext('2d');
+        const reasonLabels = ['Pricing', 'Competitor', 'Feature Gap', 'Closure', 'Others'];
+        const reasonValues = [42, 28, 15, 10, 5];
+        const colors = ['#1e6cbd', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+        new Chart(reasonCtx, {
+            type: 'doughnut',
+            data: {
+                labels: reasonLabels,
+                datasets: [{
+                    data: reasonValues,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Custom Legend
+        const legendDiv = document.getElementById('reasonLegend');
+        reasonLabels.forEach((label, i) => {
+            legendDiv.innerHTML += `
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]}"></span>
+                        <span class="small fw-semibold text-muted">${label}</span>
+                    </div>
+                    <span class="small fw-bold">${reasonValues[i]}%</span>
+                </div>
+            `;
         });
     </script>
 }

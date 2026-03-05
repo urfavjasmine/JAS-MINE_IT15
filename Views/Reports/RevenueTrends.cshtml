@@ -1,148 +1,168 @@
 @model List<JAS_MINE_IT15.Services.MonthlyRevenuePoint>
 @{
-    ViewData["Title"] = "Revenue Trends";
+    ViewData["Title"] = "Revenue Trend Report";
     var distribution = ViewData["PlanDistribution"] as Dictionary<string, int> ?? new Dictionary<string, int>();
+    var activeSubscribers = ViewData["ActiveSubscribers"] as int? ?? 0;
+    
+    var totalRevenue = Model.Sum(m => m.Revenue);
+    var avgGrowth = Model.Where(m => m.Growth != 0).DefaultIfEmpty().Average(m => m?.Growth ?? 0);
 }
 
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item"><a href="@Url.Action("DashboardHome", "Home")">Dashboard</a></li>
-        <li class="breadcrumb-item"><a href="@Url.Action("Index", "Reports")">Reports</a></li>
-        <li class="breadcrumb-item active">Revenue Trends</li>
-    </ol>
-</nav>
+<style>
+    :root {
+        --brand-dark: #1a3a5c;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+    }
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h5 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Revenue Trends</h5>
-    <a href="@Url.Action("ExportRevenueCsv")" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-download me-1"></i>Export CSV
+    .report-back { color: var(--brand-dark); text-decoration: none; font-size: 1.25rem; transition: transform 0.2s; }
+    .report-back:hover { transform: translateX(-4px); }
+
+    .report-header-section { display: flex; align-items: center; gap: 16px; margin-bottom: 2rem; }
+    .report-title-group h1 { font-size: 1.5rem; font-weight: 800; color: var(--brand-dark); margin-bottom: 0.15rem; display: flex; align-items: center; gap: 10px; }
+    .report-title-group p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0; }
+
+    .filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; }
+    .btn-filter { border: 1px solid var(--border-color); background: #fff; color: var(--brand-dark); font-size: 0.825rem; font-weight: 600; padding: 6px 16px; border-radius: 6px; transition: all 0.2s; }
+    .btn-filter:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-filter.active { background: #f1f5f9; border-color: #1a3a5c; color: #1a3a5c; }
+
+    .date-range-group { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--border-color); padding: 4px 12px; border-radius: 6px; }
+    .date-range-group input { border: none; font-size: 0.825rem; font-weight: 600; color: var(--brand-dark); width: 100px; background: transparent; }
+    .date-range-group input:focus { outline: none; }
+
+    .export-btns { margin-left: auto; display: flex; gap: 8px; }
+    .btn-export { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--border-color); color: var(--brand-dark); font-size: 0.825rem; font-weight: 600; padding: 6px 14px; border-radius: 6px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 2rem; }
+    .kpi-card { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; position: relative; }
+    .kpi-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .kpi-val { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .kpi-trend { font-size: 0.7rem; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 4px; }
+    .kpi-icon-box { position: absolute; top: 20px; right: 20px; width: 36px; height: 36px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 2rem; }
+    .chart-card { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; padding: 24px; }
+    .chart-title { font-size: 1rem; font-weight: 700; color: #334155; margin-bottom: 1.5rem; }
+</style>
+
+<div class="report-header-section">
+    <a href="@Url.Action("Index")" class="report-back">
+        <i class="bi bi-arrow-left"></i>
     </a>
-</div>
-
-<!-- Summary Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                <div class="fs-3 fw-bold text-success">₱@Model.Sum(m => m.Revenue).ToString("N2")</div>
-                <div class="text-muted small">Total Revenue (12 mo)</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                @{
-                    var latest = Model.LastOrDefault();
-                    var avgGrowth = Model.Where(m => m.Growth != 0).DefaultIfEmpty().Average(m => m?.Growth ?? 0);
-                }
-                <div class="fs-3 fw-bold text-primary">₱@(latest?.Revenue.ToString("N2") ?? "0.00")</div>
-                <div class="text-muted small">This Month</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body">
-                <div class="fs-3 fw-bold @(avgGrowth >= 0 ? "text-success" : "text-danger")">
-                    @(avgGrowth >= 0 ? "+" : "")@avgGrowth.ToString("N1")%
-                </div>
-                <div class="text-muted small">Avg MoM Growth</div>
-            </div>
-        </div>
+    <div class="report-title-group">
+        <h1><i class="bi bi-graph-up"></i> Revenue Trend Report</h1>
+        <p>Month-over-month revenue growth, plan distribution, and projections.</p>
     </div>
 </div>
 
-<div class="row g-3">
-    <!-- Revenue Chart -->
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Monthly Revenue</div>
-            <div class="card-body">
-                <canvas id="revenueChart" height="140"></canvas>
-            </div>
+<div class="filter-bar">
+    <button class="btn-filter">Last 7 days</button>
+    <button class="btn-filter">Last 30 days</button>
+    <button class="btn-filter">This month</button>
+    <button class="btn-filter">Last 3 months</button>
+    <button class="btn-filter active">Last 6 months</button>
+    <button class="btn-filter">Last year</button>
+
+    <div class="date-range-group">
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Sep 6, 2025" />
+        <span class="text-muted small">—</span>
+        <i class="bi bi-calendar3 text-muted"></i>
+        <input type="text" value="Mar 6, 2026" />
+    </div>
+
+    <div class="export-btns">
+        <a href="@Url.Action("ExportRevenueCsv")" class="btn-export">
+            <i class="bi bi-download"></i> CSV
+        </a>
+        <button class="btn-export">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-lbl">Total Revenue (Period)</div>
+        <div class="kpi-val">₱@totalRevenue.ToString("N0")</div>
+        <div class="kpi-trend text-success"><i class="bi bi-arrow-up"></i> +12.4% <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-wallet2"></i></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-lbl">Avg MoM Growth</div>
+        <div class="kpi-val">@avgGrowth.ToString("N1")%</div>
+        <div class="kpi-trend text-success"><i class="bi bi-arrow-up"></i> +2.1% <span class="text-muted fw-normal" style="font-size:0.65rem;">from last period</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-graph-up-arrow"></i></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-lbl">Active Subscribers</div>
+        <div class="kpi-val">@activeSubscribers</div>
+        <div class="kpi-trend text-success"><i class="bi bi-arrow-up"></i> +4 <span class="text-muted fw-normal" style="font-size:0.65rem;">from last month</span></div>
+        <div class="kpi-icon-box"><i class="bi bi-people"></i></div>
+    </div>
+</div>
+
+<div class="main-grid">
+    <div class="chart-card">
+        <div class="chart-title">Revenue Trend</div>
+        <div style="height: 350px;">
+            <canvas id="revenueChart"></canvas>
         </div>
     </div>
-    <!-- Plan Distribution -->
-    <div class="col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Plan Distribution</div>
-            <div class="card-body d-flex align-items-center justify-content-center">
-                @if (distribution.Count == 0)
-                {
-                    <p class="text-muted">No active subscriptions</p>
-                }
-                else
-                {
-                    <canvas id="planChart" height="200"></canvas>
-                }
-            </div>
+    <div class="chart-card">
+        <div class="chart-title">Plan Distribution</div>
+        <div style="height: 300px; display: flex; flex-direction: column; align-items: center;">
+            <canvas id="planChart"></canvas>
+            <div id="planLegend" class="mt-4 w-100"></div>
         </div>
     </div>
 </div>
 
-<!-- Revenue Table -->
-<div class="card border-0 shadow-sm mt-4">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Month</th>
-                    <th class="text-end">Revenue</th>
-                    <th class="text-end">MoM Growth</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in Model.AsEnumerable().Reverse())
-                {
-                    <tr>
-                        <td>@r.Month</td>
-                        <td class="text-end fw-semibold">₱@r.Revenue.ToString("N2")</td>
-                        <td class="text-end">
-                            @if (r.Growth > 0)
-                            {
-                                <span class="text-success">+@r.Growth%</span>
-                            }
-                            else if (r.Growth < 0)
-                            {
-                                <span class="text-danger">@r.Growth%</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">—</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+<div class="chart-card mb-4">
+    <div class="chart-title">MoM Growth Rate (%)</div>
+    <div style="height: 250px;">
+        <canvas id="growthChart"></canvas>
     </div>
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Revenue Line Chart
         const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Month)));
         const revenues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Revenue)));
+        const growthRates = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Select(m => m.Growth)));
 
-        new Chart(document.getElementById('revenueChart'), {
+        // Revenue Area Chart
+        const revCtx = document.getElementById('revenueChart').getContext('2d');
+        const revGradient = revCtx.createLinearGradient(0, 0, 0, 400);
+        revGradient.addColorStop(0, 'rgba(30, 108, 189, 0.2)');
+        revGradient.addColorStop(1, 'rgba(30, 108, 189, 0)');
+
+        new Chart(revCtx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Revenue (₱)',
+                    label: 'Revenue',
                     data: revenues,
-                    borderColor: '#198754',
-                    backgroundColor: 'rgba(25,135,84,.1)',
+                    borderColor: '#1e6cbd',
+                    backgroundColor: revGradient,
                     fill: true,
-                    tension: 0.3,
-                    pointRadius: 4
+                    tension: 0.4,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#1e6cbd'
                 }]
             },
             options: {
                 responsive: true,
-                scales: { y: { beginAtZero: true } }
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' }, ticks: { callback: val => '₱' + val.toLocaleString() } },
+                    x: { grid: { display: false } }
+                }
             }
         });
 
@@ -150,22 +170,67 @@
         @if (distribution.Count > 0)
         {
             <text>
-        const planLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Keys));
-        const planValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Values));
-        const colors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#0dcaf0'];
+            const planLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Keys));
+            const planValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(distribution.Values));
+            const colors = ['#1e6cbd', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-        new Chart(document.getElementById('planChart'), {
-            type: 'doughnut',
-            data: {
-                labels: planLabels,
-                datasets: [{
-                    data: planValues,
-                    backgroundColor: colors.slice(0, planLabels.length)
-                }]
-            },
-            options: { responsive: true }
-        });
+            new Chart(document.getElementById('planChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: planLabels,
+                    datasets: [{
+                        data: planValues,
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Custom Legend
+            const legendDiv = document.getElementById('planLegend');
+            planLabels.forEach((label, i) => {
+                const perc = Math.round((planValues[i] / planValues.reduce((a, b) => a + b, 0)) * 100);
+                legendDiv.innerHTML += `
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]}"></span>
+                            <span class="small fw-semibold text-muted">${label}</span>
+                        </div>
+                        <span class="small fw-bold">${perc}%</span>
+                    </div>
+                `;
+            });
             </text>
         }
+
+        // Growth Rate Bar Chart
+        new Chart(document.getElementById('growthChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Growth Rate (%)',
+                    data: growthRates,
+                    backgroundColor: growthRates.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' }, ticks: { callback: val => val + '%' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
     </script>
 }
