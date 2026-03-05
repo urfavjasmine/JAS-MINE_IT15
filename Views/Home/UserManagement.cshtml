@@ -100,7 +100,7 @@
     <!-- Stat cards -->
     <div class="row g-3 mb-4">
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
                     <div class="fs-2 fw-bold text-primary">@Model.TotalUsers</div>
@@ -109,7 +109,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
                     <div class="fs-2 fw-bold text-success">@Model.ActiveUsers</div>
@@ -118,20 +118,11 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
                     <div class="fs-2 fw-bold text-warning">@Model.InactiveUsers</div>
                     <div class="small muted">Inactive</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-info">@Model.BarangayCount</div>
-                    <div class="small muted">Puroks</div>
                 </div>
             </div>
         </div>
@@ -321,10 +312,6 @@
                     <div id="vRole"></div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label text-muted small">Purok</label>
-                    <div id="vBarangay"></div>
-                </div>
-                <div class="mb-3">
                     <label class="form-label text-muted small">Status</label>
                     <div id="vStatus"></div>
                 </div>
@@ -369,20 +356,10 @@
                             <option value="council_member">Council Member</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Purok</label>
-                        <select name="barangay" id="fBarangay" class="form-select">
-                            <option value="">-- Select Purok --</option>
-                            @foreach (var b in Model.Barangays)
-                            {
-                                <option value="@b">@b</option>
-                            }
-                        </select>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Save</button>
+                    <button type="submit" class="btn" id="submitBtn" style="background:#163a5f; border-color:#163a5f; color:#fff; font-weight:600;">Save</button>
                 </div>
             </form>
         </div>
