@@ -157,6 +157,7 @@ namespace JAS_MINE_IT15.Controllers
 
                 TotalCount = allSubscriptions.Count,
                 ActiveCount = allSubscriptions.Count(x => x.Status == "Active"),
+                PendingCount = allSubscriptions.Count(x => x.Status == "Pending"),
                 ExpiredCount = allSubscriptions.Count(x => x.Status == "Expired"),
                 CancelledCount = allSubscriptions.Count(x => x.Status == "Cancelled"),
 

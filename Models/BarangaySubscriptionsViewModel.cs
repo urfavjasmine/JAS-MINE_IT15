@@ -11,6 +11,7 @@ namespace JAS_MINE_IT15.Models
 
         public int TotalCount { get; set; }
         public int ActiveCount { get; set; }
+        public int PendingCount { get; set; }
         public int ExpiredCount { get; set; }
         public int CancelledCount { get; set; }
 
