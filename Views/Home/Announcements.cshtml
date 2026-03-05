@@ -195,7 +195,7 @@
                         </div>
                     </div>
 
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-1">
                         @if (!a.IsArchived)
                         {
                             <!-- VIEW: increments views -->
@@ -203,7 +203,7 @@
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@a.Id" />
                                 <input type="hidden" name="filter" value="@filter" />
-                                <button class="btn btn-light action-btn" title="View" type="submit">
+                                <button class="btn btn-sm btn-light text-secondary border-0" title="View" type="submit">
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </form>
@@ -211,7 +211,7 @@
                             @if (canEdit)
                             {
                                 <!-- EDIT -->
-                                <button class="btn btn-light action-btn" title="Edit"
+                                <button class="btn btn-sm btn-light text-primary border-0" title="Edit"
                                         data-bs-toggle="modal" data-bs-target="#createEditModal"
                                         onclick="openEdit('@a.Id','@js(a.Title)','@js(a.Content)','@a.Priority','@a.Status')">
                                     <i class="bi bi-pencil"></i>
@@ -222,7 +222,7 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@a.Id" />
                                     <input type="hidden" name="filter" value="@filter" />
-                                    <button class="btn btn-light action-btn" title="Pin/Unpin" type="submit">
+                                    <button class="btn btn-sm btn-light text-warning border-0" title="Pin/Unpin" type="submit">
                                         <i class="bi bi-pin@(a.Pinned ? "-fill text-primary" : "")"></i>
                                     </button>
                                 </form>
@@ -231,10 +231,10 @@
                             @if (canArchive)
                             {
                                 <!-- ARCHIVE -->
-                                <button class="btn btn-light action-btn" title="Archive"
+                                <button class="btn btn-sm btn-light text-danger border-0" title="Archive"
                                         data-bs-toggle="modal" data-bs-target="#archiveModal"
                                         onclick="openArchive('@a.Id','@js(a.Title)')">
-                                    <i class="bi bi-archive text-warning"></i>
+                                    <i class="bi bi-archive"></i>
                                 </button>
                             }
                         }
@@ -247,7 +247,7 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@a.Id" />
                                     <input type="hidden" name="filter" value="@filter" />
-                                    <button class="btn btn-success action-btn" title="Restore" type="submit">
+                                    <button class="btn btn-sm btn-light text-success border-0" title="Restore" type="submit">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>

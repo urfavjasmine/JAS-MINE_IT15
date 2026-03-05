@@ -985,10 +985,16 @@ namespace JAS_MINE_IT15.Controllers
                 // Log login
                 await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
 
-                // If a plan was selected before login, redirect to plan selection page
+                // If a plan was selected before login, check if they actually need to subscribe
                 if (TempData["SelectedPlanId"] is int selectedPlanId && role == "barangay_admin")
                 {
-                    return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
+                    var hasValidSub = await _context.BarangaySubscriptions
+                        .AnyAsync(s => s.BarangayId == barangayId && s.IsActive && (s.Status == "Active" || s.Status == "Pending") && s.EndDate >= DateTime.Today);
+
+                    if (!hasValidSub)
+                    {
+                        return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
+                    }
                 }
 
                 return RedirectToAction("Barangay", "Dashboard"); // Barangay dashboard

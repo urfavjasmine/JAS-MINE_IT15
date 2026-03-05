@@ -5,35 +5,42 @@
 }
 
 <style>
+    .badge {
+        padding: 6px 12px;
+        font-weight: 500;
+        border-radius: 6px;
+    }
+
     .badge-active {
-        background: #d1fae5;
-        color: #065f46;
+        background: #ecfdf5;
+        color: #059669;
+        border: 1px solid #10b98133;
     }
 
     .badge-expired {
-        background: #fee2e2;
-        color: #991b1b;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #ef444433;
     }
 
     .badge-cancelled {
-        background: #e5e7eb;
-        color: #374151;
+        background: #f9fafb;
+        color: #4b5563;
+        border: 1px solid #6b728033;
     }
 
     .badge-pending {
-        background: #fef3c7;
-        color: #92400e;
+        background: #fffbeb;
+        color: #d97706;
+        border: 1px solid #f59e0b33;
     }
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
         <h2 class="mb-0 fw-bold">Barangay Subscriptions</h2>
-        <div class="text-muted">Assign and manage subscription plans per barangay.</div>
+        <div class="text-muted">Manage subscription plans and track statuses for each barangay.</div>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
-        + Assign Plan
-    </button>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
@@ -140,36 +147,41 @@
                             <td><span class="badge @badgeClass">@s.Status</span></td>
                             <td class="text-end">
 
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        data-bs-toggle="modal" data-bs-target="#viewModal"
-                                        data-id="@s.Id"
-                                        data-barangay="@s.BarangayName"
-                                        data-plan="@s.PlanName"
-                                        data-start="@s.StartDate"
-                                        data-end="@s.EndDate"
-                                        data-status="@s.Status">
-                                    View
-                                </button>
-
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#editModal"
-                                        data-id="@s.Id"
-                                        data-barangay="@s.BarangayName"
-                                        data-plan="@s.PlanName"
-                                        data-start="@s.StartDate"
-                                        data-end="@s.EndDate">
-                                    Edit
-                                </button>
-
-                                @if (s.Status == "Active")
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                            data-bs-toggle="modal" data-bs-target="#cancelModal"
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-light text-secondary border-0"
+                                            title="View Details"
+                                            data-bs-toggle="modal" data-bs-target="#viewModal"
                                             data-id="@s.Id"
-                                            data-barangay="@s.BarangayName">
-                                        Cancel
+                                            data-barangay="@s.BarangayName"
+                                            data-plan="@s.PlanName"
+                                            data-start="@s.StartDate"
+                                            data-end="@s.EndDate"
+                                            data-status="@s.Status">
+                                        <i class="bi bi-eye"></i>
                                     </button>
-                                }
+
+                                    <button type="button" class="btn btn-sm btn-light text-primary border-0"
+                                            title="Edit Subscription"
+                                            data-bs-toggle="modal" data-bs-target="#editModal"
+                                            data-id="@s.Id"
+                                            data-barangay="@s.BarangayName"
+                                            data-plan="@s.PlanName"
+                                            data-start="@s.StartDate"
+                                            data-end="@s.EndDate">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+
+                                    @if (s.Status == "Active")
+                                    {
+                                        <button type="button" class="btn btn-sm btn-light text-danger border-0"
+                                                title="Cancel Subscription"
+                                                data-bs-toggle="modal" data-bs-target="#cancelModal"
+                                                data-id="@s.Id"
+                                                data-barangay="@s.BarangayName">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }

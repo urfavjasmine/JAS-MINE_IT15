@@ -8,9 +8,9 @@
     private string BadgeClass(string s)
     {
         s = (s ?? "").Trim();
-        if (s == "Paid") return "bg-success-subtle text-success border border-success-subtle";
-        if (s == "Pending") return "bg-warning-subtle text-warning border border-warning-subtle";
-        return "bg-danger-subtle text-danger border border-danger-subtle";
+        if (s == "Paid") return "bg-success bg-opacity-10 text-success border border-success-subtle px-3";
+        if (s == "Pending") return "bg-warning bg-opacity-10 text-warning border border-warning-subtle px-3";
+        return "bg-danger bg-opacity-10 text-danger border border-danger-subtle px-3";
     }
     private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
 }

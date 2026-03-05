@@ -187,10 +187,13 @@
             <h1 class="page-title">Choose Your Subscription Plan</h1>
             <p class="page-subtitle">Select a plan to activate your barangay's access to JAS-MINE ERP.</p>
             
-            <div class="pending-banner">
-                <span class="dot"></span>
-                Your account is pending — select a plan and pay to activate
-            </div>
+            @if (!Model.HasActiveSubscription)
+            {
+                <div class="pending-banner">
+                    <span class="dot"></span>
+                    Your account is pending — select a plan and pay to activate
+                </div>
+            }
         </div>
 
         <div class="row g-4 justify-content-center">
@@ -247,6 +250,13 @@
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        @if (Model.HasActiveSubscription)
+        {
+            <text>
+            window.location.href = '@Url.Action("Barangay", "Dashboard")';
+            </text>
+        }
+
         function selectPlan(card) {
             // Remove selection from all cards
             document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));

@@ -9,10 +9,11 @@
     {
         return roleKey switch
         {
-            "super_admin" => "badge bg-danger",
-            "barangay_admin" => "badge bg-primary",
-            "barangay_secretary" => "badge bg-secondary",
-            "barangay_staff" => "badge bg-light text-dark border",
+            "super_admin" => "badge bg-danger bg-opacity-10 text-danger border border-danger-subtle",
+            "barangay_admin" => "badge bg-primary bg-opacity-10 text-primary border border-primary-subtle",
+            "barangay_secretary" => "badge bg-info bg-opacity-10 text-info border border-info-subtle",
+            "barangay_staff" => "badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle",
+            "council_member" => "badge bg-dark bg-opacity-10 text-dark border",
             _ => "badge bg-light text-dark border"
         };
     }
@@ -90,6 +91,11 @@
             <h3 class="mb-0">User Management</h3>
             <div class="muted">Manage barangay admin accounts and their access status.</div>
         </div>
+        <button class="btn btn-primary px-4" 
+                data-bs-toggle="modal" data-bs-target="#createEditModal"
+                onclick="openCreate()" style="border-radius:10px; font-weight:600;">
+            <i class="bi bi-plus-lg me-2"></i>Add User
+        </button>
     </div>
 
     <!-- Stat cards -->
@@ -353,10 +359,9 @@
                     <div class="mb-3">
                         <label class="form-label">Role *</label>
                         <select name="role" id="fRole" class="form-select" required>
-                            @foreach (var role in Model.RoleLabels)
-                            {
-                                <option value="@role.Key">@role.Value</option>
-                            }
+                            <option value="barangay_secretary">Barangay Secretary</option>
+                            <option value="barangay_staff">Barangay Staff</option>
+                            <option value="council_member">Council Member</option>
                         </select>
                     </div>
                     <div class="mb-3">
