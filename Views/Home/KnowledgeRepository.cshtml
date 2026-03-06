@@ -5,6 +5,9 @@
     ViewData["Title"] = "Knowledge Repository";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
+    var role = Context.Session.GetString("Role") ?? "";
+    var isStaffOrCouncil = role == "barangay_staff" || role == "council_member";
+
     // Null-safe properties
     var canUpload = Model?.CanUpload ?? false;
     var canApprove = Model?.CanApprove ?? false;
@@ -328,11 +331,18 @@
 
                     <div class="col-12 col-lg-3">
                         <select class="form-select select-soft" name="status" onchange="this.form.submit()">
-                            <option value="all" selected="@(selectedStatus == "all")">All Status</option>
-                            <option value="draft" selected="@(selectedStatus == "draft")">Draft</option>
-                            <option value="pending" selected="@(selectedStatus == "pending")">Pending</option>
-                            <option value="approved" selected="@(selectedStatus == "approved")">Approved</option>
-                            <option value="rejected" selected="@(selectedStatus == "rejected")">Rejected</option>
+                            @if (isStaffOrCouncil)
+                            {
+                                <option value="approved" selected>Approved</option>
+                            }
+                            else
+                            {
+                                <option value="all" selected="@(selectedStatus == "all")">All Status</option>
+                                <option value="draft" selected="@(selectedStatus == "draft")">Draft</option>
+                                <option value="pending" selected="@(selectedStatus == "pending")">Pending</option>
+                                <option value="approved" selected="@(selectedStatus == "approved")">Approved</option>
+                                <option value="rejected" selected="@(selectedStatus == "rejected")">Rejected</option>
+                            }
                         </select>
                     </div>
                 </div>
@@ -351,8 +361,11 @@
                         <tr>
                             <th style="min-width: 360px;">Document</th>
                             <th class="col-category">Category</th>
-                            <th class="col-uploadedby">Uploaded By</th>
-                            <th class="col-role">Role</th>
+                            @if (!isStaffOrCouncil)
+                            {
+                                <th class="col-uploadedby">Uploaded By</th>
+                                <th class="col-role">Role</th>
+                            }
                             <th class="col-date">Date</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
@@ -363,7 +376,7 @@
                         @if (documents.Count == 0)
                         {
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">No documents found.</td>
+                                <td colspan="@(isStaffOrCouncil ? 5 : 7)" class="text-center text-muted py-4">No documents found.</td>
                             </tr>
                         }
                         else
@@ -400,12 +413,15 @@
                                         </div>
                                     </td>
                                     <td class="col-category text-muted">@doc.Category</td>
-                                    <td class="col-uploadedby text-muted">
-                                        <i class="bi bi-person me-1"></i> @doc.UploadedBy
-                                    </td>
-                                    <td class="col-role text-muted">
-                                        <span class="badge bg-light text-dark border">@RoleLabel(doc.UploadedByRole)</span>
-                                    </td>
+                                    @if (!isStaffOrCouncil)
+                                    {
+                                        <td class="col-uploadedby text-muted">
+                                            <i class="bi bi-person me-1"></i> @doc.UploadedBy
+                                        </td>
+                                        <td class="col-role text-muted">
+                                            <span class="badge bg-light text-dark border">@RoleLabel(doc.UploadedByRole)</span>
+                                        </td>
+                                    }
                                     <td class="col-date text-muted">
                                         <i class="bi bi-calendar3 me-1"></i> @doc.Date
                                     </td>
