@@ -141,6 +141,64 @@
         }
         .btn-submit:hover { background: #112a44; transform: translateY(-1px); }
 
+        /* --- Chat Support Widget --- */
+        .chat-support-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            background: var(--brand);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(26,58,92,0.35);
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+        .chat-support-btn:hover { transform: scale(1.1); background: #112a44; }
+
+        .chat-panel {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            width: 340px;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 1001;
+            display: none;
+            overflow: hidden;
+        }
+        .chat-panel.open { display: block; }
+
+        .chat-header {
+            background: var(--brand);
+            color: white;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header-title { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+        .chat-close { background: none; border: none; color: white; font-size: 1.25rem; cursor: pointer; opacity: 0.8; }
+        .chat-close:hover { opacity: 1; }
+
+        .chat-body { padding: 1.25rem; max-height: 300px; overflow-y: auto; }
+        .chat-message { background: #f1f5f9; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; font-size: 0.9rem; line-height: 1.5; }
+        .chat-message.support { background: #e0f2fe; }
+
+        .chat-input-area { padding: 1rem; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+        .chat-input { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; }
+        .chat-input:focus { outline: none; border-color: var(--brand-light); }
+        .chat-send { background: var(--brand); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .chat-send:hover { background: #112a44; }
+
     </style>
 </head>
 <body>
@@ -153,7 +211,7 @@
                 <span class="nav-brand">JAS-MINE</span>
             </a>
             <div class="d-flex align-items-center gap-4">
-                <span class="nav-user">@fullName</span>
+                <span class="nav-user"><i class="bi bi-person-circle me-1"></i> Welcome, <strong>@fullName</strong></span>
                 <a href="@Url.Action("Logout", "Home")" class="nav-logout">
                     <i class="bi bi-box-arrow-right"></i> Logout
                 </a>
@@ -430,6 +488,82 @@
             fileInput.value = '';
             preview.style.display = 'none';
             dropZone.style.display = 'block';
+        }
+    </script>
+
+    <!-- Chat Support Widget -->
+    <button class="chat-support-btn" onclick="toggleChat()" title="Chat Support">
+        <i class="bi bi-chat-dots-fill"></i>
+    </button>
+
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <div class="chat-header-title">
+                <i class="bi bi-headset"></i> Support Chat
+            </div>
+            <button class="chat-close" onclick="toggleChat()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="chat-message support">
+                <strong>JAS-MINE Support</strong><br>
+                Hi! 👋 Need help with your payment? We're here to assist with any questions about invoices, payment methods, or verification.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." onkeypress="handleChatKeypress(event)" />
+            <button class="chat-send" onclick="sendMessage()">
+                <i class="bi bi-send-fill"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function toggleChat() {
+            const panel = document.getElementById('chatPanel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                document.getElementById('chatInput').focus();
+            }
+        }
+
+        function handleChatKeypress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatBody = document.getElementById('chatBody');
+            
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-message';
+            userMsg.innerHTML = '<strong>You</strong><br>' + escapeHtml(message);
+            chatBody.appendChild(userMsg);
+            
+            input.value = '';
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+            // Auto-reply after short delay
+            setTimeout(() => {
+                const supportMsg = document.createElement('div');
+                supportMsg.className = 'chat-message support';
+                supportMsg.innerHTML = '<strong>JAS-MINE Support</strong><br>Thank you for your message! Our support team will get back to you shortly. You can also reach us at <strong>support@jasmine.gov.ph</strong>.';
+                chatBody.appendChild(supportMsg);
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 1000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>

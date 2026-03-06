@@ -5,6 +5,9 @@
     ViewData["Title"] = "Policies & Procedures";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
+    var role = Context.Session.GetString("Role") ?? "";
+    var isStaffOrCouncil = role == "barangay_staff" || role == "council_member";
+
     // Permissions from controller
     var canCreate = Model?.CanCreate ?? false;
     var canApprove = Model?.CanApprove ?? false;
@@ -313,22 +316,25 @@
     }
 
     <!-- Status Tabs -->
-    <div class="mb-3">
-        <div class="status-tabs" role="tablist" aria-label="Policy Status Tabs">
-            <button class="tab-btn active" type="button" data-tab="all">
-                All (@(Model?.CountAll ?? 0))
-            </button>
-            <button class="tab-btn" type="button" data-tab="approved">
-                Approved (@(Model?.CountApproved ?? 0))
-            </button>
-            <button class="tab-btn" type="button" data-tab="pending">
-                Pending (@(Model?.CountPending ?? 0))
-            </button>
-            <button class="tab-btn" type="button" data-tab="draft">
-                Drafts (@(Model?.CountDraft ?? 0))
-            </button>
+    @if (!isStaffOrCouncil)
+    {
+        <div class="mb-3">
+            <div class="status-tabs" role="tablist" aria-label="Policy Status Tabs">
+                <button class="tab-btn active" type="button" data-tab="all">
+                    All (@(Model?.CountAll ?? 0))
+                </button>
+                <button class="tab-btn" type="button" data-tab="approved">
+                    Approved (@(Model?.CountApproved ?? 0))
+                </button>
+                <button class="tab-btn" type="button" data-tab="pending">
+                    Pending (@(Model?.CountPending ?? 0))
+                </button>
+                <button class="tab-btn" type="button" data-tab="draft">
+                    Drafts (@(Model?.CountDraft ?? 0))
+                </button>
+            </div>
         </div>
-    </div>
+    }
 
     <!-- Search + Filter -->
     <div class="soft-card filter-card mb-4">

@@ -5,6 +5,9 @@
     ViewData["Title"] = "Best Practices";
     Layout = "~/Views/Shared/_Layout.cshtml";
     
+    var role = Context.Session.GetString("Role") ?? "";
+    var isStaffOrCouncil = role == "barangay_staff" || role == "council_member";
+    
     // Null-safe properties
     var totalPractices = Model?.TotalPractices ?? 0;
     var archivedPractices = Model?.ArchivedPractices ?? 0;
@@ -284,20 +287,23 @@
     }
 
     <!-- Stats & Archive Tabs -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="soft-card p-3 text-center">
-                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@totalPractices</div>
-                <div class="text-muted" style="font-size: 13px;">Active Practices</div>
+    @if (!isStaffOrCouncil)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="soft-card p-3 text-center">
+                    <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@totalPractices</div>
+                    <div class="text-muted" style="font-size: 13px;">Active Practices</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="soft-card p-3 text-center">
+                    <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@archivedPractices</div>
+                    <div class="text-muted" style="font-size: 13px;">Archived</div>
+                </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="soft-card p-3 text-center">
-                <div style="font-size: 24px; font-weight: 800; color: #163a5f;">@archivedPractices</div>
-                <div class="text-muted" style="font-size: 13px;">Archived</div>
-            </div>
-        </div>
-    </div>
+    }
 
     @if (archiveStatus == "archived")
     {

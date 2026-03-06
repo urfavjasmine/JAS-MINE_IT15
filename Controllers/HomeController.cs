@@ -381,6 +381,17 @@ namespace JAS_MINE_IT15.Controllers
                 })
                 .ToListAsync();
 
+            // Check if subscription can be cancelled (Pending and has no approved/pending verification payments)
+            bool canCancel = false;
+            if (subscription != null && subscription.Status == "Pending")
+            {
+                // Can cancel if there are no payments at all, or all payments are Rejected
+                var hasBlockingPayment = await _context.SubscriptionPayments
+                    .AnyAsync(p => p.SubscriptionId == subscription.Id && p.IsActive && 
+                        (p.Status == "Paid" || p.Status == "Approved" || p.Status == "PendingVerification"));
+                canCancel = !hasBlockingPayment;
+            }
+
             var vm = new MySubscriptionViewModel
             {
                 BarangayName = barangayName,
@@ -389,18 +400,22 @@ namespace JAS_MINE_IT15.Controllers
                 ErrorMessage = TempData["Error"] as string,
                 Subscription = subscription != null ? new MySubscriptionViewModel.SubscriptionSummary
                 {
+                    SubscriptionId = subscription.Id,
                     PlanName = subscription.Plan?.Name ?? "Unknown Plan",
                     Price = subscription.Plan?.Price ?? 0m,
                     Status = subscription.EndDate < DateTime.Today && subscription.Status != "Cancelled" ? "Expired" : subscription.Status,
                     StartDate = subscription.StartDate.ToString("yyyy-MM-dd"),
-                    EndDate = subscription.EndDate.ToString("yyyy-MM-dd")
+                    EndDate = subscription.EndDate.ToString("yyyy-MM-dd"),
+                    CanCancel = canCancel
                 } : new MySubscriptionViewModel.SubscriptionSummary
                 {
+                    SubscriptionId = 0,
                     PlanName = "No Active Plan",
                     Price = 0m,
                     Status = "None",
                     StartDate = "",
-                    EndDate = ""
+                    EndDate = "",
+                    CanCancel = false
                 },
                 Payments = payments,
                 Invoices = invoices
@@ -4432,6 +4447,75 @@ namespace JAS_MINE_IT15.Controllers
 
             // Redirect to the new "Checkout" style payment page
             return RedirectToAction(nameof(SubmitPayment), new { invoiceId = invoice.Id });
+        }
+
+        // POST: /Home/CancelPendingSubscription — Barangay Admin cancels their pending subscription to create a new one
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelPendingSubscription(int subscriptionId)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+
+            var barangayId = GetCurrentBarangayId();
+            
+            var subscription = await _context.BarangaySubscriptions
+                .Include(s => s.Plan)
+                .FirstOrDefaultAsync(s => s.Id == subscriptionId && s.IsActive && s.BarangayId == barangayId && s.Status == "Pending");
+
+            if (subscription == null)
+            {
+                TempData["Error"] = "Subscription not found or cannot be cancelled.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Check if there are any blocking payments (Paid, Approved, or PendingVerification)
+            var hasBlockingPayment = await _context.SubscriptionPayments
+                .AnyAsync(p => p.SubscriptionId == subscriptionId && p.IsActive && 
+                    (p.Status == "Paid" || p.Status == "Approved" || p.Status == "PendingVerification"));
+
+            if (hasBlockingPayment)
+            {
+                TempData["Error"] = "Cannot cancel subscription with pending or approved payments.";
+                return RedirectToAction(nameof(MySubscription));
+            }
+
+            // Cancel the subscription
+            subscription.Status = "Cancelled";
+            subscription.IsActive = false;
+            subscription.UpdatedAt = DateTime.Now;
+
+            // Cancel related invoices
+            var relatedInvoices = await _context.Invoices
+                .Where(i => i.SubscriptionId == subscriptionId && i.IsActive)
+                .ToListAsync();
+
+            foreach (var invoice in relatedInvoices)
+            {
+                invoice.Status = "Cancelled";
+                invoice.IsActive = false;
+                invoice.UpdatedAt = DateTime.Now;
+            }
+
+            // Soft-delete related rejected payments
+            var rejectedPayments = await _context.SubscriptionPayments
+                .Where(p => p.SubscriptionId == subscriptionId && p.IsActive && p.Status == "Rejected")
+                .ToListAsync();
+
+            foreach (var payment in rejectedPayments)
+            {
+                payment.IsActive = false;
+                payment.UpdatedAt = DateTime.Now;
+            }
+
+            await _context.SaveChangesAsync();
+
+            var planName = subscription.Plan?.Name ?? "Unknown Plan";
+            await LogAuditAsync("Cancel", "BarangaySubscriptions", subscription.Id, "Subscription",
+                planName, $"Cancelled pending subscription to {planName}");
+
+            TempData["Success"] = "Subscription cancelled. You can now subscribe to a new plan.";
+            return RedirectToAction(nameof(SelectPlan));
         }
 
         // POST: /Home/InitiateOnlinePayment — Creates a PayMongo Checkout Session and redirects

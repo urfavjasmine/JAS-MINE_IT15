@@ -18,11 +18,13 @@ namespace JAS_MINE_IT15.Models
 
         public class SubscriptionSummary
         {
+            public int SubscriptionId { get; set; }
             public string PlanName { get; set; } = "";
             public decimal Price { get; set; } = 0m;
             public string Status { get; set; } = ""; // Active | Expired | Pending
             public string StartDate { get; set; } = "";
             public string EndDate { get; set; } = "";
+            public bool CanCancel { get; set; } = false; // True if Pending and has rejected/no payments
         }
 
         public class PaymentRow

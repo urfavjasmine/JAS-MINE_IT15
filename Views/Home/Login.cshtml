@@ -123,10 +123,36 @@
             text-align: center;
             margin-top: 6px;
         }
+
+        .back-link {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #1f2d3d;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #163a5f;
+        }
+
+        .back-link i {
+            font-size: 1.1rem;
+        }
     </style>
 </head>
 
 <body>
+    <a href="@Url.Action("LandingPage", "Home")" class="back-link">
+        <i class="bi bi-arrow-left"></i> Back to Home
+    </a>
+
     <div class="login-shell">
 
         <div class="branding">

@@ -142,6 +142,18 @@
         </div>
     }
 
+    @* ── Payment Rejected Warning ── *@
+    @if (sub != null && sub.CanCancel && isAdmin)
+    {
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-0" role="alert">
+            <i class="bi bi-info-circle-fill fs-5"></i>
+            <div>
+                <strong>Payment rejected.</strong>
+                Your payment was rejected. You can either upload a new proof of payment below, or cancel this subscription to choose a different plan with correct pricing.
+            </div>
+        </div>
+    }
+
     <!-- Subscription Card -->
     <div class="card @(sub?.Status == "Active" ? "border-success" : sub?.Status == "Expired" ? "border-danger" : "border-primary-subtle")">
         <div class="card-header bg-white">
@@ -203,6 +215,20 @@
                                 @Peso(sub.Price)
                             </span>
                         </div>
+
+                        @if (sub.CanCancel && isAdmin)
+                        {
+                            <div class="mt-3">
+                                <form asp-action="CancelPendingSubscription" method="post" 
+                                      onsubmit="return confirm('Are you sure you want to cancel this subscription? This will allow you to subscribe to a different plan.');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="subscriptionId" value="@sub.SubscriptionId" />
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-x-circle me-1"></i>Cancel & Choose New Plan
+                                    </button>
+                                </form>
+                            </div>
+                        }
                     </div>
                 </div>
             }
