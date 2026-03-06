@@ -62,13 +62,30 @@ namespace JAS_MINE_IT15.Controllers
         // ══════════════════════════════════════════════
         [RequireRoles("super_admin", "barangay_admin")]
         public async Task<IActionResult> UserActivity(
-            DateTime? from, DateTime? to, string? search, int page = 1)
+            DateTime? from, DateTime? to, string? search, string? range, int page = 1)
         {
+            // Handle range shortcuts
+            if (!string.IsNullOrEmpty(range))
+            {
+                to = DateTime.Today;
+                from = range switch
+                {
+                    "7" => DateTime.Today.AddDays(-7),
+                    "30" => DateTime.Today.AddDays(-30),
+                    "thismonth" => new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
+                    "90" => DateTime.Today.AddDays(-90),
+                    "180" => DateTime.Today.AddDays(-180),
+                    "365" => DateTime.Today.AddDays(-365),
+                    _ => DateTime.Today.AddDays(-30)
+                };
+            }
+
             var result = await _reports.GetUserActivityAsync(from, to, search, page);
 
             ViewData["FromDate"] = from?.ToString("yyyy-MM-dd");
             ViewData["ToDate"] = to?.ToString("yyyy-MM-dd");
             ViewData["Search"] = search;
+            ViewData["Range"] = range;
             ViewData["TotalPages"] = result.TotalPages;
             ViewData["CurrentPage"] = result.Page;
             ViewData["PaginationUrl"] = Url.Action("UserActivity", new { from = from?.ToString("yyyy-MM-dd"), to = to?.ToString("yyyy-MM-dd"), search });

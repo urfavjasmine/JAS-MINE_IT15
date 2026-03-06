@@ -171,7 +171,10 @@
                             <span class="input-group-text">
                                 <i class="bi bi-lock"></i>
                             </span>
-                            <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" id="passwordInput" />
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword" style="border-left: 0;">
+                                <i class="bi bi-eye" id="toggleIcon"></i>
+                            </button>
                         </div>
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
@@ -197,6 +200,22 @@
     </div>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Toggle password visibility
+        document.getElementById('togglePassword')?.addEventListener('click', function () {
+            const passwordInput = document.getElementById('passwordInput');
+            const toggleIcon = document.getElementById('toggleIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('bi-eye');
+                toggleIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('bi-eye-slash');
+                toggleIcon.classList.add('bi-eye');
+            }
+        });
+    </script>
 
     @* REQUIRED for client-side validation *@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

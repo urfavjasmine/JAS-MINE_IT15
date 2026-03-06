@@ -30,6 +30,10 @@ namespace JAS_MINE_IT15.Models
         public string RoleFilter { get; set; } = "all";
         public string CurrentUserRole { get; set; } = "";
 
+        // Messages for toast notifications
+        public string? SuccessMessage { get; set; }
+        public string? ErrorMessage { get; set; }
+
         // Stats
         public int TotalUsers => Users.Count;
         public int ActiveUsers => Users.Count(u => u.Status == "active");

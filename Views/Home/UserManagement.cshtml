@@ -84,6 +84,22 @@
 
 <div class="page-wrap">
 
+    <!-- Toast Notifications -->
+    @if (!string.IsNullOrEmpty(Model?.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@Model!.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>@Model!.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <!-- Page title + Add User -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>

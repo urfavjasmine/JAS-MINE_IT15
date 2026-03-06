@@ -7,7 +7,7 @@ namespace JAS_MINE_IT15.Services
 {
     public interface IPayMongoService
     {
-        Task<string?> CreateCheckoutSessionAsync(decimal amount, string description, string successUrl, string cancelUrl, string referenceId);
+        Task<string?> CreateCheckoutSessionAsync(decimal amount, string description, string successUrl, string cancelUrl, string referenceId, string? paymentMethod = null);
     }
 
     public class PayMongoService : IPayMongoService
@@ -25,8 +25,16 @@ namespace JAS_MINE_IT15.Services
             _httpClient.BaseAddress = new Uri("https://api.paymongo.com/v1/");
         }
 
-        public async Task<string?> CreateCheckoutSessionAsync(decimal amount, string description, string successUrl, string cancelUrl, string referenceId)
+        public async Task<string?> CreateCheckoutSessionAsync(decimal amount, string description, string successUrl, string cancelUrl, string referenceId, string? paymentMethod = null)
         {
+            // Determine payment methods based on selection
+            string[] paymentMethodTypes = paymentMethod switch
+            {
+                "gcash" => new[] { "gcash" },
+                "card" => new[] { "card" },
+                _ => new[] { "gcash", "paymaya", "card", "dob", "dob_ubp" } // All methods if not specified
+            };
+
             var requestBody = new
             {
                 data = new
@@ -49,7 +57,7 @@ namespace JAS_MINE_IT15.Services
                                 quantity = 1
                             }
                         },
-                        payment_method_types = new[] { "gcash", "paymaya", "card", "dob", "dob_ubp" },
+                        payment_method_types = paymentMethodTypes,
                         reference_number = referenceId
                     }
                 }

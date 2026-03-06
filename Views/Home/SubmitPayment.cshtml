@@ -201,15 +201,109 @@
                 <div class="summary-header" style="color: #1e40af;">
                     <i class="bi bi-lightning-charge-fill"></i> Faster Option: Online Payment
                 </div>
-                <p class="small text-muted mb-3">Pay instantly using GCash, Maya, or Credit Card. Your subscription will be activated automatically once payment is confirmed.</p>
-                <form asp-action="InitiateOnlinePayment" method="post">
+                <p class="small text-muted mb-3">Pay instantly using GCash or Credit/Debit Card. Your subscription will be activated automatically once payment is confirmed.</p>
+                
+                <!-- Payment Method Selection -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="payment-method-option selected" data-method="gcash" onclick="selectPaymentMethod('gcash')">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="payment-icon" style="background: #007dfe;">
+                                    <i class="bi bi-wallet2"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">GCash</div>
+                                    <div class="small text-muted">Primary Payment Method</div>
+                                </div>
+                            </div>
+                            <i class="bi bi-check-circle-fill check-icon"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="payment-method-option" data-method="card" onclick="selectPaymentMethod('card')">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="payment-icon" style="background: #1a3a5c;">
+                                    <i class="bi bi-credit-card"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">Credit/Debit Card</div>
+                                    <div class="small text-muted">Visa, Mastercard</div>
+                                </div>
+                            </div>
+                            <i class="bi bi-check-circle-fill check-icon"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="onlinePaymentForm" asp-action="InitiateOnlinePayment" method="post">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="invoiceId" value="@Model.Id" />
+                    <input type="hidden" name="paymentMethod" id="selectedPaymentMethod" value="gcash" />
                     <button type="submit" class="btn-submit" style="background: #0284c7; margin-top: 0; padding: 0.75rem;">
-                         Pay with GCash / Maya <i class="bi bi-arrow-right"></i>
+                        <span id="payBtnText">Pay with GCash</span> <i class="bi bi-arrow-right"></i>
                     </button>
                 </form>
             </div>
+            
+            <style>
+                .payment-method-option {
+                    background: #fff;
+                    border: 2px solid var(--border);
+                    border-radius: var(--radius-md);
+                    padding: 1rem 1.25rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .payment-method-option:hover {
+                    border-color: #94a3b8;
+                }
+                .payment-method-option.selected {
+                    border-color: #0284c7;
+                    background: #f0f9ff;
+                }
+                .payment-method-option .check-icon {
+                    color: #0284c7;
+                    font-size: 1.25rem;
+                    display: none;
+                }
+                .payment-method-option.selected .check-icon {
+                    display: block;
+                }
+                .payment-icon {
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #fff;
+                    font-size: 1.2rem;
+                }
+            </style>
+            
+            <script>
+                function selectPaymentMethod(method) {
+                    // Update hidden field
+                    document.getElementById('selectedPaymentMethod').value = method;
+                    
+                    // Update UI
+                    document.querySelectorAll('.payment-method-option').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    document.querySelector(`.payment-method-option[data-method="${method}"]`).classList.add('selected');
+                    
+                    // Update button text
+                    const btnText = document.getElementById('payBtnText');
+                    if (method === 'gcash') {
+                        btnText.textContent = 'Pay with GCash';
+                    } else if (method === 'card') {
+                        btnText.textContent = 'Pay with Credit/Debit Card';
+                    }
+                }
+            </script>
 
             <!-- Manual Payment Form (Image 7) -->
             <div class="form-card">

@@ -5,6 +5,10 @@
     ViewData["Title"] = "Announcements";
     Layout = "~/Views/Shared/_Layout.cshtml";
 
+    // Get current role
+    var currentRole = Context.Session.GetString("Role") ?? "";
+    var isStaffOrCouncil = currentRole == "barangay_staff" || currentRole == "council_member";
+
     string PriorityClass(string p) => p switch
     {
         "high" => "badge rounded-pill bg-danger bg-opacity-10 text-danger border border-danger-subtle",
@@ -86,7 +90,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="mb-0">Announcements</h3>
-            <div class="muted">Manage and publish announcements across puroks.</div>
+            <div class="muted">@(isStaffOrCouncil ? "View published announcements." : "Manage and publish announcements across puroks.")</div>
         </div>
 
         <div class="d-flex gap-2 align-items-center">
@@ -112,36 +116,39 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-12 col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-primary">@total</div><div class="small muted">Total</div>
+    @if (!isStaffOrCouncil)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body text-center py-4">
+                        <div class="fs-2 fw-bold text-primary">@total</div><div class="small muted">Total</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body text-center py-4">
+                        <div class="fs-2 fw-bold text-success">@published</div><div class="small muted">Published</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body text-center py-4">
+                        <div class="fs-2 fw-bold text-warning">@drafts</div><div class="small muted">Drafts</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body text-center py-4">
+                        <div class="fs-2 fw-bold text-secondary">@archived</div><div class="small muted">Archived</div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-success">@published</div><div class="small muted">Published</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-warning">@drafts</div><div class="small muted">Drafts</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-secondary">@archived</div><div class="small muted">Archived</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    }
 
     @if (archiveStatus == "archived")
     {
@@ -156,16 +163,19 @@
         </div>
     }
 
-    <div class="d-flex gap-2 mb-3">
-        <a class="btn pill-btn @(filter == "all" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "all", archiveStatus = archiveStatus })">All</a>
+    @if (!isStaffOrCouncil)
+    {
+        <div class="d-flex gap-2 mb-3">
+            <a class="btn pill-btn @(filter == "all" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+               href="@Url.Action("Announcements", "Home", new { filter = "all", archiveStatus = archiveStatus })">All</a>
 
-        <a class="btn pill-btn @(filter == "published" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "published", archiveStatus = archiveStatus })">Published</a>
+            <a class="btn pill-btn @(filter == "published" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+               href="@Url.Action("Announcements", "Home", new { filter = "published", archiveStatus = archiveStatus })">Published</a>
 
-        <a class="btn pill-btn @(filter == "draft" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-           href="@Url.Action("Announcements", "Home", new { filter = "draft", archiveStatus = archiveStatus })">Draft</a>
-    </div>
+            <a class="btn pill-btn @(filter == "draft" ? "btn-primary" : "btn-outline-secondary") btn-sm"
+               href="@Url.Action("Announcements", "Home", new { filter = "draft", archiveStatus = archiveStatus })">Draft</a>
+        </div>
+    }
 
     <div class="d-flex flex-column gap-3">
         @foreach (var a in announcements)

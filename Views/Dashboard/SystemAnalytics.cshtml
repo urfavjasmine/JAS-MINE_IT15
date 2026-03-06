@@ -149,7 +149,9 @@
         <div class="col-lg-8">
             <div class="chart-card h-100">
                 <h6>Monthly Document Uploads</h6>
-                <canvas id="monthlyUploadsChart" height="250"></canvas>
+                <div style="position: relative; height: 280px; max-height: 280px;">
+                    <canvas id="monthlyUploadsChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -287,7 +289,20 @@
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 12
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            maxTicksLimit: 8
+                        }
+                    }
                 }
             }
         });

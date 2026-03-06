@@ -146,7 +146,6 @@
                             <td class="d-none d-md-table-cell text-muted">@s.EndDate</td>
                             <td><span class="badge @badgeClass">@s.Status</span></td>
                             <td class="text-end">
-
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-light text-secondary border-0"
                                             title="View Details"
@@ -158,17 +157,6 @@
                                             data-end="@s.EndDate"
                                             data-status="@s.Status">
                                         <i class="bi bi-eye"></i>
-                                    </button>
-
-                                    <button type="button" class="btn btn-sm btn-light text-primary border-0"
-                                            title="Edit Subscription"
-                                            data-bs-toggle="modal" data-bs-target="#editModal"
-                                            data-id="@s.Id"
-                                            data-barangay="@s.BarangayName"
-                                            data-plan="@s.PlanName"
-                                            data-start="@s.StartDate"
-                                            data-end="@s.EndDate">
-                                        <i class="bi bi-pencil"></i>
                                     </button>
 
                                     @if (s.Status == "Active")

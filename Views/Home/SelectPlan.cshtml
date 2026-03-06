@@ -187,7 +187,14 @@
             <h1 class="page-title">Choose Your Subscription Plan</h1>
             <p class="page-subtitle">Select a plan to activate your barangay's access to JAS-MINE ERP.</p>
             
-            @if (!Model.HasActiveSubscription)
+            @if (Model.HasActiveSubscription)
+            {
+                <div class="alert alert-info d-inline-flex align-items-center gap-2 mt-3" role="alert">
+                    <i class="bi bi-info-circle"></i>
+                    <span>You already have an active or pending subscription. Select a new plan to upgrade or renew.</span>
+                </div>
+            }
+            else
             {
                 <div class="pending-banner">
                     <span class="dot"></span>
@@ -250,13 +257,6 @@
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        @if (Model.HasActiveSubscription)
-        {
-            <text>
-            window.location.href = '@Url.Action("Barangay", "Dashboard")';
-            </text>
-        }
-
         function selectPlan(card) {
             // Remove selection from all cards
             document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));

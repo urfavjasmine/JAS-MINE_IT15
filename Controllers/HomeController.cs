@@ -2914,7 +2914,9 @@ namespace JAS_MINE_IT15.Controllers
             {
                 Users = users,
                 Barangays = barangays,
-                CurrentUserRole = role
+                CurrentUserRole = role,
+                SuccessMessage = TempData["Success"] as string,
+                ErrorMessage = TempData["Error"] as string
             };
 
             return View(vm);
@@ -4435,7 +4437,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/InitiateOnlinePayment — Creates a PayMongo Checkout Session and redirects
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> InitiateOnlinePayment(int invoiceId)
+        public async Task<IActionResult> InitiateOnlinePayment(int invoiceId, string paymentMethod = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
@@ -4457,12 +4459,21 @@ namespace JAS_MINE_IT15.Controllers
             var successUrl = $"{scheme}://{host}{Url.Action("PaymentSuccess", "Home", new { invoiceId = invoice.Id })}";
             var cancelUrl = $"{scheme}://{host}{Url.Action("PaymentCancel", "Home", new { invoiceId = invoice.Id })}";
 
+            // Normalize payment method (gcash or card)
+            var normalizedPaymentMethod = paymentMethod?.ToLowerInvariant() switch
+            {
+                "gcash" => "gcash",
+                "card" => "card",
+                _ => null // Will use all payment methods
+            };
+
             var checkoutUrl = await _payMongoService.CreateCheckoutSessionAsync(
                 invoice.Amount,
                 $"JAS-MINE: {invoice.Subscription?.Plan?.Name} Subscription",
                 successUrl,
                 cancelUrl,
-                invoice.InvoiceNumber
+                invoice.InvoiceNumber,
+                normalizedPaymentMethod
             );
 
             if (!string.IsNullOrEmpty(checkoutUrl))

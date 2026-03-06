@@ -67,20 +67,23 @@
 </div>
 
 <div class="filter-bar">
-    <button class="btn-filter">Last 7 days</button>
-    <button class="btn-filter active">Last 30 days</button>
-    <button class="btn-filter">This month</button>
-    <button class="btn-filter">Last 3 months</button>
-    <button class="btn-filter">Last 6 months</button>
-    <button class="btn-filter">Last year</button>
+    <form method="get" id="filterForm" class="d-flex flex-wrap align-items-center gap-2">
+        <input type="hidden" name="search" value="@search" />
+        <button type="submit" name="range" value="7" class="btn-filter @(ViewData["Range"] as string == "7" ? "active" : "")">Last 7 days</button>
+        <button type="submit" name="range" value="30" class="btn-filter @(ViewData["Range"] as string == "30" || string.IsNullOrEmpty(ViewData["Range"] as string) ? "active" : "")">Last 30 days</button>
+        <button type="submit" name="range" value="thismonth" class="btn-filter @(ViewData["Range"] as string == "thismonth" ? "active" : "")">This month</button>
+        <button type="submit" name="range" value="90" class="btn-filter @(ViewData["Range"] as string == "90" ? "active" : "")">Last 3 months</button>
+        <button type="submit" name="range" value="180" class="btn-filter @(ViewData["Range"] as string == "180" ? "active" : "")">Last 6 months</button>
+        <button type="submit" name="range" value="365" class="btn-filter @(ViewData["Range"] as string == "365" ? "active" : "")">Last year</button>
 
-    <div class="date-range-group">
-        <i class="bi bi-calendar3 text-muted"></i>
-        <input type="text" value="Sep 6, 2025" />
-        <span class="text-muted small">—</span>
-        <i class="bi bi-calendar3 text-muted"></i>
-        <input type="text" value="Mar 6, 2026" />
-    </div>
+        <div class="date-range-group">
+            <i class="bi bi-calendar3 text-muted"></i>
+            <input type="date" name="from" value="@fromDate" />
+            <span class="text-muted small">—</span>
+            <input type="date" name="to" value="@toDate" />
+            <button type="submit" class="btn btn-sm btn-primary ms-2">Apply</button>
+        </div>
+    </form>
 
     <div class="export-btns">
         <a href="@Url.Action("ExportUserActivityCsv", new { from = fromDate, to = toDate })" class="btn-export">
