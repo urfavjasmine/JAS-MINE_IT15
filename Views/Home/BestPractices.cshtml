@@ -16,6 +16,7 @@
     var canManage = Model?.CanManage ?? false;
     var canModify = Model?.CanModify ?? false;
     var canArchive = Model?.CanArchive ?? false;
+    var canApprove = Model?.CanApprove ?? false;
     var successMessage = Model?.SuccessMessage ?? "";
     var errorMessage = Model?.ErrorMessage ?? "";
 }
@@ -333,8 +334,9 @@
                             </span>
                             <select name="status" class="form-select select-soft border-start-0" style="border-radius:0 10px 10px 0;" onchange="this.form.submit()">
                                 <option value="" selected="@(string.IsNullOrEmpty(Model?.SelectedStatus))">All Status</option>
-                                <option value="Active" selected="@(Model?.SelectedStatus == "Active")">Active</option>
-                                <option value="Archived" selected="@(Model?.SelectedStatus == "Archived")">Archived</option>
+                                <option value="pending" selected="@(Model?.SelectedStatus == "pending")">Pending Approval</option>
+                                <option value="approved" selected="@(Model?.SelectedStatus == "approved")">Approved</option>
+                                <option value="rejected" selected="@(Model?.SelectedStatus == "rejected")">Rejected</option>
                             </select>
                         </div>
                     </div>
@@ -352,7 +354,17 @@
                     <div class="card-body p-4 d-flex flex-column">
 
                         <div class="d-flex align-items-start justify-content-between gap-2">
-                            <span class="@CategoryClass(p.Category)">@p.Category</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="@CategoryClass(p.Category)">@p.Category</span>
+                                @if (p.Status == "pending")
+                                {
+                                    <span class="badge bg-warning text-dark" style="font-size:11px;"><i class="bi bi-clock me-1"></i>Pending</span>
+                                }
+                                else if (p.Status == "rejected")
+                                {
+                                    <span class="badge bg-danger" style="font-size:11px;"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                                }
+                            </div>
 
                             <div class="d-flex align-items-center gap-2">
                                 @if (p.Featured)
@@ -399,6 +411,33 @@
                                                         data-status="@p.Status">
                                                     <i class="bi bi-pencil me-2"></i>Edit
                                                 </button>
+                                            </li>
+                                        }
+                                        @if (canApprove && !p.IsArchived && (p.Status == "pending" || p.Status == "rejected"))
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li>
+                                                <form asp-action="SetBestPracticeStatus" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@p.Id" />
+                                                    <input type="hidden" name="newStatus" value="approved" />
+                                                    <button type="submit" class="dropdown-item text-success">
+                                                        <i class="bi bi-check-circle me-2"></i>Approve
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        }
+                                        @if (canApprove && !p.IsArchived && p.Status == "pending")
+                                        {
+                                            <li>
+                                                <form asp-action="SetBestPracticeStatus" method="post" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@p.Id" />
+                                                    <input type="hidden" name="newStatus" value="rejected" />
+                                                    <button type="submit" class="dropdown-item text-danger">
+                                                        <i class="bi bi-x-circle me-2"></i>Reject
+                                                    </button>
+                                                </form>
                                             </li>
                                         }
                                         @if (canArchive)

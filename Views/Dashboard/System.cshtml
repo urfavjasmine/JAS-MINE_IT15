@@ -173,54 +173,6 @@
         </div>
     </div>
 
-    <!-- ═══════ Pending Approvals + Quick Actions ═══════ -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="panel-card h-100">
-                <div class="panel-head">
-                    <h5 class="panel-title"><i class="bi bi-hourglass-split text-warning"></i> Pending Approvals</h5>
-                </div>
-                <div class="panel-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="bi bi-building me-2"></i> Pending Subscriptions</span>
-                        <span class="badge badge-pending">@Model.PendingDocuments</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span><i class="bi bi-receipt me-2"></i> Pending Payments</span>
-                        <span class="badge badge-pending">@Model.PendingPayments</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-journal-bookmark me-2"></i> Pending Policies</span>
-                        <span class="badge badge-pending">@Model.PendingPolicies</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="panel-card h-100">
-                <div class="panel-head">
-                    <h5 class="panel-title"><i class="bi bi-lightning text-primary"></i> Quick Actions</h5>
-                </div>
-                <div class="panel-body">
-                    <div class="d-grid gap-2">
-                        <a href="@Url.Action("UserManagement", "Home")" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-people me-1"></i> Manage Users
-                        </a>
-                        <a href="@Url.Action("BarangaySubscriptions", "Home")" class="btn btn-outline-success btn-sm">
-                            <i class="bi bi-building me-1"></i> Manage Subscriptions
-                        </a>
-                        <a href="@Url.Action("PendingPayments", "Home")" class="btn btn-outline-warning btn-sm">
-                            <i class="bi bi-receipt me-1"></i> Review Pending Payments
-                        </a>
-                        <a href="@Url.Action("AuditLogs", "Home")" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-clock-history me-1"></i> View Audit Logs
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- ═══════ Barangay Activity Report ═══════ -->
     <div class="panel-card mb-4">
         <div class="panel-head d-flex align-items-center justify-content-between">

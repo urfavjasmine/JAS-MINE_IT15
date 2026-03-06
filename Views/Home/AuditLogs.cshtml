@@ -126,10 +126,30 @@
 
                 <select class="form-select" name="module" style="max-width: 220px;">
                     <option value="all" selected="@(Model.ModuleFilter == "all")">All Modules</option>
-                    @foreach (var m in Model.Modules)
-                    {
-                        <option value="@m" selected="@(Model.ModuleFilter == m)">@m</option>
-                    }
+                    <option value="Authentication" selected="@(Model.ModuleFilter == "Authentication")">Authentication</option>
+                    <option value="KnowledgeRepository" selected="@(Model.ModuleFilter == "KnowledgeRepository")">Knowledge Repository</option>
+                    <option value="Policies" selected="@(Model.ModuleFilter == "Policies")">Policies & Procedures</option>
+                    <option value="LessonsLearned" selected="@(Model.ModuleFilter == "LessonsLearned")">Lessons Learned</option>
+                    <option value="BestPractices" selected="@(Model.ModuleFilter == "BestPractices")">Best Practices</option>
+                    <option value="Announcements" selected="@(Model.ModuleFilter == "Announcements")">Announcements</option>
+                    <option value="KnowledgeDiscussions" selected="@(Model.ModuleFilter == "KnowledgeDiscussions")">Knowledge Discussions</option>
+                    <option value="Users" selected="@(Model.ModuleFilter == "Users")">User Management</option>
+                    <option value="BarangaySubscriptions" selected="@(Model.ModuleFilter == "BarangaySubscriptions")">Subscriptions</option>
+                    <option value="SubscriptionPayments" selected="@(Model.ModuleFilter == "SubscriptionPayments")">Payments</option>
+                </select>
+
+                <select class="form-select" name="action" style="max-width: 180px;">
+                    <option value="all" selected="@(Model.ActionFilter == "all")">All Actions</option>
+                    <option value="Login" selected="@(Model.ActionFilter == "Login")">Login</option>
+                    <option value="Logout" selected="@(Model.ActionFilter == "Logout")">Logout</option>
+                    <option value="Created" selected="@(Model.ActionFilter == "Created")">Created</option>
+                    <option value="Updated" selected="@(Model.ActionFilter == "Updated")">Updated</option>
+                    <option value="Deleted" selected="@(Model.ActionFilter == "Deleted")">Deleted</option>
+                    <option value="Approved" selected="@(Model.ActionFilter == "Approved")">Approved</option>
+                    <option value="Rejected" selected="@(Model.ActionFilter == "Rejected")">Rejected</option>
+                    <option value="Uploaded" selected="@(Model.ActionFilter == "Uploaded")">Uploaded</option>
+                    <option value="Archived" selected="@(Model.ActionFilter == "Archived")">Archived</option>
+                    <option value="Export" selected="@(Model.ActionFilter == "Export")">Export</option>
                 </select>
 
                 <button class="btn btn-primary" type="submit">Filter</button>
@@ -245,6 +265,7 @@
                 <input type="hidden" id="archiveId" name="id" />
                 <input type="hidden" name="q" value="@Model.SearchQuery" />
                 <input type="hidden" name="module" value="@Model.ModuleFilter" />
+                <input type="hidden" name="action" value="@Model.ActionFilter" />
 
                 <div class="modal-header">
                     <h5 class="modal-title text-warning">Archive Log Entry</h5>

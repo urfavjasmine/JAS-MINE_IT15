@@ -385,6 +385,24 @@
                     <div class="jm-text">Reports & Analytics</div>
                 </a>
             </div>
+
+            <div class="jm-section">MONITORING</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("SystemMonitoring", "Dashboard") ? "active" : "")" href="@Url.Action("SystemMonitoring", "Dashboard")">
+                    <div class="jm-icon"><i class="bi bi-activity"></i></div>
+                    <div class="jm-text">System Monitoring</div>
+                </a>
+
+                <a class="jm-item @(IsActive("SecurityMonitoring", "Dashboard") ? "active" : "")" href="@Url.Action("SecurityMonitoring", "Dashboard")">
+                    <div class="jm-icon"><i class="bi bi-shield-lock"></i></div>
+                    <div class="jm-text">Security Monitoring</div>
+                </a>
+
+                <a class="jm-item @(IsActive("SystemAnalytics", "Dashboard") ? "active" : "")" href="@Url.Action("SystemAnalytics", "Dashboard")">
+                    <div class="jm-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="jm-text">System Analytics</div>
+                </a>
+            </div>
         }
 
         @* ===================== BARANGAY ADMIN ===================== *@
@@ -466,7 +484,49 @@
             </div>
         }
 
-        @* ===================== OTHER ROLES (optional) ===================== *@
+        @* ===================== COUNCIL MEMBER (Read-Only) ===================== *@
+        else if (role == "council_member")
+        {
+            <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">
+                <div class="jm-icon"><i class="bi bi-grid"></i></div>
+                <div class="jm-text">Dashboard</div>
+            </a>
+
+            <div class="jm-section">VIEW MODULES</div>
+            <div class="jm-group">
+                <a class="jm-item @(IsActive("KnowledgeRepository") ? "active" : "")" href="@Url.Action("KnowledgeRepository", "Home")">
+                    <div class="jm-icon"><i class="bi bi-folder2-open"></i></div>
+                    <div class="jm-text">Knowledge Repository</div>
+                </a>
+
+                <a class="jm-item @(IsActive("PoliciesManagement") ? "active" : "")" href="@Url.Action("PoliciesManagement", "Home")">
+                    <div class="jm-icon"><i class="bi bi-file-earmark-text"></i></div>
+                    <div class="jm-text">Policies &amp; Procedures</div>
+                </a>
+
+                <a class="jm-item @(IsActive("LessonsLearned") ? "active" : "")" href="@Url.Action("LessonsLearned", "Home")">
+                    <div class="jm-icon"><i class="bi bi-lightbulb"></i></div>
+                    <div class="jm-text">Lessons Learned</div>
+                </a>
+
+                <a class="jm-item @(IsActive("BestPractices") ? "active" : "")" href="@Url.Action("BestPractices", "Home")">
+                    <div class="jm-icon"><i class="bi bi-award"></i></div>
+                    <div class="jm-text">Best Practices</div>
+                </a>
+
+                <a class="jm-item @(IsActive("KnowledgeSharing") ? "active" : "")" href="@Url.Action("KnowledgeSharing", "Home")">
+                    <div class="jm-icon"><i class="bi bi-chat-left-text"></i></div>
+                    <div class="jm-text">Knowledge Sharing</div>
+                </a>
+
+                <a class="jm-item @(IsActive("Announcements") ? "active" : "")" href="@Url.Action("Announcements", "Home")">
+                    <div class="jm-icon"><i class="bi bi-bell"></i></div>
+                    <div class="jm-text">Announcements</div>
+                </a>
+            </div>
+        }
+
+        @* ===================== OTHER ROLES (barangay_staff, barangay_secretary) ===================== *@
         else
         {
             <a class="jm-item @(IsActive("DashboardHome") ? "active" : "")" href="@Url.Action("DashboardHome", "Home")">

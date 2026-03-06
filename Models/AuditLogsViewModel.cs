@@ -22,6 +22,7 @@ namespace JAS_MINE_IT15.Models
 
         public string SearchQuery { get; set; } = "";
         public string ModuleFilter { get; set; } = "all";
+        public string ActionFilter { get; set; } = "all";
 
         public List<string> Modules => Logs.Select(l => l.Module).Distinct().OrderBy(x => x).ToList();
 

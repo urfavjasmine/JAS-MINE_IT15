@@ -14,13 +14,18 @@
         </span>
     </button>
 
-    <div class="dropdown-menu dropdown-menu-end shadow p-2" style="width:320px;">
+    <div class="dropdown-menu dropdown-menu-end shadow p-2" style="width:350px; max-height: 450px; overflow-y: auto;">
         <div class="d-flex justify-content-between align-items-center px-2">
             <strong>Notifications</strong>
-            @if (Model.UnreadCount > 0)
-            {
-                <span class="badge bg-secondary rounded-pill">@Model.UnreadCount new</span>
-            }
+            <div class="d-flex gap-2 align-items-center">
+                @if (Model.UnreadCount > 0)
+                {
+                    <span class="badge bg-secondary rounded-pill">@Model.UnreadCount new</span>
+                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="markAllNotificationsRead()" title="Mark all as read">
+                        <i class="bi bi-check2-all text-primary"></i>
+                    </button>
+                }
+            </div>
         </div>
 
         <hr class="my-2" />
@@ -34,10 +39,18 @@
                     "announcement" => "bi-megaphone text-primary",
                     "pending" => "bi-clock text-warning",
                     "approval" => "bi-check-circle text-success",
+                    "rejected" => "bi-x-circle text-danger",
+                    "urgent" => "bi-exclamation-triangle text-danger",
+                    "discussion" => "bi-chat-dots text-info",
                     _ => "bi-bell text-secondary"
                 };
 
-                <a href="@n.Link" class="dropdown-item small py-2 d-block text-decoration-none" style="white-space: normal;">
+                <a href="@n.Link" 
+                   class="dropdown-item small py-2 d-block text-decoration-none notification-item @(n.Unread ? "bg-light" : "")" 
+                   style="white-space: normal;"
+                   data-notification-id="@n.Id"
+                   data-is-persisted="@n.IsPersisted.ToString().ToLower()"
+                   onclick="markNotificationRead(@n.Id, @n.IsPersisted.ToString().ToLower())">
                     <div class="d-flex align-items-start gap-2">
                         @if (n.Unread)
                         {
@@ -47,9 +60,11 @@
                         {
                             <span class="flex-shrink-0 mt-1" style="width:8px;height:8px;"></span>
                         }
-                        <div>
-                            <i class="bi @iconClass me-1"></i>
-                            <span class="fw-medium text-dark">@n.Title</span>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center">
+                                <i class="bi @iconClass me-1"></i>
+                                <span class="fw-medium text-dark">@n.Title</span>
+                            </div>
                             <div class="text-muted" style="font-size: 11px;">@n.Time</div>
                         </div>
                     </div>
@@ -73,3 +88,57 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Mark a single notification as read
+    async function markNotificationRead(notificationId, isPersisted) {
+        if (!isPersisted || notificationId === 0) return;
+        
+        try {
+            await fetch('/api/Notifications/mark-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({ notificationId: notificationId })
+            });
+        } catch (e) {
+            console.log('Could not mark notification as read');
+        }
+    }
+
+    // Mark all notifications as read
+    async function markAllNotificationsRead() {
+        try {
+            const response = await fetch('/api/Notifications/mark-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({ markAll: true })
+            });
+
+            if (response.ok) {
+                // Update UI
+                document.querySelectorAll('.notification-item').forEach(item => {
+                    item.classList.remove('bg-light');
+                    const dot = item.querySelector('.bg-success.rounded-circle');
+                    if (dot) dot.classList.remove('bg-success');
+                });
+                
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    badge.textContent = '0';
+                    badge.classList.add('d-none');
+                }
+                
+                const newBadge = document.querySelector('.dropdown-menu .badge.bg-secondary');
+                if (newBadge) newBadge.remove();
+            }
+        } catch (e) {
+            console.log('Could not mark all notifications as read');
+        }
+    }
+</script>

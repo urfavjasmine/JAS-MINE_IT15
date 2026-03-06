@@ -9,6 +9,7 @@
     var canSubmit = Model?.CanSubmit ?? false;
     var canModify = Model?.CanModify ?? false;
     var canArchive = Model?.CanArchive ?? false;
+    var canApprove = Model?.CanApprove ?? false;
     var archiveStatus = Model?.ArchiveStatus ?? "active";
     var lessons = Model?.Lessons ?? new List<JAS_MINE_IT15.Models.LessonRow>();
 }
@@ -162,9 +163,17 @@
                                     {
                                         <span class="badge bg-secondary"><i class="bi bi-archive me-1"></i>Archived</span>
                                     }
+                                    else if (lesson.Status == "pending")
+                                    {
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Pending</span>
+                                    }
+                                    else if (lesson.Status == "rejected")
+                                    {
+                                        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                                    }
                                     else
                                     {
-                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
                                     }
                                 </td>
                                 <td>
@@ -175,6 +184,29 @@
                                             @if (canModify && !lesson.IsArchived)
                                             {
                                                 <li><a class="dropdown-item" href="#" onclick="editLesson(@lesson.Id, '@lesson.Title.Replace("'", "\\'")','@lesson.Problem.Replace("'", "\\'").Replace("\n", " ")','@lesson.ActionTaken.Replace("'", "\\'").Replace("\n", " ")','@lesson.Result.Replace("'", "\\'").Replace("\n", " ")','@lesson.Recommendation.Replace("'", "\\'").Replace("\n", " ")')"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            }
+                                            @if (canApprove && !lesson.IsArchived && (lesson.Status == "pending" || lesson.Status == "rejected"))
+                                            {
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form asp-action="SetLessonStatus" method="post" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@lesson.Id" />
+                                                        <input type="hidden" name="newStatus" value="approved" />
+                                                        <button type="submit" class="dropdown-item text-success"><i class="bi bi-check-circle me-2"></i>Approve</button>
+                                                    </form>
+                                                </li>
+                                            }
+                                            @if (canApprove && !lesson.IsArchived && lesson.Status == "pending")
+                                            {
+                                                <li>
+                                                    <form asp-action="SetLessonStatus" method="post" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@lesson.Id" />
+                                                        <input type="hidden" name="newStatus" value="rejected" />
+                                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-circle me-2"></i>Reject</button>
+                                                    </form>
+                                                </li>
                                             }
                                             @if (canArchive)
                                             {

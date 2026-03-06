@@ -251,6 +251,332 @@ namespace JAS_MINE_IT15.Controllers
 
         #endregion
 
+        #region System Monitoring (super_admin only)
+
+        /// <summary>
+        /// System monitoring dashboard with aggregate statistics across all barangays.
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "super_admin")]
+        public async Task<IActionResult> SystemMonitoring()
+        {
+            var vm = new SystemMonitoringDashboardViewModel
+            {
+                Role = GetCurrentRole()
+            };
+
+            var today = DateTime.Today;
+            var thisMonth = new DateTime(today.Year, today.Month, 1);
+            var lastMonth = thisMonth.AddMonths(-1);
+
+            // ========== AGGREGATE STATS ==========
+            vm.TotalBarangays = await _context.Barangays.CountAsync(b => b.IsActive);
+            vm.TotalUsers = await _context.BusinessUsers.CountAsync(u => u.IsActive);
+            vm.TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive);
+            vm.TotalPolicies = await _context.Policies.CountAsync(p => p.IsActive);
+            vm.TotalLessonsLearned = await _context.LessonsLearned.CountAsync(l => l.IsActive);
+            vm.TotalBestPractices = await _context.BestPractices.CountAsync(bp => bp.IsActive);
+
+            // Growth this month
+            vm.NewBarangaysThisMonth = await _context.Barangays.CountAsync(b => b.IsActive && b.CreatedAt >= thisMonth);
+            vm.NewUsersThisMonth = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.CreatedAt >= thisMonth);
+            vm.NewDocumentsThisMonth = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.CreatedAt >= thisMonth);
+            vm.NewPoliciesThisMonth = await _context.Policies.CountAsync(p => p.IsActive && p.CreatedAt >= thisMonth);
+            vm.NewLessonsThisMonth = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.CreatedAt >= thisMonth);
+            vm.NewBestPracticesThisMonth = await _context.BestPractices.CountAsync(bp => bp.IsActive && bp.CreatedAt >= thisMonth);
+
+            // ========== PER-BARANGAY SUMMARY ==========
+            var barangays = await _context.Barangays.Where(b => b.IsActive).ToListAsync();
+            foreach (var b in barangays)
+            {
+                var subscription = await _context.BarangaySubscriptions
+                    .Include(s => s.Plan)
+                    .Where(s => s.BarangayId == b.Id && s.IsActive)
+                    .OrderByDescending(s => s.EndDate)
+                    .FirstOrDefaultAsync();
+
+                vm.BarangaySummaries.Add(new PerBarangaySummaryItem
+                {
+                    BarangayId = b.Id,
+                    BarangayName = b.Name,
+                    UserCount = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.BarangayId == b.Id),
+                    DocumentCount = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.BarangayId == b.Id),
+                    PolicyCount = await _context.Policies.CountAsync(p => p.IsActive && p.BarangayId == b.Id),
+                    LessonCount = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.BarangayId == b.Id),
+                    BestPracticeCount = await _context.BestPractices.CountAsync(bp => bp.IsActive && bp.BarangayId == b.Id),
+                    SubscriptionStatus = subscription?.Status ?? "none",
+                    PlanName = subscription?.Plan?.Name ?? "No Plan"
+                });
+            }
+
+            return View(vm);
+        }
+
+        #endregion
+
+        #region Security Monitoring (super_admin only)
+
+        /// <summary>
+        /// Security monitoring dashboard showing login activity and user sessions.
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "super_admin")]
+        public async Task<IActionResult> SecurityMonitoring(string filter = "all", int page = 1)
+        {
+            var vm = new SecurityMonitoringViewModel
+            {
+                Role = GetCurrentRole(),
+                Filter = filter,
+                CurrentPage = page,
+                PageSize = 20
+            };
+
+            // Get date ranges
+            var today = DateTime.Today;
+            var last7Days = today.AddDays(-7);
+            var last30Days = today.AddDays(-30);
+
+            // ===== TOP STATS (30d) =====
+            vm.TotalLoginsLast30Days = await _context.AuditLogs
+                .CountAsync(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= last30Days);
+
+            vm.FailedLoginsLast30Days = await _context.AuditLogs
+                .CountAsync(a => a.IsActive && (a.Action == "LoginFailed" || a.Action == "FailedLogin") && a.CreatedAt >= last30Days);
+
+            // Active sessions (unique users logged in today)
+            vm.ActiveSessions = await _context.AuditLogs
+                .Where(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= today && a.UserId != null)
+                .Select(a => a.UserId)
+                .Distinct()
+                .CountAsync();
+
+            // Suspicious activity: IPs with 3+ failed logins in last 7 days
+            vm.SuspiciousActivity = await _context.AuditLogs
+                .Where(a => a.IsActive && (a.Action == "LoginFailed" || a.Action == "FailedLogin") && a.CreatedAt >= last7Days && a.IpAddress != null)
+                .GroupBy(a => a.IpAddress)
+                .Where(g => g.Count() >= 3)
+                .CountAsync();
+
+            // ===== DAILY LOGIN ACTIVITY (Last 7 Days) with success/fail split =====
+            for (int i = 6; i >= 0; i--)
+            {
+                var date = today.AddDays(-i);
+                var nextDate = date.AddDays(1);
+                
+                var successCount = await _context.AuditLogs
+                    .CountAsync(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= date && a.CreatedAt < nextDate);
+                var failCount = await _context.AuditLogs
+                    .CountAsync(a => a.IsActive && (a.Action == "LoginFailed" || a.Action == "FailedLogin") && a.CreatedAt >= date && a.CreatedAt < nextDate);
+
+                vm.DailyLoginTrend.Add(new DailyLoginItem
+                {
+                    Date = date.ToString("MMM d"),
+                    Count = successCount,
+                    FailedCount = failCount
+                });
+            }
+
+            // ===== LOGINS BY ROLE (30d) =====
+            var loginUserIds = await _context.AuditLogs
+                .Where(a => a.IsActive && a.Action == "Login" && a.CreatedAt >= last30Days && a.UserId != null)
+                .Select(a => a.UserId)
+                .ToListAsync();
+
+            var roleGroups = await _context.BusinessUsers
+                .Where(u => loginUserIds.Contains(u.Id))
+                .GroupBy(u => u.Role)
+                .Select(g => new LoginsByRoleItem { Role = g.Key ?? "Unknown", Count = g.Count() })
+                .ToListAsync();
+
+            // Calculate percentages
+            var totalRoleLogins = roleGroups.Sum(r => r.Count);
+            foreach (var r in roleGroups)
+            {
+                r.Percentage = totalRoleLogins > 0 ? Math.Round((r.Count * 100.0 / totalRoleLogins), 0) : 0;
+                r.Role = r.Role.Replace("_", " ").ToUpper() switch
+                {
+                    "BARANGAY ADMIN" => "Barangay Admin",
+                    "BARANGAY SECRETARY" => "Secretary",
+                    "BARANGAY STAFF" => "Staff",
+                    "SUPER ADMIN" => "Super Admin",
+                    "COUNCIL MEMBER" => "Council Member",
+                    _ => r.Role
+                };
+            }
+            vm.LoginsByRole = roleGroups.OrderByDescending(r => r.Count).ToList();
+
+            // ===== LOGIN ACTIVITY LOG =====
+            var query = _context.AuditLogs
+                .Where(a => a.IsActive && (a.Action == "Login" || a.Action == "LoginFailed" || a.Action == "FailedLogin" || a.Action == "Logout"));
+
+            if (filter == "successful")
+                query = query.Where(a => a.Action == "Login");
+            else if (filter == "failed")
+                query = query.Where(a => a.Action == "LoginFailed" || a.Action == "FailedLogin");
+            else if (filter == "today")
+                query = query.Where(a => a.CreatedAt >= today);
+
+            // Count total for pagination
+            vm.TotalRecords = await query.CountAsync();
+
+            // Get paginated login activity with user and barangay info
+            var loginActivities = await query
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((page - 1) * vm.PageSize)
+                .Take(vm.PageSize)
+                .Select(a => new LoginActivityItem
+                {
+                    Id = a.Id,
+                    UserEmail = a.UserEmail ?? "Unknown",
+                    UserName = a.UserName ?? "Unknown",
+                    Action = a.Action,
+                    IpAddress = a.IpAddress ?? "N/A",
+                    Timestamp = a.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    UserId = a.UserId
+                })
+                .ToListAsync();
+
+            // Get barangay info for each user
+            foreach (var activity in loginActivities)
+            {
+                if (activity.UserId.HasValue)
+                {
+                    var user = await _context.BusinessUsers
+                        .Where(u => u.Id == activity.UserId.Value)
+                        .Select(u => new { u.BarangayId, u.BarangayName })
+                        .FirstOrDefaultAsync();
+
+                    activity.BarangayName = user?.BarangayName ?? "N/A";
+                }
+                else
+                {
+                    activity.BarangayName = "N/A";
+                }
+            }
+
+            vm.LoginActivities = loginActivities;
+
+            return View(vm);
+        }
+
+        #endregion
+
+        #region System Analytics (super_admin only)
+
+        /// <summary>
+        /// System analytics page with usage statistics and trends.
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "super_admin")]
+        public async Task<IActionResult> SystemAnalytics()
+        {
+            var vm = new SystemAnalyticsViewModel
+            {
+                Role = GetCurrentRole()
+            };
+
+            var today = DateTime.Today;
+            var thisMonth = new DateTime(today.Year, today.Month, 1);
+            var lastMonth = thisMonth.AddMonths(-1);
+            var last30Days = today.AddDays(-30);
+
+            // ========== TOP STATS ==========
+            // Active Users Today (users with activity today)
+            vm.ActiveUsersToday = await _context.AuditLogs
+                .Where(a => a.IsActive && a.CreatedAt >= today && a.UserId != null)
+                .Select(a => a.UserId)
+                .Distinct()
+                .CountAsync();
+
+            // Active Barangays (barangays with any user activity today)
+            var activeBarangayUsers = await _context.AuditLogs
+                .Where(a => a.IsActive && a.CreatedAt >= today && a.UserId != null)
+                .Select(a => a.UserId)
+                .Distinct()
+                .ToListAsync();
+            vm.ActiveBarangays = await _context.BusinessUsers
+                .Where(u => activeBarangayUsers.Contains(u.Id) && u.BarangayId != null)
+                .Select(u => u.BarangayId)
+                .Distinct()
+                .CountAsync();
+
+            // Uploads This Month (documents + policies + lessons + best practices)
+            var docsThisMonth = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.CreatedAt >= thisMonth);
+            var policiesThisMonth = await _context.Policies.CountAsync(p => p.IsActive && p.CreatedAt >= thisMonth);
+            var lessonsThisMonth = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.CreatedAt >= thisMonth);
+            var practicesThisMonth = await _context.BestPractices.CountAsync(bp => bp.IsActive && bp.CreatedAt >= thisMonth);
+            vm.UploadsThisMonth = docsThisMonth + policiesThisMonth + lessonsThisMonth + practicesThisMonth;
+
+            // Last month uploads for MoM calculation
+            var docsLastMonth = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.CreatedAt >= lastMonth && d.CreatedAt < thisMonth);
+            var policiesLastMonth = await _context.Policies.CountAsync(p => p.IsActive && p.CreatedAt >= lastMonth && p.CreatedAt < thisMonth);
+            var lessonsLastMonth = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.CreatedAt >= lastMonth && l.CreatedAt < thisMonth);
+            var practicesLastMonth = await _context.BestPractices.CountAsync(bp => bp.IsActive && bp.CreatedAt >= lastMonth && bp.CreatedAt < thisMonth);
+            var uploadsLastMonth = docsLastMonth + policiesLastMonth + lessonsLastMonth + practicesLastMonth;
+
+            // MoM Growth
+            vm.MoMGrowth = uploadsLastMonth > 0 
+                ? Math.Round(((vm.UploadsThisMonth - uploadsLastMonth) * 100.0 / uploadsLastMonth), 0)
+                : 0;
+
+            // ========== UPLOADS BY TYPE (totals) ==========
+            vm.TotalDocuments = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive);
+            vm.TotalPolicies = await _context.Policies.CountAsync(p => p.IsActive);
+            vm.TotalLessonsLearned = await _context.LessonsLearned.CountAsync(l => l.IsActive);
+            vm.TotalBestPractices = await _context.BestPractices.CountAsync(bp => bp.IsActive);
+
+            // ========== MONTHLY DOCUMENT UPLOADS (Last 7 months) ==========
+            for (int i = 6; i >= 0; i--)
+            {
+                var monthStart = thisMonth.AddMonths(-i);
+                var monthEnd = monthStart.AddMonths(1);
+
+                var docs = await _context.KnowledgeDocuments.CountAsync(d => d.IsActive && d.CreatedAt >= monthStart && d.CreatedAt < monthEnd);
+                var policies = await _context.Policies.CountAsync(p => p.IsActive && p.CreatedAt >= monthStart && p.CreatedAt < monthEnd);
+                var lessons = await _context.LessonsLearned.CountAsync(l => l.IsActive && l.CreatedAt >= monthStart && l.CreatedAt < monthEnd);
+
+                vm.MonthlyUploads.Add(new MonthlyUploadItem
+                {
+                    Month = monthStart.ToString("MMM"),
+                    Documents = docs,
+                    Policies = policies,
+                    Lessons = lessons,
+                    Total = docs + policies + lessons
+                });
+            }
+
+            // ========== CURRENTLY ACTIVE USERS (last activity today) ==========
+            vm.CurrentlyActiveUsers = await _context.AuditLogs
+                .Where(a => a.IsActive && a.CreatedAt >= today && a.UserId != null)
+                .GroupBy(a => new { a.UserId, a.UserEmail, a.UserName })
+                .Select(g => new ActiveUserItem
+                {
+                    UserId = g.Key.UserId ?? 0,
+                    UserEmail = g.Key.UserEmail ?? "Unknown",
+                    UserName = g.Key.UserName ?? "Unknown",
+                    LoginCount = g.Count(), // Actions today
+                    LastLogin = g.Max(a => a.CreatedAt).ToString("HH:mm")
+                })
+                .OrderByDescending(u => u.LoginCount)
+                .Take(15)
+                .ToListAsync();
+
+            // Get barangay info for active users
+            foreach (var user in vm.CurrentlyActiveUsers)
+            {
+                var userInfo = await _context.BusinessUsers
+                    .Where(u => u.Id == user.UserId)
+                    .Select(u => new { u.Role, u.BarangayName })
+                    .FirstOrDefaultAsync();
+                user.Role = userInfo?.Role ?? "Unknown";
+                user.BarangayName = userInfo?.BarangayName ?? "N/A";
+            }
+
+            return View(vm);
+        }
+
+        #endregion
+
         #region Barangay Dashboard (barangay roles)
 
         /// <summary>
@@ -636,6 +962,173 @@ namespace JAS_MINE_IT15.Controllers
         public string Action { get; set; } = "";
         public string Module { get; set; } = "";
         public string Target { get; set; } = "";
+    }
+
+    #endregion
+
+    #region Security Monitoring ViewModels
+
+    public class SecurityMonitoringViewModel
+    {
+        public string Role { get; set; } = "";
+        public string Filter { get; set; } = "all";
+        public int CurrentPage { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+        public int TotalRecords { get; set; }
+        public int TotalPages => (int)Math.Ceiling((double)TotalRecords / PageSize);
+
+        // Top Stats (30d)
+        public int TotalLoginsLast30Days { get; set; }
+        public int FailedLoginsLast30Days { get; set; }
+        public int ActiveSessions { get; set; }
+        public int SuspiciousActivity { get; set; }
+
+        // Login Activity Log
+        public List<LoginActivityItem> LoginActivities { get; set; } = new();
+
+        // Daily Login Trend (last 7 days) with success/fail split
+        public List<DailyLoginItem> DailyLoginTrend { get; set; } = new();
+
+        // Logins By Role
+        public List<LoginsByRoleItem> LoginsByRole { get; set; } = new();
+    }
+
+    public class LoginActivityItem
+    {
+        public long Id { get; set; }
+        public string UserEmail { get; set; } = "";
+        public string UserName { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string IpAddress { get; set; } = "";
+        public string Timestamp { get; set; } = "";
+        public int? UserId { get; set; }
+        public string BarangayName { get; set; } = "";
+    }
+
+    public class LoginsByRoleItem
+    {
+        public string Role { get; set; } = "";
+        public int Count { get; set; }
+        public double Percentage { get; set; }
+    }
+
+    public class DailyLoginItem
+    {
+        public string Date { get; set; } = "";
+        public int Count { get; set; }
+        public int FailedCount { get; set; }
+    }
+
+    public class ActiveUserItem
+    {
+        public int UserId { get; set; }
+        public string UserEmail { get; set; } = "";
+        public string UserName { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string BarangayName { get; set; } = "";
+        public int LoginCount { get; set; }
+        public string LastLogin { get; set; } = "";
+    }
+
+    #endregion
+
+    #region System Analytics ViewModels
+
+    public class SystemAnalyticsViewModel
+    {
+        public string Role { get; set; } = "";
+
+        // Top Stats
+        public int ActiveUsersToday { get; set; }
+        public int ActiveBarangays { get; set; }
+        public int UploadsThisMonth { get; set; }
+        public double MoMGrowth { get; set; }
+
+        // Uploads by Type (totals)
+        public int TotalDocuments { get; set; }
+        public int TotalPolicies { get; set; }
+        public int TotalLessonsLearned { get; set; }
+        public int TotalBestPractices { get; set; }
+
+        // Monthly Uploads (last 7 months)
+        public List<MonthlyUploadItem> MonthlyUploads { get; set; } = new();
+
+        // Currently Active Users
+        public List<ActiveUserItem> CurrentlyActiveUsers { get; set; } = new();
+    }
+
+    public class MonthlyUploadItem
+    {
+        public string Month { get; set; } = "";
+        public int Documents { get; set; }
+        public int Policies { get; set; }
+        public int Lessons { get; set; }
+        public int Total { get; set; }
+    }
+
+    public class BarangayActivityItem
+    {
+        public int BarangayId { get; set; }
+        public string BarangayName { get; set; } = "";
+        public int ActivityCount { get; set; }
+        public int DocumentCount { get; set; }
+        public int UserCount { get; set; }
+    }
+
+    public class RoleDistributionItem
+    {
+        public string Role { get; set; } = "";
+        public int Count { get; set; }
+    }
+
+    public class SystemEventItem
+    {
+        public string Timestamp { get; set; } = "";
+        public string User { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string Module { get; set; } = "";
+        public string Target { get; set; } = "";
+    }
+
+    #endregion
+
+    #region System Monitoring ViewModels
+
+    public class SystemMonitoringDashboardViewModel
+    {
+        public string Role { get; set; } = "";
+
+        // Aggregate Stats
+        public int TotalBarangays { get; set; }
+        public int TotalUsers { get; set; }
+        public int TotalDocuments { get; set; }
+        public int TotalPolicies { get; set; }
+        public int TotalLessonsLearned { get; set; }
+        public int TotalBestPractices { get; set; }
+
+        // Growth This Month
+        public int NewBarangaysThisMonth { get; set; }
+        public int NewUsersThisMonth { get; set; }
+        public int NewDocumentsThisMonth { get; set; }
+        public int NewPoliciesThisMonth { get; set; }
+        public int NewLessonsThisMonth { get; set; }
+        public int NewBestPracticesThisMonth { get; set; }
+
+        // Per-Barangay Summary
+        public List<PerBarangaySummaryItem> BarangaySummaries { get; set; } = new();
+    }
+
+    public class PerBarangaySummaryItem
+    {
+        public int BarangayId { get; set; }
+        public string BarangayName { get; set; } = "";
+        public int UserCount { get; set; }
+        public int DocumentCount { get; set; }
+        public int PolicyCount { get; set; }
+        public int LessonCount { get; set; }
+        public int BestPracticeCount { get; set; }
+        public string SubscriptionStatus { get; set; } = "";
+        public string PlanName { get; set; } = "";
     }
 
     #endregion

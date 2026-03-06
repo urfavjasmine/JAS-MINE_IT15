@@ -1,15 +1,3 @@
-/*
-=============================================================================
-  JAS-MINE Knowledge Management System - SQL Server Database Schema
-  Database: JAS_MINE_DB
-  
-  Description: ERP-based Knowledge Management System for Barangays
-  
-  Execute this script in SQL Server Management Studio (SSMS)
-  Compatible with SQL Server 2016+
-=============================================================================
-*/
-
 -- ============================================
 -- Step 1: Create Database
 -- ============================================
@@ -454,6 +442,37 @@ CREATE TABLE [dbo].[SharedDocuments] (
 GO
 
 -- ============================================
+-- Step 15b: Create Notifications Table
+-- ============================================
+CREATE TABLE [dbo].[Notifications] (
+    [Id]                INT IDENTITY(1,1) NOT NULL,
+    [UserId]            INT               NOT NULL,         -- Target user
+    [BarangayId]        INT               NULL,             -- Barangay scope
+    [Title]             NVARCHAR(200)     NOT NULL,
+    [Message]           NVARCHAR(500)     NOT NULL,
+    [Type]              NVARCHAR(50)      NOT NULL          -- pending, approval, rejected, announcement, urgent, discussion
+                        CONSTRAINT DF_Notifications_Type DEFAULT ('info'),
+    [Link]              NVARCHAR(500)     NULL,             -- URL to navigate to
+    [RelatedEntityType] NVARCHAR(50)      NULL,             -- Document, Policy, Lesson, Practice, Announcement
+    [RelatedEntityId]   INT               NULL,             -- ID of related entity
+    [IsRead]            BIT               NOT NULL CONSTRAINT DF_Notifications_IsRead DEFAULT (0),
+    [ReadAt]            DATETIME2         NULL,
+    [IsActive]          BIT               NOT NULL CONSTRAINT DF_Notifications_IsActive DEFAULT (1),
+    [CreatedAt]         DATETIME2         NOT NULL CONSTRAINT DF_Notifications_CreatedAt DEFAULT (GETDATE()),
+
+    CONSTRAINT PK_Notifications PRIMARY KEY CLUSTERED ([Id] ASC),
+    CONSTRAINT FK_Notifications_User FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),
+    CONSTRAINT FK_Notifications_Barangay FOREIGN KEY ([BarangayId]) REFERENCES [dbo].[Barangays]([Id])
+);
+GO
+
+-- Indexes for efficient queries
+CREATE NONCLUSTERED INDEX IX_Notifications_UserId ON [dbo].[Notifications] ([UserId], [IsRead], [IsActive]) INCLUDE ([Title], [Type], [CreatedAt]);
+CREATE NONCLUSTERED INDEX IX_Notifications_BarangayId ON [dbo].[Notifications] ([BarangayId]) WHERE [BarangayId] IS NOT NULL;
+CREATE NONCLUSTERED INDEX IX_Notifications_CreatedAt ON [dbo].[Notifications] ([CreatedAt] DESC) INCLUDE ([UserId], [IsRead]);
+GO
+
+-- ============================================
 -- Step 16: Insert Default Super Admin User
 -- ============================================
 -- Note: Password is hashed version of 'Admin@123' (use proper hashing in production)
@@ -506,6 +525,7 @@ PRINT 'JAS_MINE_DB database created successfully!';
 PRINT 'Tables: Users, KnowledgeRepository, Policies, LessonsLearned,';
 PRINT '        BestPractices, Announcements, AuditLogs, Barangays,';
 PRINT '        SubscriptionPlans, BarangaySubscriptions, SubscriptionPayments,';
-PRINT '        KnowledgeDiscussions, PasswordResetRequests, SharedDocuments';
+PRINT '        KnowledgeDiscussions, PasswordResetRequests, SharedDocuments,';
+PRINT '        Notifications';
 PRINT '=================================================================';
 GO

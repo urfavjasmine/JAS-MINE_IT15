@@ -1,0 +1,245 @@
+@using JAS_MINE_IT15.Controllers
+@model SystemMonitoringDashboardViewModel
+@{
+    ViewData["Title"] = "System Monitoring";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .stat-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 24px;
+        height: 100%;
+        transition: all 0.2s;
+    }
+    .stat-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .stat-card .stat-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a3a5c;
+    }
+    .stat-card .stat-growth {
+        font-size: 0.875rem;
+        color: #10b981;
+        margin-top: 8px;
+    }
+    .stat-card .stat-growth i {
+        margin-right: 4px;
+    }
+    .stat-card .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .summary-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .status-active { background: #dcfce7; color: #166534; }
+    .status-expired { background: #fee2e2; color: #dc2626; }
+    .status-none { background: #f3f4f6; color: #6b7280; }
+</style>
+
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi bi-activity text-primary fs-4"></i>
+            <h1 class="h3 mb-0 fw-bold" style="color: #1a3a5c;">System Monitoring</h1>
+        </div>
+        <p class="text-muted mb-0">Read-only aggregate statistics across all barangays</p>
+    </div>
+
+    <!-- Top Stats Row 1 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Total Barangays</div>
+                        <div class="stat-value">@Model.TotalBarangays</div>
+                        @if (Model.NewBarangaysThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewBarangaysThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value">@Model.TotalUsers</div>
+                        @if (Model.NewUsersThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewUsersThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #dbeafe; color: #2563eb;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Repository Documents</div>
+                        <div class="stat-value">@String.Format("{0:N0}", Model.TotalDocuments)</div>
+                        @if (Model.NewDocumentsThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewDocumentsThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                        <i class="bi bi-folder2-open"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Stats Row 2 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Policies & Procedures</div>
+                        <div class="stat-value">@Model.TotalPolicies</div>
+                        @if (Model.NewPoliciesThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewPoliciesThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Lessons Learned</div>
+                        <div class="stat-value">@Model.TotalLessonsLearned</div>
+                        @if (Model.NewLessonsThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewLessonsThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #f3e8ff; color: #9333ea;">
+                        <i class="bi bi-lightbulb"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Best Practices</div>
+                        <div class="stat-value">@Model.TotalBestPractices</div>
+                        @if (Model.NewBestPracticesThisMonth > 0)
+                        {
+                            <div class="stat-growth"><i class="bi bi-arrow-up-right"></i>+@Model.NewBestPracticesThisMonth this month</div>
+                        }
+                    </div>
+                    <div class="stat-icon" style="background: #dcfce7; color: #16a34a;">
+                        <i class="bi bi-award"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-Barangay Summary Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <h5 class="mb-0 fw-bold" style="color: #1a3a5c;">Per-Barangay Summary</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 summary-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Barangay</th>
+                            <th class="text-center">Users</th>
+                            <th class="text-center">Documents</th>
+                            <th class="text-center">Policies</th>
+                            <th class="text-center">Lessons</th>
+                            <th class="text-center">Best Practices</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.BarangaySummaries.Any())
+                        {
+                            @foreach (var b in Model.BarangaySummaries.OrderByDescending(x => x.DocumentCount))
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-medium">@b.BarangayName</td>
+                                    <td class="text-center">@b.UserCount</td>
+                                    <td class="text-center">@b.DocumentCount</td>
+                                    <td class="text-center">@b.PolicyCount</td>
+                                    <td class="text-center">@b.LessonCount</td>
+                                    <td class="text-center">@b.BestPracticeCount</td>
+                                    <td class="text-center">
+                                        @if (b.SubscriptionStatus == "active")
+                                        {
+                                            <span class="status-badge status-active">Active</span>
+                                        }
+                                        else if (b.SubscriptionStatus == "expired")
+                                        {
+                                            <span class="status-badge status-expired">Expired</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-badge status-none">No Plan</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No barangays found</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

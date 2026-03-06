@@ -200,17 +200,19 @@
         @if (isAdmin)
         {
             <div class="col-md-4">
-                <div class="team-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
+                <div class="team-card h-100">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <div class="sub-label" style="opacity: 0.8; font-size: 13px;">Team Overview</div>
-                            <div style="font-size: 20px; font-weight: 700;">@(Model?.StaffCount ?? 0) Staff Members</div>
+                            <div class="sub-value" style="font-size: 20px; font-weight: 700;">@(Model?.StaffCount ?? 0) Staff Members</div>
                         </div>
-                        <i class="bi bi-people" style="font-size: 28px; opacity: 0.7;"></i>
+                        <i class="bi bi-people" style="font-size: 24px; opacity: 0.7;"></i>
                     </div>
-                    <div>
-                        <span style="opacity: 0.8; font-size: 13px;">Active in last 7 days:</span>
-                        <span style="font-weight: 700;">@(Model?.RecentLoginsCount ?? 0)</span>
+                    <div class="d-flex gap-3">
+                        <div>
+                            <span style="opacity: 0.8; font-size: 13px;">Active in last 7 days:</span>
+                            <div style="font-weight: 600;">@(Model?.RecentLoginsCount ?? 0)</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -347,63 +349,6 @@
             </div>
         }
     </div>
-
-    @* ========== QUICK ACTIONS - Role-specific buttons ========== *@
-    @if (canModify && !isCouncil)
-    {
-        <div class="panel-card mb-4">
-            <div class="panel-head">
-                <h5 class="panel-title"><i class="bi bi-lightning text-primary"></i> Quick Actions</h5>
-            </div>
-            <div class="panel-body">
-                <div class="row g-2">
-                    @* All roles can add documents *@
-                    <div class="col-6 col-md-3">
-                        <a href="@Url.Action("KnowledgeRepository", "Home")" class="btn btn-outline-primary btn-sm w-100">
-                            <i class="bi bi-file-earmark-plus me-1"></i> Add Document
-                        </a>
-                    </div>
-                    
-                    @* Admin & Secretary can add policies *@
-                    @if (isAdmin || isSecretary)
-                    {
-                        <div class="col-6 col-md-3">
-                            <a href="@Url.Action("PoliciesManagement", "Home")" class="btn btn-outline-info btn-sm w-100">
-                                <i class="bi bi-journal-plus me-1"></i> Add Policy
-                            </a>
-                        </div>
-                    }
-                    
-                    @* Admin, Secretary & Staff can share practices *@
-                    <div class="col-6 col-md-3">
-                        <a href="@Url.Action("BestPractices", "Home")" class="btn btn-outline-success btn-sm w-100">
-                            <i class="bi bi-lightbulb me-1"></i> Share Practice
-                        </a>
-                    </div>
-                    
-                    @* Staff can add lessons learned *@
-                    @if (isStaff)
-                    {
-                        <div class="col-6 col-md-3">
-                            <a href="@Url.Action("LessonsLearned", "Home")" class="btn btn-outline-warning btn-sm w-100">
-                                <i class="bi bi-book me-1"></i> Add Lesson
-                            </a>
-                        </div>
-                    }
-                    
-                    @* Admin & Secretary can post announcements *@
-                    @if (isAdmin || isSecretary)
-                    {
-                        <div class="col-6 col-md-3">
-                            <a href="@Url.Action("Announcements", "Home")" class="btn btn-outline-danger btn-sm w-100">
-                                <i class="bi bi-megaphone me-1"></i> Post Announcement
-                            </a>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    }
 
     <div class="row g-3">
         @* ========== STAFF & COUNCIL: Recent Announcements ========== *@

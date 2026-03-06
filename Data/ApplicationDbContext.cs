@@ -28,6 +28,7 @@ namespace JAS_MINE_IT15.Data
         public DbSet<Invoice> Invoices { get; set; } = null!;
         public DbSet<KnowledgeDiscussion> KnowledgeDiscussions { get; set; } = null!;
         public DbSet<PasswordResetRequest> PasswordResetRequests { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -291,6 +292,30 @@ namespace JAS_MINE_IT15.Data
                       .WithMany(i => i.Payments)
                       .HasForeignKey(e => e.InvoiceId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =============================================
+            // Notification entity configuration
+            // =============================================
+            builder.Entity<Notification>(entity =>
+            {
+                entity.Property(e => e.Type).HasDefaultValue("info");
+                entity.Property(e => e.IsRead).HasDefaultValue(false);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Barangay)
+                      .WithMany()
+                      .HasForeignKey(e => e.BarangayId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.UserId, e.IsRead, e.IsActive });
+                entity.HasIndex(e => e.CreatedAt);
             });
         }
     }

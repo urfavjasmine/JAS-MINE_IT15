@@ -1044,7 +1044,7 @@ namespace JAS_MINE_IT15.Controllers
             if (IsSuperAdmin()) return RedirectToAction("System", "Dashboard");
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin";
             var canApprove = role == "barangay_admin";
             var canArchive = role == "barangay_admin" || role == "super_admin";
 
@@ -1136,13 +1136,13 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
-        [Authorize(Roles = "super_admin,barangay_admin,barangay_staff")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<IActionResult> CreateDoc(string title, string category, string tags, string description, IFormFile? file)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff" || role == "super_admin";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             title = (title ?? "").Trim();
@@ -1268,7 +1268,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canUpload = role == "barangay_secretary" || role == "barangay_admin" || role == "barangay_staff";
+            var canUpload = role == "barangay_secretary" || role == "barangay_admin";
             if (!canUpload) return RedirectToAction(nameof(KnowledgeRepository));
 
             if (!int.TryParse(id, out var docId))
@@ -1649,6 +1649,12 @@ namespace JAS_MINE_IT15.Controllers
             _context.Policies.Add(policy);
             await _context.SaveChangesAsync();
 
+            // Send real-time notification to admins if pending
+            if (initialStatus == "pending" && bgyId > 0)
+            {
+                await _notificationService.NotifyPendingPolicy(bgyId, title, userEmail);
+            }
+
             await LogAuditAsync("Create", "PoliciesManagement", policy.Id, "Policy", title, $"Created policy: {title}");
 
             TempData["Success"] = $"Policy \"{title}\" created successfully.";
@@ -1812,6 +1818,12 @@ namespace JAS_MINE_IT15.Controllers
 
                     await _context.SaveChangesAsync();
                     await LogAuditAsync("StatusChange", "PoliciesManagement", policy.Id, "Policy", policy.Title, $"Changed policy status to {newStatus}");
+
+                    // Send real-time notification
+                    if (policy.BarangayId.HasValue && (newStatus == "approved" || newStatus == "rejected"))
+                    {
+                        await _notificationService.NotifyPolicyStatusChange(policy.BarangayId.Value, policy.Title, newStatus);
+                    }
                 }
             }
 
@@ -1837,8 +1849,9 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             bool canSubmit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
-            bool canModify = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canModify = role == "barangay_admin" || role == "barangay_secretary";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
+            bool canApprove = role == "barangay_admin" || role == "super_admin";
 
             q = (q ?? "").Trim().ToLower();
             dateFilter = (dateFilter ?? "").Trim();
@@ -1943,6 +1956,7 @@ namespace JAS_MINE_IT15.Controllers
                 CanSubmit = canSubmit,
                 CanModify = canModify,
                 CanArchive = canArchive,
+                CanApprove = canApprove,
                 TotalLessons = await totalQuery.CountAsync(),
                 RecentLessons = await recentQuery.CountAsync(),
                 ArchivedLessons = await archivedQuery.CountAsync(),
@@ -1984,6 +1998,9 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(LessonsLearned));
             }
 
+            // If admin creates it, auto-approve; otherwise set to pending for admin approval
+            var initialStatus = (role == "barangay_admin" || role == "super_admin") ? "approved" : "pending";
+
             var lesson = new LessonLearned
             {
                 Title = title.Trim(),
@@ -1995,14 +2012,28 @@ namespace JAS_MINE_IT15.Controllers
                 DateRecorded = DateTime.Now,
                 BarangayId = barangayId,
                 SubmittedById = userId,
-                Status = "approved",
+                Status = initialStatus,
                 CreatedAt = DateTime.Now,
                 IsArchived = false
             };
 
+            // If admin auto-approved, set approval fields
+            if (initialStatus == "approved")
+            {
+                lesson.ApprovedById = userId;
+                lesson.ApprovedAt = DateTime.Now;
+            }
+
             _context.LessonsLearned.Add(lesson);
             await _context.SaveChangesAsync();
             await LogAuditAsync("Create", "LessonsLearned", lesson.Id, "Lesson", title, $"Created lesson: {title}");
+
+            // Send real-time notification to admins if pending
+            if (initialStatus == "pending" && barangayId.HasValue)
+            {
+                var submitterName = HttpContext.Session.GetString("UserName") ?? "Unknown";
+                await _notificationService.NotifyPendingLesson(barangayId.Value, title, submitterName);
+            }
 
             TempData["Success"] = "Lesson learned has been created.";
             return RedirectToAction(nameof(LessonsLearned));
@@ -2117,6 +2148,59 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(LessonsLearned), new { archiveStatus = "active" });
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
+        public async Task<IActionResult> SetLessonStatus(int id, string newStatus)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canApprove = role == "barangay_admin" || role == "super_admin";
+            if (!canApprove) return RedirectToAction(nameof(LessonsLearned));
+
+            newStatus = (newStatus ?? "").Trim().ToLower();
+            if (newStatus != "approved" && newStatus != "rejected" && newStatus != "pending")
+                newStatus = "pending";
+
+            var lesson = await _context.LessonsLearned.FindAsync(id);
+            if (lesson != null && !lesson.IsArchived)
+            {
+                // STRICT TENANT VALIDATION
+                if (lesson.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot change the status of lessons from another barangay.";
+                    return RedirectToAction(nameof(LessonsLearned));
+                }
+
+                lesson.Status = newStatus;
+                lesson.UpdatedAt = DateTime.Now;
+
+                if (newStatus == "approved")
+                {
+                    var userId = GetCurrentUserId() ?? 0;
+                    if (userId > 0)
+                    {
+                        lesson.ApprovedById = userId;
+                        lesson.ApprovedAt = DateTime.Now;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await LogAuditAsync(newStatus == "approved" ? "Approve" : "Reject", "LessonsLearned", lesson.Id, "Lesson", lesson.Title, $"Changed lesson status to {newStatus}: {lesson.Title}");
+
+                // Send real-time notification
+                if (lesson.BarangayId.HasValue)
+                {
+                    await _notificationService.NotifyLessonStatusChange(lesson.BarangayId.Value, lesson.Title, newStatus);
+                }
+            }
+
+            TempData["Success"] = $"Lesson status set to {newStatus}.";
+            return RedirectToAction(nameof(LessonsLearned));
+        }
+
         // GET: /Home/BestPractices
         [HttpGet]
         public async Task<IActionResult> BestPractices(string q = "", string status = "", string archiveStatus = "active")
@@ -2139,9 +2223,10 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction("Barangay", "Dashboard");
             }
 
-            bool canManage = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canManage = role == "barangay_admin";
             bool canModify = canManage;
             bool canArchive = role == "barangay_admin" || role == "super_admin";
+            bool canApprove = role == "barangay_admin" || role == "super_admin";
 
             // ERP Rule: Only admin roles can view archived records
             if (!canArchive) archiveStatus = "active";
@@ -2205,6 +2290,7 @@ namespace JAS_MINE_IT15.Controllers
                 CanManage = canManage,
                 CanModify = canModify,
                 CanArchive = canArchive,
+                CanApprove = canApprove,
                 TotalPractices = await _context.BestPractices.CountAsync(p => p.IsActive && !p.IsArchived && p.BarangayId == barangayId),
                 ActivePractices = await _context.BestPractices.CountAsync(p => p.IsActive && !p.IsArchived && p.BarangayId == barangayId && p.Status == "Active"),
                 ArchivedPractices = await _context.BestPractices.CountAsync(p => p.IsActive && p.IsArchived && p.BarangayId == barangayId),
@@ -2229,7 +2315,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary" && role != "super_admin")
+            if (role != "barangay_admin" && role != "super_admin")
                 return RedirectToAction(nameof(BestPractices));
 
             var barangayId = GetCurrentBarangayId();
@@ -2241,6 +2327,9 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(BestPractices));
             }
 
+            // If admin creates it, auto-approve; otherwise set to pending for admin approval
+            var initialStatus = (role == "barangay_admin" || role == "super_admin") ? "approved" : "pending";
+
             var practice = new BestPractice
             {
                 Title = title.Trim(),
@@ -2250,16 +2339,30 @@ namespace JAS_MINE_IT15.Controllers
                 ResourcesNeeded = resourcesNeeded?.Trim(),
                 OwnerOffice = ownerOffice?.Trim(),
                 Category = string.IsNullOrWhiteSpace(category) ? "Governance" : category.Trim(),
-                Status = "Active",
+                Status = initialStatus,
                 BarangayId = barangayId,
                 SubmittedById = userId,
                 CreatedAt = DateTime.Now,
                 IsArchived = false
             };
 
+            // If admin auto-approved, set approval fields
+            if (initialStatus == "approved")
+            {
+                practice.ApprovedById = userId;
+                practice.ApprovedAt = DateTime.Now;
+            }
+
             _context.BestPractices.Add(practice);
             await _context.SaveChangesAsync();
             await LogAuditAsync("Create", "BestPractices", practice.Id, "BestPractice", title, $"Created best practice: {title}");
+
+            // Send real-time notification to admins if pending
+            if (initialStatus == "pending" && barangayId.HasValue)
+            {
+                var submitterName = HttpContext.Session.GetString("UserName") ?? "Unknown";
+                await _notificationService.NotifyPendingPractice(barangayId.Value, title, submitterName);
+            }
 
             TempData["Success"] = "Best practice has been created.";
             return RedirectToAction(nameof(BestPractices));
@@ -2272,7 +2375,7 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary")
+            if (role != "barangay_admin")
                 return RedirectToAction(nameof(BestPractices));
 
             var practice = await _context.BestPractices.FindAsync(id);
@@ -2373,6 +2476,59 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             return RedirectToAction(nameof(BestPractices), new { archiveStatus = "active" });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        [Authorize(Roles = "super_admin,barangay_admin")]
+        public async Task<IActionResult> SetBestPracticeStatus(int id, string newStatus)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var role = HttpContext.Session.GetString("Role") ?? "";
+            var canApprove = role == "barangay_admin" || role == "super_admin";
+            if (!canApprove) return RedirectToAction(nameof(BestPractices));
+
+            newStatus = (newStatus ?? "").Trim().ToLower();
+            if (newStatus != "approved" && newStatus != "rejected" && newStatus != "pending")
+                newStatus = "pending";
+
+            var practice = await _context.BestPractices.FindAsync(id);
+            if (practice != null && !practice.IsArchived)
+            {
+                // STRICT TENANT VALIDATION
+                if (practice.BarangayId != GetCurrentBarangayId())
+                {
+                    TempData["Error"] = "You cannot change the status of practices from another barangay.";
+                    return RedirectToAction(nameof(BestPractices));
+                }
+
+                practice.Status = newStatus;
+                practice.UpdatedAt = DateTime.Now;
+
+                if (newStatus == "approved")
+                {
+                    var userId = GetCurrentUserId() ?? 0;
+                    if (userId > 0)
+                    {
+                        practice.ApprovedById = userId;
+                        practice.ApprovedAt = DateTime.Now;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await LogAuditAsync(newStatus == "approved" ? "Approve" : "Reject", "BestPractices", practice.Id, "BestPractice", practice.Title, $"Changed practice status to {newStatus}: {practice.Title}");
+
+                // Send real-time notification
+                if (practice.BarangayId.HasValue)
+                {
+                    await _notificationService.NotifyPracticeStatusChange(practice.BarangayId.Value, practice.Title, newStatus);
+                }
+            }
+
+            TempData["Success"] = $"Practice status set to {newStatus}.";
+            return RedirectToAction(nameof(BestPractices));
         }
 
         // GET: /Home/KnowledgeSharing
@@ -2757,7 +2913,8 @@ namespace JAS_MINE_IT15.Controllers
             var vm = new UserManagementViewModel
             {
                 Users = users,
-                Barangays = barangays
+                Barangays = barangays,
+                CurrentUserRole = role
             };
 
             return View(vm);
@@ -2991,7 +3148,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             bool canCreate = role == "barangay_admin" || role == "barangay_secretary";
-            bool canEdit = role == "barangay_admin" || role == "barangay_secretary" || role == "barangay_staff";
+            bool canEdit = role == "barangay_admin" || role == "barangay_secretary";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
             filter = (filter ?? "all").Trim().ToLower();
@@ -3117,6 +3274,17 @@ namespace JAS_MINE_IT15.Controllers
 
             _context.Announcements.Add(announcement);
             await _context.SaveChangesAsync();
+
+            // Send real-time notification to all barangay users if published
+            if (status == "published" && announcement.BarangayId.HasValue)
+            {
+                await _notificationService.NotifyNewAnnouncement(
+                    announcement.BarangayId.Value, 
+                    title, 
+                    priority, 
+                    userEmail);
+            }
+
             await LogAuditAsync("Create", "Announcements", announcement.Id, "Announcement", title, $"Created announcement: {title}");
 
             TempData["Success"] = $"Announcement \"{title}\" created successfully.";
@@ -3159,7 +3327,8 @@ namespace JAS_MINE_IT15.Controllers
             announcement.Priority = string.IsNullOrWhiteSpace(priority) ? announcement.Priority : priority.Trim().ToLower();
             
             // If changing to published, set PublishedAt
-            if (status == "published" && announcement.Status != "published")
+            var wasPublished = status == "published" && announcement.Status != "published";
+            if (wasPublished)
             {
                 announcement.PublishedAt = DateTime.Now;
             }
@@ -3167,6 +3336,18 @@ namespace JAS_MINE_IT15.Controllers
             announcement.UpdatedAt = DateTime.Now;
 
             await _context.SaveChangesAsync();
+
+            // Send real-time notification if just published
+            if (wasPublished && announcement.BarangayId.HasValue)
+            {
+                var authorName = HttpContext.Session.GetString("UserName") ?? "Unknown";
+                await _notificationService.NotifyNewAnnouncement(
+                    announcement.BarangayId.Value,
+                    announcement.Title,
+                    announcement.Priority,
+                    authorName);
+            }
+
             await LogAuditAsync("Edit", "Announcements", announcementId, "Announcement", announcement.Title, $"Updated announcement: {announcement.Title}");
 
             TempData["Success"] = "Announcement updated successfully.";
@@ -3287,13 +3468,14 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/AuditLogs
         [HttpGet]
-        public async Task<IActionResult> AuditLogs(string q = "", string module = "all")
+        public async Task<IActionResult> AuditLogs(string q = "", string module = "all", string action = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
+            action = (action ?? "all").Trim();
 
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
@@ -3347,10 +3529,16 @@ namespace JAS_MINE_IT15.Controllers
                 list = list.Where(l => l.Module == module).ToList();
             }
 
+            if (action != "all")
+            {
+                list = list.Where(l => l.Action == action).ToList();
+            }
+
             var vm = new AuditLogsViewModel
             {
                 SearchQuery = q,
                 ModuleFilter = module,
+                ActionFilter = action,
                 Logs = list
             };
 
@@ -3361,7 +3549,7 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [Authorize(Roles = "super_admin,barangay_admin")]
-        public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all")
+        public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all", string action = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -3377,7 +3565,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             TempData["Success"] = "Log entry archived.";
-            return RedirectToAction(nameof(AuditLogs), new { q, module });
+            return RedirectToAction(nameof(AuditLogs), new { q, module, action });
         }
 
         [HttpPost]

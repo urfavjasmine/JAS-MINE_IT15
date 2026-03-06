@@ -90,11 +90,14 @@
             <h3 class="mb-0">User Management</h3>
             <div class="muted">Manage barangay admin accounts and their access status.</div>
         </div>
-        <button class="btn px-4" 
-                data-bs-toggle="modal" data-bs-target="#createEditModal"
-                onclick="openCreate()" style="background:#163a5f; border-color:#163a5f; color:#fff; height:44px; border-radius:10px; font-weight:700;">
-            <i class="bi bi-plus-lg me-2"></i>Add User
-        </button>
+        @if (Model.CurrentUserRole != "super_admin")
+        {
+            <button class="btn px-4" 
+                    data-bs-toggle="modal" data-bs-target="#createEditModal"
+                    onclick="openCreate()" style="background:#163a5f; border-color:#163a5f; color:#fff; height:44px; border-radius:10px; font-weight:700;">
+                <i class="bi bi-plus-lg me-2"></i>Add User
+            </button>
+        }
     </div>
 
     <!-- Stat cards -->

@@ -28,6 +28,7 @@ namespace JAS_MINE_IT15.Models
 
         public string SearchQuery { get; set; } = "";
         public string RoleFilter { get; set; } = "all";
+        public string CurrentUserRole { get; set; } = "";
 
         // Stats
         public int TotalUsers => Users.Count;

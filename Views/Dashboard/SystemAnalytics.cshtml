@@ -1,0 +1,317 @@
+@using JAS_MINE_IT15.Controllers
+@model SystemAnalyticsViewModel
+@{
+    ViewData["Title"] = "System Analytics";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .stat-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 24px;
+        height: 100%;
+        transition: all 0.2s;
+    }
+    .stat-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .stat-card .stat-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a3a5c;
+    }
+    .stat-card .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+    .mom-positive { color: #16a34a; }
+    .mom-negative { color: #dc2626; }
+    .chart-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 24px;
+    }
+    .chart-card h6 {
+        font-weight: 600;
+        color: #1a3a5c;
+        margin-bottom: 20px;
+    }
+    .upload-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+    }
+    .upload-legend-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .upload-legend-item .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .active-users-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+    }
+</style>
+
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
+            <h1 class="h3 mb-0 fw-bold" style="color: #1a3a5c;">System Analytics</h1>
+        </div>
+        <p class="text-muted mb-0">Active users, barangay activity, and upload trends</p>
+    </div>
+
+    <!-- Top Stats -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Active Users (Today)</div>
+                        <div class="stat-value">@Model.ActiveUsersToday</div>
+                    </div>
+                    <div class="stat-icon" style="background: #dbeafe; color: #2563eb;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Active Barangays</div>
+                        <div class="stat-value">@Model.ActiveBarangays</div>
+                    </div>
+                    <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Uploads This Month</div>
+                        <div class="stat-value">@Model.UploadsThisMonth</div>
+                    </div>
+                    <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">MoM Growth</div>
+                        <div class="stat-value @(Model.MoMGrowth >= 0 ? "mom-positive" : "mom-negative")">
+                            @(Model.MoMGrowth >= 0 ? "+" : "")@Model.MoMGrowth%
+                        </div>
+                    </div>
+                    <div class="stat-icon" style="background: #f3e8ff; color: #9333ea;">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+        <!-- Monthly Document Uploads Chart -->
+        <div class="col-lg-8">
+            <div class="chart-card h-100">
+                <h6>Monthly Document Uploads</h6>
+                <canvas id="monthlyUploadsChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <!-- Uploads by Type -->
+        <div class="col-lg-4">
+            <div class="chart-card h-100">
+                <h6>Uploads by Type</h6>
+                <div class="d-flex justify-content-center">
+                    <canvas id="uploadsTypeChart" width="180" height="180"></canvas>
+                </div>
+                <div class="upload-legend mt-3">
+                    <div class="upload-legend-item">
+                        <div class="d-flex align-items-center">
+                            <span class="dot" style="background: #3b82f6;"></span>
+                            <span>Documents</span>
+                        </div>
+                        <span class="fw-semibold">@Model.TotalDocuments</span>
+                    </div>
+                    <div class="upload-legend-item">
+                        <div class="d-flex align-items-center">
+                            <span class="dot" style="background: #10b981;"></span>
+                            <span>Policies</span>
+                        </div>
+                        <span class="fw-semibold">@Model.TotalPolicies</span>
+                    </div>
+                    <div class="upload-legend-item">
+                        <div class="d-flex align-items-center">
+                            <span class="dot" style="background: #f59e0b;"></span>
+                            <span>Lessons</span>
+                        </div>
+                        <span class="fw-semibold">@Model.TotalLessonsLearned</span>
+                    </div>
+                    <div class="upload-legend-item">
+                        <div class="d-flex align-items-center">
+                            <span class="dot" style="background: #06b6d4;"></span>
+                            <span>Best Practices</span>
+                        </div>
+                        <span class="fw-semibold">@Model.TotalBestPractices</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currently Active Users -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <h5 class="mb-0 fw-bold" style="color: #1a3a5c;">Currently Active Users</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 active-users-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">User</th>
+                            <th>Role</th>
+                            <th>Barangay</th>
+                            <th class="text-center">Actions Today</th>
+                            <th>Last Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.CurrentlyActiveUsers.Any())
+                        {
+                            @foreach (var user in Model.CurrentlyActiveUsers)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-medium">@user.UserName</div>
+                                        <small class="text-muted">@user.UserEmail</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            @(user.Role?.Replace("_", " ").ToUpper() ?? "Unknown")
+                                        </span>
+                                    </td>
+                                    <td>@user.BarangayName</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary rounded-pill">@user.LoginCount</span>
+                                    </td>
+                                    <td>@user.LastLogin</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No active users today</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Monthly Document Uploads Chart (grouped bar)
+        const monthlyCtx = document.getElementById('monthlyUploadsChart').getContext('2d');
+        new Chart(monthlyCtx, {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyUploads.Select(m => m.Month).ToList())),
+                datasets: [
+                    {
+                        label: 'Documents',
+                        data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyUploads.Select(m => m.Documents).ToList())),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Policies',
+                        data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyUploads.Select(m => m.Policies).ToList())),
+                        backgroundColor: '#10b981',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Lessons',
+                        data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyUploads.Select(m => m.Lessons).ToList())),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        align: 'end'
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // Uploads by Type Doughnut
+        const typeCtx = document.getElementById('uploadsTypeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Documents', 'Policies', 'Lessons', 'Best Practices'],
+                datasets: [{
+                    data: [@Model.TotalDocuments, @Model.TotalPolicies, @Model.TotalLessonsLearned, @Model.TotalBestPractices],
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#06b6d4'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+}

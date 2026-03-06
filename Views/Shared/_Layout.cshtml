@@ -79,6 +79,34 @@
                 display: none !important;
             }
         }
+
+        /* Toast notification animations */
+        @@keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @@keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .notification-badge {
+            animation: pulse 2s infinite;
+        }
+
+        #notificationToasts .toast {
+            min-width: 320px;
+            max-width: 400px;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
     </style>
 </head>
 
@@ -187,12 +215,47 @@
                 badge.classList.remove('d-none');
             }
 
+            // Play notification sound
+            playNotificationSound(notification.Type);
+
             // Show toast notification
             showNotificationToast(notification);
 
             // Add to notification dropdown
             addNotificationToDropdown(notification);
         });
+
+        // Notification sound using Web Audio API
+        function playNotificationSound(type) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Different tones for different notification types
+                if (type === 'urgent') {
+                    oscillator.frequency.value = 880; // Higher pitch for urgent
+                    oscillator.type = 'square';
+                } else if (type === 'pending') {
+                    oscillator.frequency.value = 660;
+                    oscillator.type = 'sine';
+                } else {
+                    oscillator.frequency.value = 523.25; // C5 note
+                    oscillator.type = 'sine';
+                }
+
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
 
         // Start connection
         connection.start()
@@ -214,15 +277,18 @@
             const iconClass = notification.Type === 'pending' ? 'bi-clock text-warning' :
                               notification.Type === 'approval' ? 'bi-check-circle text-success' :
                               notification.Type === 'rejected' ? 'bi-x-circle text-danger' :
+                              notification.Type === 'urgent' ? 'bi-exclamation-triangle text-danger' :
+                              notification.Type === 'announcement' ? 'bi-megaphone text-info' :
+                              notification.Type === 'discussion' ? 'bi-chat-dots text-secondary' :
                               'bi-bell text-primary';
 
             const toastHtml = `
-                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header">
+                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" style="animation: slideIn 0.3s ease-out;">
+                    <div class="toast-header ${notification.Type === 'urgent' ? 'bg-danger text-white' : ''}">
                         <i class="bi ${iconClass} me-2"></i>
                         <strong class="me-auto">${notification.Title}</strong>
                         <small>${notification.Time}</small>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                        <button type="button" class="btn-close ${notification.Type === 'urgent' ? 'btn-close-white' : ''}" data-bs-dismiss="toast"></button>
                     </div>
                     <div class="toast-body">
                         ${notification.Message}
@@ -253,6 +319,9 @@
             const iconClass = notification.Type === 'pending' ? 'bi-clock text-warning' :
                               notification.Type === 'approval' ? 'bi-check-circle text-success' :
                               notification.Type === 'rejected' ? 'bi-x-circle text-danger' :
+                              notification.Type === 'urgent' ? 'bi-exclamation-triangle text-danger' :
+                              notification.Type === 'announcement' ? 'bi-megaphone text-info' :
+                              notification.Type === 'discussion' ? 'bi-chat-dots text-secondary' :
                               'bi-megaphone text-primary';
 
             const itemHtml = `

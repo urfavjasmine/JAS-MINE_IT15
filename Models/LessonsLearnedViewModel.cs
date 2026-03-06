@@ -9,6 +9,7 @@ namespace JAS_MINE_IT15.Models
         public bool CanSubmit { get; set; }
         public bool CanModify { get; set; }
         public bool CanArchive { get; set; }
+        public bool CanApprove { get; set; }
 
         // Stats
         public int TotalLessons { get; set; }
