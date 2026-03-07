@@ -128,6 +128,14 @@ namespace JAS_MINE_IT15.Data.Migrations
                 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.SubscriptionPlans') AND name = 'UserLimit')
                     ALTER TABLE dbo.SubscriptionPlans ADD UserLimit INT NOT NULL DEFAULT 4;
             ");
+
+            // ── Users table BarangayId column ──
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'BarangayId')
+                    ALTER TABLE dbo.Users ADD BarangayId INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'BarangayName')
+                    ALTER TABLE dbo.Users ADD BarangayName NVARCHAR(150) NULL;
+            ");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

@@ -26,6 +26,14 @@ namespace JAS_MINE_IT15.Data.Migrations
                 type: "int",
                 nullable: false,
                 defaultValue: 4);
+
+            // ── Users table BarangayId and BarangayName columns ──
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'BarangayId')
+                    ALTER TABLE dbo.Users ADD BarangayId INT NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'BarangayName')
+                    ALTER TABLE dbo.Users ADD BarangayName NVARCHAR(150) NULL;
+            ");
         }
 
         /// <inheritdoc />

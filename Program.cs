@@ -162,15 +162,8 @@ using (var scope = app.Services.CreateScope())
 
         // ── Run EF Migrations (includes ConsolidateSchemaColumns) ──
         // All column-ensure DDL has been moved to Data/Migrations/20260302000000_ConsolidateSchemaColumns.cs
-        try
-        {
-            await db.Database.MigrateAsync();
-            logger.LogInformation("EF migrations applied successfully.");
-        }
-        catch (Exception migEx)
-        {
-            logger.LogWarning(migEx, "EF MigrateAsync had issues — columns may already exist.");
-        }
+        await db.Database.MigrateAsync();
+        logger.LogInformation("EF migrations applied successfully.");
 
         await IdentitySeeder.SeedRoles(services);
         await IdentitySeeder.SeedSuperAdmin(services);
