@@ -120,6 +120,166 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         /// <summary>
+        /// Creates a PayMongo Checkout Session and returns the checkout URL.
+        /// POST /api/paymongo/create-checkout
+        /// </summary>
+        [HttpPost("create-checkout")]
+        public async Task<IActionResult> CreateCheckoutSession([FromBody] CreateCheckoutRequest request)
+        {
+            if (request.Amount <= 0)
+            {
+                return BadRequest(new { success = false, message = "Amount must be greater than zero." });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Description))
+            {
+                return BadRequest(new { success = false, message = "Description is required." });
+            }
+
+            try
+            {
+                // Build URLs
+                var scheme = Request.Scheme;
+                var host = Request.Host.Value;
+                var successUrl = !string.IsNullOrEmpty(request.SuccessUrl) 
+                    ? request.SuccessUrl 
+                    : $"{scheme}://{host}/Home/PaymentSuccess";
+                var cancelUrl = !string.IsNullOrEmpty(request.CancelUrl) 
+                    ? request.CancelUrl 
+                    : $"{scheme}://{host}/Home/PaymentCancel";
+
+                var checkoutUrl = await _payMongoService.CreateCheckoutSessionAsync(
+                    request.Amount,
+                    request.Description,
+                    successUrl,
+                    cancelUrl,
+                    request.ReferenceId ?? Guid.NewGuid().ToString("N")[..12].ToUpper(),
+                    request.PaymentMethod
+                );
+
+                if (string.IsNullOrEmpty(checkoutUrl))
+                {
+                    return StatusCode(500, new { success = false, message = "Failed to create checkout session." });
+                }
+
+                _logger.LogInformation("Checkout session created for amount: {Amount}, reference: {Reference}", 
+                    request.Amount, request.ReferenceId);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        checkoutUrl = checkoutUrl,
+                        referenceId = request.ReferenceId,
+                        amount = request.Amount
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating checkout session");
+                return StatusCode(500, new { success = false, message = "An error occurred while creating the checkout session." });
+            }
+        }
+
+        /// <summary>
+        /// Initiates a payment for an invoice.
+        /// POST /api/paymongo/pay-invoice
+        /// </summary>
+        [HttpPost("pay-invoice")]
+        public async Task<IActionResult> PayInvoice([FromBody] PayInvoiceRequest request)
+        {
+            if (request.InvoiceId <= 0)
+            {
+                return BadRequest(new { success = false, message = "Invalid invoice ID." });
+            }
+
+            try
+            {
+                var invoice = await _context.Invoices
+                    .Include(i => i.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                    .FirstOrDefaultAsync(i => i.Id == request.InvoiceId && i.IsActive);
+
+                if (invoice == null)
+                {
+                    return NotFound(new { success = false, message = "Invoice not found." });
+                }
+
+                if (invoice.Status == "Paid")
+                {
+                    return BadRequest(new { success = false, message = "Invoice is already paid." });
+                }
+
+                // Build URLs
+                var scheme = Request.Scheme;
+                var host = Request.Host.Value;
+                var successUrl = !string.IsNullOrEmpty(request.SuccessUrl) 
+                    ? request.SuccessUrl 
+                    : $"{scheme}://{host}/Home/PaymentSuccess?invoiceId={invoice.Id}";
+                var cancelUrl = !string.IsNullOrEmpty(request.CancelUrl) 
+                    ? request.CancelUrl 
+                    : $"{scheme}://{host}/Home/PaymentCancel?invoiceId={invoice.Id}";
+
+                var description = $"JAS-MINE: {invoice.Subscription?.Plan?.Name ?? "Subscription"} - Invoice #{invoice.InvoiceNumber}";
+
+                var checkoutUrl = await _payMongoService.CreateCheckoutSessionAsync(
+                    invoice.Amount,
+                    description,
+                    successUrl,
+                    cancelUrl,
+                    invoice.InvoiceNumber,
+                    request.PaymentMethod
+                );
+
+                if (string.IsNullOrEmpty(checkoutUrl))
+                {
+                    return StatusCode(500, new { success = false, message = "Failed to create checkout session." });
+                }
+
+                _logger.LogInformation("Payment initiated for Invoice: {InvoiceNumber}, Amount: {Amount}", 
+                    invoice.InvoiceNumber, invoice.Amount);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        checkoutUrl = checkoutUrl,
+                        invoiceNumber = invoice.InvoiceNumber,
+                        amount = invoice.Amount,
+                        planName = invoice.Subscription?.Plan?.Name
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initiating payment for invoice {InvoiceId}", request.InvoiceId);
+                return StatusCode(500, new { success = false, message = "An error occurred while initiating payment." });
+            }
+        }
+
+        /// <summary>
+        /// Gets the public key for client-side PayMongo integration.
+        /// GET /api/paymongo/public-key
+        /// </summary>
+        [HttpGet("public-key")]
+        public IActionResult GetPublicKey()
+        {
+            if (string.IsNullOrEmpty(_settings.PublicKey))
+            {
+                return StatusCode(500, new { success = false, message = "PayMongo public key not configured." });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                publicKey = _settings.PublicKey
+            });
+        }
+
+        /// <summary>
         /// PayMongo Webhook endpoint - listens for payment events.
         /// POST /api/paymongo/webhook
         /// </summary>
@@ -361,5 +521,67 @@ namespace JAS_MINE_IT15.Controllers
         /// Optional reference ID for tracking
         /// </summary>
         public string? ReferenceId { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for creating a checkout session
+    /// </summary>
+    public class CreateCheckoutRequest
+    {
+        /// <summary>
+        /// Amount in PHP (e.g., 100.00 for 100 pesos)
+        /// </summary>
+        public decimal Amount { get; set; }
+
+        /// <summary>
+        /// Description shown on the checkout page
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional reference ID for tracking
+        /// </summary>
+        public string? ReferenceId { get; set; }
+
+        /// <summary>
+        /// Optional custom success URL
+        /// </summary>
+        public string? SuccessUrl { get; set; }
+
+        /// <summary>
+        /// Optional custom cancel URL
+        /// </summary>
+        public string? CancelUrl { get; set; }
+
+        /// <summary>
+        /// Payment method type (e.g., "gcash", "card", "grab_pay", or null for all)
+        /// </summary>
+        public string? PaymentMethod { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for paying an invoice
+    /// </summary>
+    public class PayInvoiceRequest
+    {
+        /// <summary>
+        /// Invoice ID to pay
+        /// </summary>
+        public int InvoiceId { get; set; }
+
+        /// <summary>
+        /// Optional custom success URL
+        /// </summary>
+        public string? SuccessUrl { get; set; }
+
+        /// <summary>
+        /// Optional custom cancel URL
+        /// </summary>
+        public string? CancelUrl { get; set; }
+
+        /// <summary>
+        /// Payment method type (e.g., "gcash", "card", "grab_pay", or null for all)
+        /// </summary>
+        public string? PaymentMethod { get; set; }
     }
 }
