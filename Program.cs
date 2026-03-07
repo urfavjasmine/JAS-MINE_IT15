@@ -29,6 +29,9 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
+
+// PayMongo configuration - reads from appsettings.json or environment variables (PayMongo__SecretKey, PayMongo__PublicKey)
+builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(builder.Configuration.GetSection("PayMongo"));
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 
 // DB
