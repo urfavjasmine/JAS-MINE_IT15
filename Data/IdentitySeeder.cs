@@ -29,6 +29,7 @@ namespace JAS_MINE_IT15.Data
         public static async Task SeedSuperAdmin(IServiceProvider services)
         {
             var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+            var context = services.GetRequiredService<ApplicationDbContext>();
 
             string email = "admin@jasmine.gov.ph";
             string password = "JasMine@1234";
@@ -62,10 +63,43 @@ namespace JAS_MINE_IT15.Data
                     await userManager.AddToRoleAsync(user, "super_admin");
                 Console.WriteLine($"[Seeder] super_admin already exists: {email}");
             }
+
+            // Ensure corresponding BusinessUser record exists (sync both tables)
+            var businessUser = await context.BusinessUsers
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+
+            if (businessUser == null)
+            {
+                businessUser = new User
+                {
+                    Email = email,
+                    FullName = "System Administrator",
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = "super_admin",
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                context.BusinessUsers.Add(businessUser);
+                await context.SaveChangesAsync();
+                Console.WriteLine($"[Seeder] Created BusinessUser for super_admin: {email}");
+            }
+            else
+            {
+                // Ensure BusinessUser is active and has correct role
+                if (!businessUser.IsActive || businessUser.Role != "super_admin")
+                {
+                    businessUser.IsActive = true;
+                    businessUser.Role = "super_admin";
+                    businessUser.UpdatedAt = DateTime.Now;
+                    await context.SaveChangesAsync();
+                    Console.WriteLine($"[Seeder] Updated BusinessUser for super_admin: {email}");
+                }
+            }
         }
         public static async Task SeedDefaultUsers(IServiceProvider services)
         {
             var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+            var context = services.GetRequiredService<ApplicationDbContext>();
 
             var defaults = new[]
             {
@@ -94,6 +128,26 @@ namespace JAS_MINE_IT15.Data
 
                 if (!await userManager.IsInRoleAsync(user, d.Role))
                     await userManager.AddToRoleAsync(user, d.Role);
+
+                // Ensure corresponding BusinessUser record exists (sync both tables)
+                var businessUser = await context.BusinessUsers
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == d.Email.ToLower());
+
+                if (businessUser == null)
+                {
+                    businessUser = new User
+                    {
+                        Email = d.Email,
+                        FullName = d.Name,
+                        PasswordHash = "IDENTITY_MANAGED",
+                        Role = d.Role,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    };
+                    context.BusinessUsers.Add(businessUser);
+                    await context.SaveChangesAsync();
+                    Console.WriteLine($"[Seeder] Created BusinessUser for {d.Role}: {d.Email}");
+                }
             }
         }
 

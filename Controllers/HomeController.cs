@@ -944,13 +944,14 @@ namespace JAS_MINE_IT15.Controllers
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
-            // Load BarangayId from BusinessUsers table
+            // Load BarangayId from BusinessUsers table (check ALL users, not just active)
             var businessUser = await _context.BusinessUsers
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower() && u.IsActive);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
 
-            // Auto-create BusinessUser record if it doesn't exist (Identity user exists but BusinessUser doesn't)
+            // Auto-create or reactivate BusinessUser record if needed
             if (businessUser == null)
             {
+                // No BusinessUser exists at all - create one
                 businessUser = new Models.Entities.User
                 {
                     Email = user.Email ?? model.Email,
@@ -963,6 +964,13 @@ namespace JAS_MINE_IT15.Controllers
                 _context.BusinessUsers.Add(businessUser);
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Auto-created BusinessUser for: {Email}, Id: {Id}", model.Email, businessUser.Id);
+            }
+            else if (!businessUser.IsActive)
+            {
+                // BusinessUser exists but is inactive - reactivate it
+                businessUser.IsActive = true;
+                businessUser.UpdatedAt = DateTime.Now;
+                _logger.LogInformation("Reactivated BusinessUser for: {Email}, Id: {Id}", model.Email, businessUser.Id);
             }
 
             int? barangayId = businessUser.BarangayId;
