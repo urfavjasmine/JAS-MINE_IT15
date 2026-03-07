@@ -18,7 +18,7 @@
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
         <h2 class="fw-bold mb-1">Subscription Payments</h2>
-        <div class="text-muted">Payments are recorded automatically when a barangay subscribes and uploads proof.</div>
+        <div class="text-muted">Payments are recorded automatically when a barangay completes payment via PayMongo.</div>
     </div>
 </div>
 
@@ -92,14 +92,22 @@
                 <tbody>
                     @foreach (var p in Model.Payments)
                     {
-                        <tr>
+                        <tr class="clickable-row" style="cursor: pointer;"
+                            data-id="@p.Id"
+                            data-barangay="@p.BarangayName"
+                            data-plan="@p.PlanName"
+                            data-amount="@p.Amount"
+                            data-date="@p.PaymentDate"
+                            data-method="@p.PaymentMethod"
+                            data-status="@p.Status"
+                            onclick="openViewFromRow(this)">
                             <td class="fw-semibold">@p.BarangayName</td>
                             <td>@p.PlanName</td>
                             <td>@Peso(p.Amount)</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentDate</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentMethod</td>
                             <td><span class="badge @BadgeClass(p.Status)">@p.Status</span></td>
-                            <td class="text-end">
+                            <td class="text-end" onclick="event.stopPropagation();">
 
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                         data-bs-toggle="modal" data-bs-target="#viewModal"
@@ -333,5 +341,29 @@
             const btn = event.relatedTarget;
             document.getElementById('archive_id').value = btn.getAttribute('data-id');
         });
+
+        // Open view modal from row click
+        function openViewFromRow(row) {
+            const amount = row.getAttribute('data-amount');
+            const status = row.getAttribute('data-status');
+
+            document.getElementById('view_amount').innerText = "₱" + Number(amount).toLocaleString();
+            document.getElementById('view_barangay').innerText = row.getAttribute('data-barangay');
+            document.getElementById('view_plan').innerText = row.getAttribute('data-plan');
+            document.getElementById('view_method').innerText = row.getAttribute('data-method');
+            document.getElementById('view_date').innerText = row.getAttribute('data-date');
+
+            const badge = document.getElementById('view_status');
+            badge.innerText = status;
+
+            badge.className = "badge " + (
+                status === "Paid" ? "bg-success-subtle text-success border border-success-subtle" :
+                status === "Pending" ? "bg-warning-subtle text-warning border border-warning-subtle" :
+                "bg-danger-subtle text-danger border border-danger-subtle"
+            );
+
+            var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+            viewModal.show();
+        }
     </script>
 }

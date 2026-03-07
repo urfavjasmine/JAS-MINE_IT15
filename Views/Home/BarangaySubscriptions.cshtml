@@ -139,13 +139,20 @@
                         ? "badge-expired"
                         : "badge-cancelled";
 
-                        <tr>
+                        <tr class="clickable-row" style="cursor: pointer;"
+                            data-id="@s.Id"
+                            data-barangay="@s.BarangayName"
+                            data-plan="@s.PlanName"
+                            data-start="@s.StartDate"
+                            data-end="@s.EndDate"
+                            data-status="@s.Status"
+                            onclick="openViewFromRow(this)">
                             <td class="fw-semibold">@s.BarangayName</td>
                             <td>@s.PlanName</td>
                             <td class="d-none d-md-table-cell text-muted">@s.StartDate</td>
                             <td class="d-none d-md-table-cell text-muted">@s.EndDate</td>
                             <td><span class="badge @badgeClass">@s.Status</span></td>
-                            <td class="text-end">
+                            <td class="text-end" onclick="event.stopPropagation();">
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-light text-secondary border-0"
                                             title="View Details"
@@ -414,5 +421,31 @@
             document.getElementById('cancel_id').value = btn.getAttribute('data-id');
             document.getElementById('cancel_barangay').innerText = btn.getAttribute('data-barangay');
         });
+
+        // Open view modal from row click
+        function openViewFromRow(row) {
+            const barangay = row.getAttribute('data-barangay');
+            const plan = row.getAttribute('data-plan');
+            const start = row.getAttribute('data-start');
+            const end = row.getAttribute('data-end');
+            const status = row.getAttribute('data-status');
+
+            document.getElementById('view_barangay').innerText = barangay;
+            document.getElementById('view_plan').innerText = plan;
+            document.getElementById('view_start').innerText = start;
+            document.getElementById('view_end').innerText = end;
+
+            const badge = document.getElementById('view_status_badge');
+            badge.innerText = status;
+
+            badge.className = "badge " + (
+                status === "Active" ? "badge-active" :
+                status === "Pending" ? "badge-pending" :
+                status === "Expired" ? "badge-expired" : "badge-cancelled"
+            );
+
+            var viewModalInstance = new bootstrap.Modal(document.getElementById('viewModal'));
+            viewModalInstance.show();
+        }
     </script>
 }

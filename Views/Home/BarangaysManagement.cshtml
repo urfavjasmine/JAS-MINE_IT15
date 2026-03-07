@@ -91,7 +91,8 @@
                     <tbody>
                         @foreach (var b in Model.Barangays)
                         {
-                            <tr>
+                            <tr class="clickable-row" style="cursor: pointer;"
+                                onclick="openViewAndShowModal('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">@b.Name.Substring(0, 1).ToUpper()</div>
@@ -112,7 +113,7 @@
                                         @(b.IsActive ? "Active" : "Archived")
                                     </span>
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end" onclick="event.stopPropagation();">
                                     <div class="dropdown">
                                         <button class="btn btn-light kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="bi bi-three-dots-vertical"></i>
@@ -277,6 +278,12 @@
         document.getElementById('vEmail').textContent = email || '-';
         document.getElementById('vPhone').textContent = phone || '-';
         document.getElementById('vAddress').textContent = address || '-';
+    }
+
+    function openViewAndShowModal(id, name, code, municipality, province, region, email, phone, address) {
+        openView(id, name, code, municipality, province, region, email, phone, address);
+        var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+        viewModal.show();
     }
 
     // Ensure Bootstrap dropdowns are initialized

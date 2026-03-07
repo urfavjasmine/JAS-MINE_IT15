@@ -2608,6 +2608,33 @@ namespace JAS_MINE_IT15.Controllers
             if (category != "All Categories")
                 query = query.Where(d => d.Category == category);
 
+            // Get current user ID for tracking likes
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            int.TryParse(userIdStr, out var currentUserId);
+
+            // Get discussion IDs first
+            var discussionIds = await query.Select(d => d.Id).ToListAsync();
+
+            // Get likes by current user
+            var userLikes = await _context.DiscussionLikes
+                .Where(l => discussionIds.Contains(l.DiscussionId) && l.UserId == currentUserId)
+                .Select(l => l.DiscussionId)
+                .ToListAsync();
+
+            // Get comments for all discussions
+            var allComments = await _context.DiscussionComments
+                .Where(c => discussionIds.Contains(c.DiscussionId) && c.IsActive)
+                .Include(c => c.Author)
+                .OrderBy(c => c.CreatedAt)
+                .Select(c => new { 
+                    c.DiscussionId, 
+                    c.Id, 
+                    AuthorName = c.Author != null ? c.Author.FullName : "Unknown",
+                    c.Content, 
+                    c.CreatedAt 
+                })
+                .ToListAsync();
+
             var discussions = await query
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new KnowledgeDiscussionItem
@@ -2625,6 +2652,26 @@ namespace JAS_MINE_IT15.Controllers
                 })
                 .ToListAsync();
 
+            // Populate UserHasLiked and Comments
+            foreach (var d in discussions)
+            {
+                if (int.TryParse(d.Id, out var dId))
+                {
+                    d.UserHasLiked = userLikes.Contains(dId);
+                    d.Comments = allComments
+                        .Where(c => c.DiscussionId == dId)
+                        .Select(c => new DiscussionCommentItem
+                        {
+                            Id = c.Id,
+                            AuthorName = c.AuthorName,
+                            AuthorInitials = GetInitials(c.AuthorName),
+                            Content = c.Content,
+                            Date = c.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                        })
+                        .ToList();
+                }
+            }
+
             var vm = new KnowledgeSharingViewModel
             {
                 CanPost = canPost,
@@ -2641,11 +2688,20 @@ namespace JAS_MINE_IT15.Controllers
                 MembersOnline = 0,
                 TotalDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
                 ArchivedDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
+                CurrentUserId = currentUserId,
                 SuccessMessage = TempData["Success"] as string,
                 ErrorMessage = TempData["Error"] as string
             };
 
             return View(vm);
+        }
+
+        private static string GetInitials(string fullName)
+        {
+            var parts = (fullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "U";
+            if (parts.Length == 1) return parts[0].Substring(0, 1).ToUpperInvariant();
+            return (parts[0].Substring(0, 1) + parts[^1].Substring(0, 1)).ToUpperInvariant();
         }
 
         // POST: Create Discussion
@@ -2864,6 +2920,112 @@ namespace JAS_MINE_IT15.Controllers
             await _context.SaveChangesAsync();
 
             TempData["Success"] = "Post created successfully.";
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
+        // POST: Like/Unlike a discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> LikeDiscussion(int id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            if (!int.TryParse(userIdStr, out var userId) || userId == 0)
+            {
+                TempData["Error"] = "Unable to identify your user session.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(id);
+            if (discussion == null || !discussion.IsActive)
+            {
+                TempData["Error"] = "Discussion not found.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            // STRICT TENANT VALIDATION
+            if (discussion.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot like discussions from another barangay.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            // Check if user already liked this discussion
+            var existingLike = await _context.DiscussionLikes
+                .FirstOrDefaultAsync(l => l.DiscussionId == id && l.UserId == userId);
+
+            if (existingLike != null)
+            {
+                // Unlike: remove the like
+                _context.DiscussionLikes.Remove(existingLike);
+                discussion.LikesCount = Math.Max(0, discussion.LikesCount - 1);
+            }
+            else
+            {
+                // Like: add a new like
+                _context.DiscussionLikes.Add(new DiscussionLike
+                {
+                    DiscussionId = id,
+                    UserId = userId,
+                    CreatedAt = DateTime.Now
+                });
+                discussion.LikesCount++;
+            }
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
+        // POST: Add a comment to a discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddComment(int discussionId, string content)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            if (!int.TryParse(userIdStr, out var userId) || userId == 0)
+            {
+                TempData["Error"] = "Unable to identify your user session.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            content = (content ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                TempData["Error"] = "Comment content is required.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            var discussion = await _context.KnowledgeDiscussions.FindAsync(discussionId);
+            if (discussion == null || !discussion.IsActive)
+            {
+                TempData["Error"] = "Discussion not found.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            // STRICT TENANT VALIDATION
+            if (discussion.BarangayId != GetCurrentBarangayId())
+            {
+                TempData["Error"] = "You cannot comment on discussions from another barangay.";
+                return RedirectToAction(nameof(KnowledgeSharing));
+            }
+
+            var comment = new DiscussionComment
+            {
+                DiscussionId = discussionId,
+                AuthorId = userId,
+                Content = content,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.DiscussionComments.Add(comment);
+            discussion.RepliesCount++;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Comment added successfully.";
             return RedirectToAction(nameof(KnowledgeSharing));
         }
 
@@ -4578,10 +4740,32 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         [HttpGet]
-        public IActionResult PaymentSuccess(int invoiceId)
+        public async Task<IActionResult> PaymentSuccess(int invoiceId)
         {
-            TempData["Success"] = "Payment successful! Your subscription will be activated shortly once we receive the confirmation from PayMongo.";
-            return RedirectToAction(nameof(MySubscription));
+            // Fetch the invoice with subscription and plan details
+            var invoice = await _context.Invoices
+                .Include(i => i.Subscription)
+                    .ThenInclude(s => s!.Plan)
+                .Include(i => i.Subscription)
+                    .ThenInclude(s => s!.Barangay)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive);
+
+            if (invoice?.Subscription != null)
+            {
+                ViewBag.CompanyName = invoice.Subscription.Barangay?.Name ?? "Your Barangay";
+                ViewBag.PlanName = invoice.Subscription.Plan?.Name ?? "Subscription";
+                ViewBag.Email = invoice.Subscription.Barangay?.ContactEmail ?? "";
+                ViewBag.Status = invoice.Subscription.Status == "active" ? "Active" : invoice.Subscription.Status;
+            }
+            else
+            {
+                ViewBag.CompanyName = "Your Barangay";
+                ViewBag.PlanName = "Subscription";
+                ViewBag.Email = "";
+                ViewBag.Status = "Active";
+            }
+
+            return View();
         }
 
         [HttpGet]

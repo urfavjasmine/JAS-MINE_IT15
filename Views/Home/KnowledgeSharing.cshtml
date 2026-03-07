@@ -224,13 +224,6 @@
                     Archived (@(Model?.ArchivedDiscussions ?? 0))
                 </a>
             }
-
-            @if (canPost && Model?.ArchiveStatus != "archived")
-            {
-                <button class="btn btn-primary-custom px-4" data-bs-toggle="modal" data-bs-target="#createDiscussionModal">
-                    <i class="bi bi-plus-lg me-2"></i>New Discussion
-                </button>
-            }
         </div>
     </div>
 
@@ -378,15 +371,52 @@
                                         </div>
 
                                     <div class="k-border-top mt-3 pt-3 d-flex gap-2 flex-wrap">
-                                        <button class="btn-ghost" type="button">
-                                            <i class="bi bi-hand-thumbs-up me-2"></i>@d.Likes
-                                        </button>
-                                        <button class="btn-ghost" type="button">
+                                        <form method="post" action="@Url.Action("LikeDiscussion", "Home")" class="d-inline m-0">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@d.Id" />
+                                            <button type="submit" class="btn-ghost @(d.UserHasLiked ? "text-primary" : "")">
+                                                <i class="bi @(d.UserHasLiked ? "bi-hand-thumbs-up-fill" : "bi-hand-thumbs-up") me-2"></i>@d.Likes
+                                            </button>
+                                        </form>
+                                        <button class="btn-ghost" type="button" onclick="toggleComments('@d.Id')">
                                             <i class="bi bi-chat-dots me-2"></i>@d.Replies replies
                                         </button>
                                         <button class="btn-ghost" type="button">
                                             <i class="bi bi-share me-2"></i>Share
                                         </button>
+                                    </div>
+
+                                    <!-- Comments Section -->
+                                    <div id="comments-@d.Id" class="comments-section mt-3" style="display: none;">
+                                        <div class="k-border-top pt-3">
+                                            @if (d.Comments != null && d.Comments.Count > 0)
+                                            {
+                                                <div class="mb-3">
+                                                    @foreach (var comment in d.Comments)
+                                                    {
+                                                        <div class="d-flex gap-2 mb-2 p-2 rounded" style="background: #f7f9fb;">
+                                                            <div class="avatar-small" style="width:28px; height:28px; font-size:10px;">@comment.AuthorInitials</div>
+                                                            <div class="flex-grow-1">
+                                                                <div class="fw-semibold small">@comment.AuthorName</div>
+                                                                <div class="small text-muted">@comment.Content</div>
+                                                                <div class="meta-sm" style="font-size:11px;">@comment.Date</div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            @if (canPost)
+                                            {
+                                                <form method="post" action="@Url.Action("AddComment", "Home")" class="d-flex gap-2">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="discussionId" value="@d.Id" />
+                                                    <input type="text" name="content" class="form-control form-control-sm" placeholder="Write a comment..." required />
+                                                    <button type="submit" class="btn btn-sm btn-primary-custom">
+                                                        <i class="bi bi-send"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -509,47 +539,6 @@
     }
 </script>
 
-<!-- CREATE DISCUSSION MODAL -->
-<div class="modal fade" id="createDiscussionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form method="post" action="@Url.Action("CreateDiscussion", "Home")">
-                @Html.AntiForgeryToken()
-                <div class="modal-header">
-                    <h5 class="modal-title">New Discussion</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Title</label>
-                        <input type="text" class="form-control" name="title" required placeholder="Discussion title" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Category</label>
-                        <select class="form-select" name="category">
-                            @foreach (var c in Model?.Categories ?? new List<string>())
-                            {
-                                @if (c != "All Categories")
-                                {
-                                    <option value="@c">@c</option>
-                                }
-                            }
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Content</label>
-                        <textarea class="form-control" name="content" rows="5" required placeholder="Share your knowledge, ask questions, or start a discussion..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Discussion</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <!-- EDIT DISCUSSION MODAL -->
 <div class="modal fade" id="editDiscussionModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -593,6 +582,14 @@
 </div>
 
 <script>
+    // Toggle comments section visibility
+    function toggleComments(id) {
+        var section = document.getElementById('comments-' + id);
+        if (section) {
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
     // Ensure Bootstrap dropdowns are initialized
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.btn-ghost[data-bs-toggle="dropdown"]').forEach(function(btn) {

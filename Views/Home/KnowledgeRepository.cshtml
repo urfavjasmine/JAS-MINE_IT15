@@ -391,7 +391,19 @@
                                     _ => "<span class=\"badge-draft\">Draft</span>"
                                 };
 
-                                <tr class="@(doc.IsArchived ? "opacity-75" : "")">
+                                <tr class="clickable-row @(doc.IsArchived ? "opacity-75" : "")" style="cursor: pointer;"
+                                    data-id="@doc.Id"
+                                    data-title="@doc.Title"
+                                    data-category="@doc.Category"
+                                    data-tags="@doc.TagsCsv"
+                                    data-description="@doc.Description"
+                                    data-uploadedby="@doc.UploadedBy"
+                                    data-date="@doc.Date"
+                                    data-status="@doc.Status"
+                                    data-version="@doc.Version"
+                                    data-filename="@doc.FileName"
+                                    data-filepath="@doc.FilePath"
+                                    onclick="openViewFromRow(this)">>
                                     <td>
                                         <div class="d-flex align-items-center gap-3">
                                             <div class="doc-icon">
@@ -426,7 +438,7 @@
                                         <i class="bi bi-calendar3 me-1"></i> @doc.Date
                                     </td>
                                     <td>@Html.Raw(badgeHtml)</td>
-                                    <td class="text-end">
+                                    <td class="text-end" onclick="event.stopPropagation();">
                                         @* Quick approve/reject buttons for pending documents *@
                                         @if (canApprove && doc.Status.Equals("pending", StringComparison.OrdinalIgnoreCase))
                                         {
@@ -799,6 +811,49 @@
     function openArchive(id, title) {
         document.getElementById('dId').value = id;
         document.getElementById('dTitle').innerText = title;
+    }
+
+    function openViewFromRow(row) {
+        const id = row.getAttribute('data-id');
+        const title = row.getAttribute('data-title');
+        const category = row.getAttribute('data-category');
+        const tags = row.getAttribute('data-tags');
+        const desc = row.getAttribute('data-description');
+        const by = row.getAttribute('data-uploadedby');
+        const date = row.getAttribute('data-date');
+        const status = row.getAttribute('data-status');
+        const version = row.getAttribute('data-version');
+        const fileName = row.getAttribute('data-filename');
+        const filePath = row.getAttribute('data-filepath');
+
+        document.getElementById('vTitle').innerText = title;
+        document.getElementById('vCategory').innerText = category;
+        document.getElementById('vTags').innerText = tags;
+        document.getElementById('vDesc').innerText = desc;
+        document.getElementById('vBy').innerText = by;
+        document.getElementById('vDate').innerText = date;
+        document.getElementById('vVersion').innerText = version;
+
+        let badge = "";
+        if (status === "approved") badge = '<span class="badge-approved">Approved</span>';
+        else if (status === "pending") badge = '<span class="badge-pending">Pending</span>';
+        else if (status === "rejected") badge = '<span class="badge-rejected">Rejected</span>';
+        else badge = '<span class="badge-draft">Draft</span>';
+
+        document.getElementById('vStatus').innerHTML = badge;
+        document.getElementById('vMeta').innerText = "Status: " + status + " • v" + version;
+
+        var fileDiv = document.getElementById('vFile');
+        if (fileDiv) {
+            if (fileName && filePath) {
+                fileDiv.innerHTML = '<a href="' + filePath + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Download ' + fileName + '</a>';
+            } else {
+                fileDiv.innerHTML = '<span class="text-muted">No file attached</span>';
+            }
+        }
+
+        var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+        viewModal.show();
     }
 
     // Ensure Bootstrap dropdowns are initialized

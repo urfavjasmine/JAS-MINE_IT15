@@ -86,7 +86,11 @@
                     <tbody>
                         @foreach (var d in Model.Documents)
                         {
-                            <tr>
+                            <tr class="clickable-row" style="cursor: pointer;"
+                                data-id="@d.Id" data-title="@d.Title" data-file-name="@d.FileName"
+                                data-file-url="@d.FileUrl" data-shared-by="@d.SharedByName"
+                                data-downloads="@d.DownloadCount" data-date="@d.CreatedAt.ToString("yyyy-MM-dd")"
+                                onclick="openViewFromRow(this)">
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="doc-icon"><i class="bi bi-file-earmark-text"></i></div>
@@ -101,7 +105,7 @@
                                     <span class="badge bg-light text-dark border">@d.DownloadCount</span>
                                 </td>
                                 <td class="d-none d-md-table-cell muted">@d.CreatedAt.ToString("MMM dd, yyyy")</td>
-                                <td class="text-end">
+                                <td class="text-end" onclick="event.stopPropagation();">
                                     <div class="dropdown">
                                         <button class="btn btn-light kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="bi bi-three-dots-vertical"></i>
@@ -237,6 +241,16 @@
         document.getElementById('vSharedBy').textContent = btn.dataset.sharedBy;
         document.getElementById('vDownloads').textContent = btn.dataset.downloads;
         document.getElementById('vDate').textContent = btn.dataset.date;
+    }
+
+    function openViewFromRow(row) {
+        document.getElementById('vTitle').textContent = row.dataset.title;
+        document.getElementById('vFileName').textContent = row.dataset.fileName || '-';
+        document.getElementById('vSharedBy').textContent = row.dataset.sharedBy;
+        document.getElementById('vDownloads').textContent = row.dataset.downloads;
+        document.getElementById('vDate').textContent = row.dataset.date;
+        var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+        viewModal.show();
     }
 
     // Ensure Bootstrap dropdowns are initialized

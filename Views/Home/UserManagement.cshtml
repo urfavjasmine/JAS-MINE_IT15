@@ -206,7 +206,10 @@
 
                             <tr data-name="@u.Name.ToLowerInvariant()"
                                 data-email="@u.Email.ToLowerInvariant()"
-                                data-role="@roleKey">
+                                data-role="@roleKey"
+                                class="clickable-row"
+                                style="cursor: pointer;"
+                                onclick="openViewAndShowModal('@u.Id','@u.Name','@u.Email','@roleKey','@u.Status','@u.Barangay')">
 
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
@@ -234,7 +237,7 @@
                                     </span>
                                 </td>
 
-                                <td class="text-end">
+                                <td class="text-end" onclick="event.stopPropagation();">
                                     <div class="dropdown">
 
                                         <button class="btn btn-light kebab" type="button"
@@ -346,29 +349,35 @@
 <div class="modal fade" id="createEditModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="userForm" method="post">
+            <form id="userForm" method="post" onsubmit="return validateUserForm()">
                 @Html.AntiForgeryToken()
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalTitle">Add User</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Modal Error Alert -->
+                    <div id="modalError" class="alert alert-danger d-none" role="alert">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        <span id="modalErrorText"></span>
+                    </div>
+                    
                     <input type="hidden" name="id" id="fId" />
                     <div class="mb-3">
-                        <label class="form-label">Full Name *</label>
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="fName" class="form-control" required />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Email Address *</label>
+                        <label class="form-label">Email Address <span class="text-danger">*</span></label>
                         <input type="email" name="email" id="fEmail" class="form-control" required />
                     </div>
                     <div class="mb-3" id="passwordGroup">
-                        <label class="form-label">Password *</label>
+                        <label class="form-label">Password <span class="text-danger">*</span></label>
                         <input type="password" name="password" id="fPassword" class="form-control" />
-                        <small class="text-muted">Leave blank to keep existing password (Edit mode)</small>
+                        <small class="text-muted" id="passwordHint">Minimum 6 characters</small>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Role *</label>
+                        <label class="form-label">Role <span class="text-danger">*</span></label>
                         <select name="role" id="fRole" class="form-select" required>
                             <option value="barangay_secretary">Barangay Secretary</option>
                             <option value="barangay_staff">Barangay Staff</option>
@@ -419,6 +428,9 @@
         document.getElementById('fPassword').value = '';
         document.getElementById('fPassword').required = true;
         document.getElementById('fRole').value = 'barangay_staff';
+        document.getElementById('passwordGroup').style.display = 'block';
+        document.getElementById('passwordHint').textContent = 'Minimum 6 characters';
+        hideModalError();
     }
 
     function openEdit(id, name, email, role, barangay) {
@@ -430,6 +442,9 @@
         document.getElementById('fPassword').value = '';
         document.getElementById('fPassword').required = false;
         document.getElementById('fRole').value = role;
+        // Hide password field when editing - admin cannot change user's password
+        document.getElementById('passwordGroup').style.display = 'none';
+        hideModalError();
     }
 
     function openView(id, name, email, role, status, barangay) {
@@ -438,10 +453,59 @@
         document.getElementById('vRole').textContent = '@Model.RoleLabels'.includes(role) ? role : role;
         document.getElementById('vStatus').textContent = status;
     }
+    
+    function openViewAndShowModal(id, name, email, role, status, barangay) {
+        openView(id, name, email, role, status, barangay);
+        var modal = new bootstrap.Modal(document.getElementById('viewModal'));
+        modal.show();
+    }
 
     function openArchiveUser(id, name) {
         document.getElementById('archiveUserId').value = id;
         document.getElementById('archiveUserName').textContent = name;
+    }
+
+    function validateUserForm() {
+        const name = document.getElementById('fName').value.trim();
+        const email = document.getElementById('fEmail').value.trim();
+        const password = document.getElementById('fPassword').value;
+        const isCreate = document.getElementById('fId').value === '';
+        
+        // Validate name
+        if (!name || name.length < 2) {
+            showModalError('Full name must be at least 2 characters.');
+            return false;
+        }
+        
+        // Validate email
+        const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            showModalError('Please enter a valid email address.');
+            return false;
+        }
+        
+        // Validate password only when creating
+        if (isCreate) {
+            if (!password || password.length < 6) {
+                showModalError('Password must be at least 6 characters.');
+                return false;
+            }
+        }
+        
+        hideModalError();
+        return true;
+    }
+    
+    function showModalError(message) {
+        const errorDiv = document.getElementById('modalError');
+        const errorText = document.getElementById('modalErrorText');
+        errorText.textContent = message;
+        errorDiv.classList.remove('d-none');
+    }
+    
+    function hideModalError() {
+        const errorDiv = document.getElementById('modalError');
+        errorDiv.classList.add('d-none');
     }
 
     function applyFilter() {

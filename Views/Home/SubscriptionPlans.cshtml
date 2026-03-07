@@ -82,7 +82,14 @@
                 <tbody>
                     @foreach (var p in Model.Plans)
                     {
-                        <tr>
+                        <tr class="clickable-row" style="cursor: pointer;"
+                            data-id="@p.Id"
+                            data-name="@p.Name"
+                            data-price="@p.Price"
+                            data-duration="@p.DurationMonths"
+                            data-description="@p.Description"
+                            data-active="@p.IsActive"
+                            onclick="openViewFromRow(this)">
                             <td class="fw-semibold">@p.Name</td>
                             <td>@Peso(p.Price)</td>
                             <td>@PlanDurationLabel(p.DurationMonths)</td>
@@ -99,7 +106,7 @@
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle px-3">Inactive</span>
                                 }
                             </td>
-                            <td class="text-end">
+                            <td class="text-end" onclick="event.stopPropagation();">
 
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                         data-bs-toggle="modal" data-bs-target="#viewModal"
@@ -301,5 +308,31 @@
             document.getElementById('archive_id').value = btn.getAttribute('data-id');
             document.getElementById('archive_name').innerText = btn.getAttribute('data-name');
         });
+
+        // Open view modal from row click
+        function openViewFromRow(row) {
+            const name = row.getAttribute('data-name');
+            const price = Number(row.getAttribute('data-price'));
+            const duration = Number(row.getAttribute('data-duration'));
+            const desc = row.getAttribute('data-description') || "";
+            const active = row.getAttribute('data-active') === "True";
+
+            document.getElementById('view_name').innerText = name;
+            document.getElementById('view_price_line').innerText =
+                "₱" + price.toLocaleString() + " / " + (duration >= 12 ? "Year" : "Month");
+
+            document.getElementById('view_description').innerText = desc;
+
+            const statusBadge = document.getElementById('view_status');
+            statusBadge.innerText = active ? "Active" : "Inactive";
+            statusBadge.className = "badge " + (active
+                ? "bg-success-subtle text-success border border-success-subtle"
+                : "bg-secondary-subtle text-secondary border border-secondary-subtle");
+
+            document.getElementById('view_duration').innerText = duration + " month(s)";
+
+            var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+            viewModal.show();
+        }
     </script>
 }

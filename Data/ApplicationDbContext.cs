@@ -29,6 +29,8 @@ namespace JAS_MINE_IT15.Data
         public DbSet<KnowledgeDiscussion> KnowledgeDiscussions { get; set; } = null!;
         public DbSet<PasswordResetRequest> PasswordResetRequests { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<DiscussionLike> DiscussionLikes { get; set; } = null!;
+        public DbSet<DiscussionComment> DiscussionComments { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -316,6 +318,48 @@ namespace JAS_MINE_IT15.Data
 
                 entity.HasIndex(e => new { e.UserId, e.IsRead, e.IsActive });
                 entity.HasIndex(e => e.CreatedAt);
+            });
+
+            // =============================================
+            // DiscussionLike entity configuration
+            // =============================================
+            builder.Entity<DiscussionLike>(entity =>
+            {
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.Discussion)
+                      .WithMany()
+                      .HasForeignKey(e => e.DiscussionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Unique constraint: one like per user per discussion
+                entity.HasIndex(e => new { e.DiscussionId, e.UserId }).IsUnique();
+            });
+
+            // =============================================
+            // DiscussionComment entity configuration
+            // =============================================
+            builder.Entity<DiscussionComment>(entity =>
+            {
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.Discussion)
+                      .WithMany()
+                      .HasForeignKey(e => e.DiscussionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Author)
+                      .WithMany()
+                      .HasForeignKey(e => e.AuthorId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.DiscussionId);
             });
         }
     }

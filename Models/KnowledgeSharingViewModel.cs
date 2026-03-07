@@ -27,6 +27,9 @@ namespace JAS_MINE_IT15.Models
         // Messages
         public string? SuccessMessage { get; set; }
         public string? ErrorMessage { get; set; }
+
+        // Current user ID for tracking likes
+        public int CurrentUserId { get; set; }
     }
 
     public class KnowledgeDiscussionItem
@@ -41,6 +44,17 @@ namespace JAS_MINE_IT15.Models
         public int Replies { get; set; }
         public int Likes { get; set; }
         public bool IsArchived { get; set; }
+        public bool UserHasLiked { get; set; }
+        public List<DiscussionCommentItem> Comments { get; set; } = new();
+    }
+
+    public class DiscussionCommentItem
+    {
+        public int Id { get; set; }
+        public string AuthorName { get; set; } = "";
+        public string AuthorInitials { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string Date { get; set; } = "";
     }
 
     public class KnowledgeAnnouncementItem

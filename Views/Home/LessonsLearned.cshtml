@@ -154,7 +154,14 @@
                     {
                         foreach (var lesson in lessons)
                         {
-                            <tr class="@(lesson.IsArchived ? "table-secondary" : "")">
+                            <tr class="clickable-row @(lesson.IsArchived ? "table-secondary" : "")" style="cursor: pointer;"
+                                data-id="@lesson.Id"
+                                data-title="@lesson.Title"
+                                data-problem="@lesson.Problem"
+                                data-action="@lesson.ActionTaken"
+                                data-result="@lesson.Result"
+                                data-recommendation="@lesson.Recommendation"
+                                onclick="viewLessonFromRow(this)">
                                 <td><strong>@lesson.Title</strong></td>
                                 <td>@(lesson.Problem.Length > 80 ? lesson.Problem.Substring(0, 80) + "..." : lesson.Problem)</td>
                                 <td>@lesson.Date</td>
@@ -176,7 +183,7 @@
                                         <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
                                     }
                                 </td>
-                                <td>
+                                <td onclick="event.stopPropagation();">
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="cursor:pointer; position:relative; z-index:10;"><i class="bi bi-three-dots"></i></button>
                                         <ul class="dropdown-menu dropdown-menu-end">
@@ -322,6 +329,14 @@
         document.getElementById('viewAction').textContent = action;
         document.getElementById('viewResult').textContent = result;
         document.getElementById('viewRecommendation').textContent = recommendation || 'N/A';
+        new bootstrap.Modal(document.getElementById('viewModal')).show();
+    }
+    function viewLessonFromRow(row) {
+        document.getElementById('viewTitle').textContent = row.getAttribute('data-title');
+        document.getElementById('viewProblem').textContent = row.getAttribute('data-problem');
+        document.getElementById('viewAction').textContent = row.getAttribute('data-action');
+        document.getElementById('viewResult').textContent = row.getAttribute('data-result');
+        document.getElementById('viewRecommendation').textContent = row.getAttribute('data-recommendation') || 'N/A';
         new bootstrap.Modal(document.getElementById('viewModal')).show();
     }
     function editLesson(id, title, problem, action, result, recommendation) {

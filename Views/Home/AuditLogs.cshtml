@@ -176,7 +176,11 @@
                         {
                             foreach (var log in Model.Logs)
                             {
-                                <tr>
+                                <tr class="clickable-row" style="cursor: pointer;"
+                                    data-timestamp="@log.Timestamp" data-user="@log.User"
+                                    data-action="@log.Action" data-module="@log.Module"
+                                    data-target-name="@log.Target" data-ip="@log.Ip"
+                                    onclick="openViewFromRow(this)">
                                     <td class="small muted text-nowrap">@log.Timestamp</td>
                                     <td class="fw-semibold">@log.User</td>
                                     <td><span class="@ActionBadge(log.Action)">@log.Action</span></td>
@@ -186,7 +190,7 @@
                                     <td class="d-none d-lg-table-cell muted" style="max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                                         @log.Target
                                     </td>
-                                    <td class="text-end">
+                                    <td class="text-end" onclick="event.stopPropagation();">
                                         <button class="btn btn-light action-btn" title="View"
                                                 data-bs-toggle="modal" data-bs-target="#viewModal"
                                                 data-timestamp="@log.Timestamp" data-user="@log.User"
@@ -297,6 +301,17 @@
         document.getElementById('vModule').innerText = btn.dataset.module || '-';
         document.getElementById('vTarget').innerText = btn.dataset.targetName || '-';
         document.getElementById('vIp').innerText = btn.dataset.ip || '-';
+    }
+
+    function openViewFromRow(row) {
+        document.getElementById('vTimestamp').innerText = row.dataset.timestamp || '-';
+        document.getElementById('vUser').innerText = row.dataset.user || '-';
+        document.getElementById('vAction').innerText = row.dataset.action || '-';
+        document.getElementById('vModule').innerText = row.dataset.module || '-';
+        document.getElementById('vTarget').innerText = row.dataset.targetName || '-';
+        document.getElementById('vIp').innerText = row.dataset.ip || '-';
+        var modal = new bootstrap.Modal(document.getElementById('viewModal'));
+        modal.show();
     }
 
     function openArchive(id) {

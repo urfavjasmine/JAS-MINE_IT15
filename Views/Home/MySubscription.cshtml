@@ -149,7 +149,7 @@
             <i class="bi bi-info-circle-fill fs-5"></i>
             <div>
                 <strong>Payment rejected.</strong>
-                Your payment was rejected. You can either upload a new proof of payment below, or cancel this subscription to choose a different plan with correct pricing.
+                Your payment was rejected. You can either pay again below, or cancel this subscription to choose a different plan.
             </div>
         </div>
     }
@@ -293,10 +293,10 @@
                                             @if (inv.Status == "Unpaid" || inv.Status == "Overdue")
                                             {
                                                 <div class="d-flex flex-column gap-2">
-                                                    @* Manual Upload Payment Proof *@
+                                                    @* Online Payment *@
                                                     <a href="@Url.Action("SubmitPayment", "Home", new { invoiceId = inv.Id })" 
                                                        class="btn btn-sm btn-primary w-100">
-                                                        <i class="bi bi-upload me-1"></i>Upload Payment Proof
+                                                        <i class="bi bi-credit-card me-1"></i>Pay Now
                                                     </a>
                                                 </div>
                                             }

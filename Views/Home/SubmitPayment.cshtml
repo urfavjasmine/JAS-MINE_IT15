@@ -1,7 +1,7 @@
 @model JAS_MINE_IT15.Models.Entities.Invoice
 @using Microsoft.AspNetCore.Http
 @{
-    ViewData["Title"] = "Submit Proof of Payment";
+    ViewData["Title"] = "Complete Payment";
     Layout = null;
 
     var fullName = Context?.Session?.GetString("FullName") ?? "User";
@@ -221,8 +221,8 @@
 
     <div class="container">
         <div class="page-header">
-            <h1 class="page-title">Submit Proof of Payment</h1>
-            <p class="page-subtitle">Upload your payment receipt for verification</p>
+            <h1 class="page-title">Complete Your Payment</h1>
+            <p class="page-subtitle">Choose your preferred payment method and pay securely via PayMongo</p>
         </div>
 
         <div class="form-wrapper">
@@ -363,76 +363,10 @@
                 }
             </script>
 
-            <!-- Manual Payment Form (Image 7) -->
-            <div class="form-card">
-                <h2 class="section-name">Payment Details</h2>
-                <p class="section-desc">Fill in the details of your payment and upload proof</p>
-
-                <form asp-action="UploadPaymentProof" method="post" enctype="multipart/form-data">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="invoiceId" value="@Model.Id" />
-
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label">Payment Method *</label>
-                            <select name="paymentMethod" class="form-select" required>
-                                <option value="">Select method</option>
-                                <option value="GCash">GCash</option>
-                                <option value="Maya">Maya</option>
-                                <option value="Bank Transfer">Bank Transfer</option>
-                                <option value="Cash">Cash / In-person</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Payment Date</label>
-                            <input type="date" name="paymentDate" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label">Reference/Transaction Number *</label>
-                        <input type="text" name="referenceNumber" class="form-control" placeholder="e.g. GCash Ref #1234567890" required />
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label">Notes (Optional)</label>
-                        <textarea name="notes" class="form-control" rows="3" placeholder="Any additional notes..."></textarea>
-                    </div>
-
-                    <div class="mb-2">
-                        <label class="form-label">Proof of Payment (Screenshot/Photo) *</label>
-                        <div class="upload-area" id="drop-zone">
-                            <i class="bi bi-upload upload-icon"></i>
-                            <div class="upload-text">Click to upload or drag & drop</div>
-                            <div class="upload-hint">PNG, JPG, or PDF up to 5MB</div>
-                            <input type="file" name="proofFile" id="proofFile" accept=".png,.jpg,.jpeg,.pdf" required />
-                        </div>
-                        
-                        <div id="file-preview">
-                            <i class="bi bi-file-earmark-check text-success fs-5"></i>
-                            <span id="file-name" class="fw-semibold"></span>
-                            <button type="button" class="btn-close ms-auto small" onclick="clearFile()"></button>
-                        </div>
-                    </div>
-
-                    @if (ViewBag.HasPending == true)
-                    {
-                        <div class="alert alert-warning mt-4 small">
-                            <i class="bi bi-info-circle me-1"></i>
-                            You already have a pending proof for this invoice. Submitting again will replace the previous one.
-                        </div>
-                    }
-
-                    <button type="submit" class="btn-submit">
-                        <i class="bi bi-upload"></i> Submit Proof of Payment
-                    </button>
-                    
-                    <div class="text-center mt-3">
-                        <a href="@Url.Action("MySubscription", "Home")" class="text-muted small text-decoration-none">
-                            <i class="bi bi-arrow-left me-1"></i> Back to My Subscription
-                        </a>
-                    </div>
-                </form>
+            <div class="text-center mt-4">
+                <a href="@Url.Action("MySubscription", "Home")" class="text-muted small text-decoration-none">
+                    <i class="bi bi-arrow-left me-1"></i> Back to My Subscription
+                </a>
             </div>
 
             <div class="text-center mt-5 mb-4 text-muted small">
@@ -442,54 +376,6 @@
     </div>
 
     <script src="/lib/jquery/dist/jquery.min.js"></script>
-    <script>
-        const fileInput = document.getElementById('proofFile');
-        const dropZone = document.getElementById('drop-zone');
-        const preview = document.getElementById('file-preview');
-        const fileNameSpan = document.getElementById('file-name');
-
-        fileInput.addEventListener('change', function() {
-            if (this.files && this.files[0]) {
-                showPreview(this.files[0].name);
-            }
-        });
-
-        // Drag and drop handlers
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, e => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, e => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-            }, false);
-        });
-
-        dropZone.addEventListener('drop', e => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            fileInput.files = files;
-            if (files.length > 0) {
-                showPreview(files[0].name);
-            }
-        });
-
-        function showPreview(name) {
-            fileNameSpan.textContent = name;
-            preview.style.display = 'flex';
-            dropZone.style.display = 'none';
-        }
-
-        function clearFile() {
-            fileInput.value = '';
-            preview.style.display = 'none';
-            dropZone.style.display = 'block';
-        }
-    </script>
 
     <!-- Chat Support Widget -->
     <button class="chat-support-btn" onclick="toggleChat()" title="Chat Support">
