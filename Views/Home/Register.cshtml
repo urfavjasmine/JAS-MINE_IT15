@@ -270,6 +270,41 @@
             font-size: 0.88rem;
         }
 
+        /* Mobile responsive fixes */
+        @media (max-width: 576px) {
+            .stepper {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .step-line {
+                width: 30px;
+                margin: 0 5px;
+            }
+            .step-label {
+                display: none;
+            }
+            .review-box .row {
+                flex-direction: column;
+            }
+            .review-box .col-6 {
+                width: 100% !important;
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            .review-group {
+                grid-template-columns: 90px 1fr;
+                font-size: 0.82rem;
+            }
+            .reg-card {
+                padding: 1.5rem;
+            }
+            .btn-next, .btn-back {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
         .review-label {
             color: var(--text-muted);
         }
@@ -465,7 +500,7 @@
                             <i class="bi bi-person"></i> Personal Details
                         </div>
                         <div class="row g-0">
-                            <div class="col-6">
+                            <div class="col-12 col-sm-6">
                                 <div class="review-group">
                                     <span class="review-label">Name:</span>
                                     <span class="review-value" id="rv-name">---</span>
@@ -475,7 +510,7 @@
                                     <span class="review-value" id="rv-phone">---</span>
                                 </div>
                             </div>
-                            <div class="col-6">
+                            <div class="col-12 col-sm-6">
                                 <div class="review-group">
                                     <span class="review-label">Email:</span>
                                     <span class="review-value" id="rv-email">---</span>
@@ -493,7 +528,7 @@
                             <i class="bi bi-building"></i> Barangay Details
                         </div>
                         <div class="row g-0">
-                            <div class="col-6">
+                            <div class="col-12 col-sm-6">
                                 <div class="review-group">
                                     <span class="review-label">Barangay:</span>
                                     <span class="review-value" id="rv-brgy">---</span>
@@ -503,7 +538,7 @@
                                     <span class="review-value" id="rv-province">---</span>
                                 </div>
                             </div>
-                            <div class="col-6">
+                            <div class="col-12 col-sm-6">
                                 <div class="review-group">
                                     <span class="review-label">Municipality:</span>
                                     <span class="review-value" id="rv-city">---</span>
