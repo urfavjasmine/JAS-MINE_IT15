@@ -42,10 +42,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
     {
         sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(10),
+            maxRetryCount: 2,
+            maxRetryDelay: TimeSpan.FromSeconds(3),
             errorNumbersToAdd: null);
-        sqlOptions.CommandTimeout(60);
+        sqlOptions.CommandTimeout(30);
     }));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
