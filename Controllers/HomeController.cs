@@ -809,6 +809,7 @@ namespace JAS_MINE_IT15.Controllers
                 Name = model.BarangayName,
                 Municipality = model.Municipality,
                 Province = model.Province,
+                Region = model.Region,
                 Address = model.Address,
                 ContactEmail = model.Email,
                 ContactPhone = model.PhoneNumber,

@@ -121,17 +121,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // ══════════════════════════════════════════════
-        //  6.  Subscription Churn  (super_admin)
-        // ══════════════════════════════════════════════
-        [RequireRoles("super_admin")]
-        public async Task<IActionResult> SubscriptionChurn()
-        {
-            var data = await _subscriptions.GetChurnDataAsync(12);
-            return View(data);
-        }
-
-        // ══════════════════════════════════════════════
-        //  7.  Content Timeline API (for Chart.js AJAX)
+        //  6.  Content Timeline API (for Chart.js AJAX)
         // ══════════════════════════════════════════════
         [HttpGet]
         [RequireRoles("super_admin", "barangay_admin")]
@@ -213,20 +203,5 @@ namespace JAS_MINE_IT15.Controllers
             return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"RevenueTrends_{DateTime.Now:yyyyMMdd}.csv");
         }
 
-        [RequireRoles("super_admin")]
-        [HttpGet]
-        public async Task<IActionResult> ExportChurnCsv()
-        {
-            var data = await _subscriptions.GetChurnDataAsync(12);
-            var sb = new StringBuilder();
-            sb.AppendLine("Month,Churned,Active,Churn Rate %");
-            foreach (var r in data)
-            {
-                sb.AppendLine($"\"{r.Month}\",{r.Churned},{r.Active},{r.ChurnRate}");
-            }
-
-            await _audit.LogAsync("Export", "Reports", null, "Churn", null, "Exported churn CSV");
-            return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"SubscriptionChurn_{DateTime.Now:yyyyMMdd}.csv");
-        }
     }
 }

@@ -47,6 +47,10 @@ namespace JAS_MINE_IT15.Models
         [Display(Name = "Province")]
         public string Province { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Region is required.")]
+        [Display(Name = "Region")]
+        public string Region { get; set; } = string.Empty;
+
         [Display(Name = "Complete Address")]
         public string? Address { get; set; }
 

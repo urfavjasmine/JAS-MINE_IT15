@@ -472,6 +472,30 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label asp-for="Region" class="form-label">Region *</label>
+                        <select asp-for="Region" class="form-select" required>
+                            <option value="">-- Select Region --</option>
+                            <option value="NCR">NCR - National Capital Region</option>
+                            <option value="CAR">CAR - Cordillera Administrative Region</option>
+                            <option value="Region I">Region I - Ilocos Region</option>
+                            <option value="Region II">Region II - Cagayan Valley</option>
+                            <option value="Region III">Region III - Central Luzon</option>
+                            <option value="Region IV-A">Region IV-A - CALABARZON</option>
+                            <option value="Region IV-B">Region IV-B - MIMAROPA</option>
+                            <option value="Region V">Region V - Bicol Region</option>
+                            <option value="Region VI">Region VI - Western Visayas</option>
+                            <option value="Region VII">Region VII - Central Visayas</option>
+                            <option value="Region VIII">Region VIII - Eastern Visayas</option>
+                            <option value="Region IX">Region IX - Zamboanga Peninsula</option>
+                            <option value="Region X">Region X - Northern Mindanao</option>
+                            <option value="Region XI">Region XI - Davao Region</option>
+                            <option value="Region XII">Region XII - SOCCSKSARGEN</option>
+                            <option value="Region XIII">Region XIII - Caraga</option>
+                            <option value="BARMM">BARMM - Bangsamoro</option>
+                        </select>
+                    </div>
+
                     <div class="mb-4">
                         <label asp-for="Address" class="form-label">Complete Address</label>
                         <div class="input-group">
@@ -536,6 +560,10 @@
                                 <div class="review-group">
                                     <span class="review-label">Province:</span>
                                     <span class="review-value" id="rv-province">---</span>
+                                </div>
+                                <div class="review-group">
+                                    <span class="review-label">Region:</span>
+                                    <span class="review-value" id="rv-region">---</span>
                                 </div>
                             </div>
                             <div class="col-12 col-sm-6">
@@ -643,8 +671,9 @@
             const brgy = document.getElementById('BarangayName').value;
             const city = document.getElementById('Municipality').value;
             const prov = document.getElementById('Province').value;
+            const region = document.getElementById('Region').value;
 
-            if (!brgy || !city || !prov) {
+            if (!brgy || !city || !prov || !region) {
                 alert('Please fill out all required fields.');
                 return;
             }
@@ -657,6 +686,7 @@
             document.getElementById('rv-brgy').innerText = brgy;
             document.getElementById('rv-city').innerText = city;
             document.getElementById('rv-province').innerText = prov;
+            document.getElementById('rv-region').innerText = region;
             document.getElementById('rv-address').innerText = document.getElementById('Address').value || '---';
 
             nextStep();

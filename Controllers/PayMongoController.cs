@@ -443,36 +443,23 @@ namespace JAS_MINE_IT15.Controllers
                 return;
             }
 
-            if (invoice.Status == "Paid")
+            // Skip if already processed (Paid or PendingVerification)
+            if (invoice.Status == "Paid" || invoice.Status == "PendingVerification")
             {
-                _logger.LogInformation("Invoice {InvoiceNumber} already marked as paid.", invoiceNumber);
+                _logger.LogInformation("Invoice {InvoiceNumber} already processed (Status: {Status}).", invoiceNumber, invoice.Status);
                 return;
             }
 
-            // 1. Update Invoice
-            invoice.Status = "Paid";
-            invoice.PaidAt = DateTime.Now;
+            // 1. Update Invoice to PendingVerification (NOT Paid - requires Super Admin approval)
+            invoice.Status = "PendingVerification";
             invoice.UpdatedAt = DateTime.Now;
 
-            // 2. Update Subscription
-            if (invoice.Subscription != null)
-            {
-                invoice.Subscription.Status = "Active";
-                invoice.Subscription.UpdatedAt = DateTime.Now;
-                
-                // Set dates if starting fresh (default DateTime or future date)
-                if (invoice.Subscription.StartDate == default || invoice.Subscription.StartDate > DateTime.Today)
-                {
-                    invoice.Subscription.StartDate = DateTime.Today;
-                }
-                
-                var duration = invoice.Subscription.Plan?.DurationMonths ?? 1;
-                invoice.Subscription.EndDate = DateTime.Today.AddMonths(duration);
-            }
+            // 2. DO NOT update Subscription status here - that happens on approval
+            // Subscription remains in its current state until Super Admin approves
 
-            // 3. Create SubscriptionPayment record
+            // 3. Create SubscriptionPayment record with PendingVerification status
             var existingPayment = await _context.SubscriptionPayments
-                .AnyAsync(p => p.ReferenceNumber == invoiceNumber && p.Status == "Paid");
+                .AnyAsync(p => p.ReferenceNumber == invoiceNumber && (p.Status == "Paid" || p.Status == "PendingVerification" || p.Status == "Approved"));
 
             if (!existingPayment)
             {
@@ -484,7 +471,7 @@ namespace JAS_MINE_IT15.Controllers
                     PaymentDate = DateTime.Now,
                     PaymentMethod = "PayMongo",
                     ReferenceNumber = invoiceNumber,
-                    Status = "Paid",
+                    Status = "PendingVerification",
                     IsActive = true,
                     CreatedAt = DateTime.Now
                 };
@@ -492,7 +479,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Successfully processed payment from {Source} for Invoice: {InvoiceNumber}, Amount: {Amount}", 
+            _logger.LogInformation("Payment received from {Source} for Invoice: {InvoiceNumber}, Amount: {Amount}. Pending verification.", 
                 source, invoiceNumber, amount);
         }
     }
