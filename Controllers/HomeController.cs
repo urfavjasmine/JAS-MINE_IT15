@@ -787,8 +787,12 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
+            // Log validation errors for debugging
             if (!ModelState.IsValid)
             {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                _logger.LogWarning("Registration validation failed: {Errors}", string.Join(", ", errors));
+                
                 // Keep user on review step when there are validation errors
                 model.CurrentStep = 3;
                 return View(model);
