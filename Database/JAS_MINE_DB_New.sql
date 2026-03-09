@@ -98,6 +98,7 @@ CREATE TABLE [dbo].[SubscriptionPlans] (
     [Description]     NVARCHAR(500)     NULL,
     [Price]           DECIMAL(10,2)     NOT NULL CONSTRAINT DF_SubscriptionPlans_Price DEFAULT (0.00),
     [DurationMonths]  INT               NOT NULL CONSTRAINT DF_SubscriptionPlans_Duration DEFAULT (12),
+    [UserLimit]       INT               NOT NULL CONSTRAINT DF_SubscriptionPlans_UserLimit DEFAULT (5),
     [Features]        NVARCHAR(MAX)     NULL,
     [IsActive]        BIT               NOT NULL CONSTRAINT DF_SubscriptionPlans_IsActive DEFAULT (1),
     [CreatedAt]       DATETIME2         NOT NULL CONSTRAINT DF_SubscriptionPlans_CreatedAt DEFAULT (GETDATE()),
@@ -632,13 +633,12 @@ GO
 PRINT 'Inserted default super admin user';
 GO
 
--- Subscription Plans
-INSERT INTO [dbo].[SubscriptionPlans] ([Name], [Description], [Price], [DurationMonths], [Features])
+-- Subscription Plans (3 plans: Basic, Professional, Enterprise)
+INSERT INTO [dbo].[SubscriptionPlans] ([Name], [Description], [Price], [DurationMonths], [Features], [UserLimit])
 VALUES 
-    ('Basic', 'Basic plan for small barangays with essential features', 5000.00, 12, '["Knowledge Repository","Policies Management","5 Users Max"]'),
-    ('Standard', 'Standard plan with additional features for growing barangays', 10000.00, 12, '["All Basic Features","Lessons Learned","Best Practices","15 Users Max"]'),
-    ('Premium', 'Premium plan with full features for large barangays', 20000.00, 12, '["All Standard Features","Knowledge Sharing","Analytics","Unlimited Users"]'),
-    ('Enterprise', 'Custom enterprise plan with dedicated support', 50000.00, 12, '["All Premium Features","Priority Support","Custom Integrations","API Access"]');
+    ('Basic', 'Essential tools for small barangays getting started.', 299.00, 1, 'Up to 4 users;View records;Add and manage records;View announcements;Basic reports', 4),
+    ('Professional', 'Everything you need to manage your barangay records efficiently.', 599.00, 1, 'Up to 10 users;All Basic features;Create and manage announcements;Better reports;Activity logs', 10),
+    ('Enterprise', 'Complete access with advanced tools and detailed tracking.', 999.00, 1, 'Up to 20 users;All Professional features;Dashboard (summary view);Archive and restore data;Detailed tracking', 20);
 GO
 
 PRINT 'Inserted default subscription plans';

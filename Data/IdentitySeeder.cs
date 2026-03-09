@@ -109,7 +109,7 @@ namespace JAS_MINE_IT15.Data
         new { Email="council@brgy.gov.ph", Password="Council@1234", Role="council_member", Name="Barangay Council Member" },
      };
 
-            foreach (var d in defaults)
+            foreach (var d in defaults) 
             {
                 var user = await userManager.FindByEmailAsync(d.Email);
 
@@ -212,29 +212,38 @@ namespace JAS_MINE_IT15.Data
         /// </summary>
         public static async Task SeedSubscriptionPlans(ApplicationDbContext context)
         {
-            // Ensure ONLY the three plans we want exist
-            var wantedNames = new[] { "Basic", "Professional", "Enterprise" };
-            var oldPlans = await context.SubscriptionPlans
-                .Where(p => !wantedNames.Contains(p.Name))
-                .ToListAsync();
-
-            foreach (var old in oldPlans)
+            // Delete ALL old/invalid plans (plans with wrong prices or wrong names)
+            var wantedPlans = new Dictionary<string, decimal>
             {
-                var hasSubscriptions = await context.BarangaySubscriptions
-                    .AnyAsync(s => s.PlanId == old.Id);
+                { "Basic", 299.00m },
+                { "Professional", 599.00m },
+                { "Enterprise", 999.00m }
+            };
 
-                if (!hasSubscriptions)
+            var allPlans = await context.SubscriptionPlans.ToListAsync();
+            foreach (var plan in allPlans)
+            {
+                // Delete if not in wanted list or has wrong price
+                var shouldDelete = !wantedPlans.ContainsKey(plan.Name) || plan.Price != wantedPlans[plan.Name];
+                if (shouldDelete)
                 {
-                    context.SubscriptionPlans.Remove(old);
-                    Console.WriteLine($"[Seeder] Deleted old/extra plan: {old.Name}");
-                }
-                else if (old.IsActive)
-                {
-                    old.IsActive = false;
-                    old.UpdatedAt = DateTime.Now;
-                    Console.WriteLine($"[Seeder] Deactivated old/extra plan: {old.Name} (has subscriptions)");
+                    var hasSubscriptions = await context.BarangaySubscriptions
+                        .AnyAsync(s => s.PlanId == plan.Id);
+
+                    if (!hasSubscriptions)
+                    {
+                        context.SubscriptionPlans.Remove(plan);
+                        Console.WriteLine($"[Seeder] Deleted invalid plan: {plan.Name} (₱{plan.Price:N0})");
+                    }
+                    else
+                    {
+                        plan.IsActive = false;
+                        plan.UpdatedAt = DateTime.Now;
+                        Console.WriteLine($"[Seeder] Deactivated invalid plan: {plan.Name} (has subscriptions)");
+                    }
                 }
             }
+            await context.SaveChangesAsync();
 
             var planDefs = new[]
             {
