@@ -2734,9 +2734,12 @@ namespace JAS_MINE_IT15.Controllers
             content = (content ?? "").Trim();
             category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();
 
-            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
+            // If no content provided, use title as content
+            if (string.IsNullOrWhiteSpace(content)) content = title;
+
+            if (string.IsNullOrWhiteSpace(title))
             {
-                TempData["Error"] = "Title and content are required.";
+                TempData["Error"] = "Title is required.";
                 return RedirectToAction(nameof(KnowledgeSharing));
             }
 

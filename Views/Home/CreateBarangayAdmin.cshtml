@@ -104,7 +104,12 @@
                     <label asp-for="Password" class="form-label fw-semibold">
                         Password <span class="text-danger">*</span>
                     </label>
-                    <input asp-for="Password" type="password" class="form-control" required minlength="6" maxlength="100" />
+                    <div class="input-group">
+                        <input asp-for="Password" type="password" class="form-control" id="passwordInput" required minlength="6" maxlength="100" />
+                        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('passwordInput', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
                     <div class="form-text">Minimum 6 characters.</div>
                     <span asp-validation-for="Password" class="text-danger small"></span>
                 </div>
@@ -113,7 +118,12 @@
                     <label asp-for="ConfirmPassword" class="form-label fw-semibold">
                         Confirm Password <span class="text-danger">*</span>
                     </label>
-                    <input asp-for="ConfirmPassword" type="password" class="form-control" required minlength="6" maxlength="100" />
+                    <div class="input-group">
+                        <input asp-for="ConfirmPassword" type="password" class="form-control" id="confirmPasswordInput" required minlength="6" maxlength="100" />
+                        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirmPasswordInput', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
                     <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
                 </div>
             </div>
@@ -132,4 +142,19 @@
 
 @section Scripts {
     <partial name="ValidationScriptsPartial" />
+    <script>
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        }
+    </script>
 }

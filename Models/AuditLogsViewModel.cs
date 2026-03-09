@@ -28,8 +28,8 @@ namespace JAS_MINE_IT15.Models
 
         // Stats
         public int TotalEntries => Logs.Count;
-        public int Approvals => Logs.Count(l => l.Action == "Approved");
-        public int Creations => Logs.Count(l => new[] { "Uploaded", "Created", "Submitted", "Posted" }.Contains(l.Action));
-        public int RejectDelete => Logs.Count(l => new[] { "Rejected", "Deleted" }.Contains(l.Action));
+        public int Approvals => Logs.Count(l => new[] { "Approve", "Approved" }.Contains(l.Action));
+        public int Creations => Logs.Count(l => new[] { "Create", "Created", "Upload", "Uploaded", "Submit", "Submitted", "Post", "Posted" }.Contains(l.Action));
+        public int RejectDelete => Logs.Count(l => new[] { "Reject", "Rejected", "Delete", "Deleted", "Cancel" }.Contains(l.Action));
     }
 }
