@@ -8,9 +8,16 @@
     private string BadgeClass(string s)
     {
         s = (s ?? "").Trim();
-        if (s == "Paid") return "bg-success bg-opacity-10 text-success border border-success-subtle px-3";
-        if (s == "Pending") return "bg-warning bg-opacity-10 text-warning border border-warning-subtle px-3";
+        if (s == "Paid" || s == "Approved") return "bg-success bg-opacity-10 text-success border border-success-subtle px-3";
+        if (s == "Pending") return "bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle px-3";
+        if (s == "PendingVerification") return "bg-warning bg-opacity-10 text-warning border border-warning-subtle px-3";
+        if (s == "Rejected") return "bg-danger bg-opacity-10 text-danger border border-danger-subtle px-3";
         return "bg-danger bg-opacity-10 text-danger border border-danger-subtle px-3";
+    }
+    private string StatusDisplay(string s)
+    {
+        if (s == "PendingVerification") return "Pending Verification";
+        return s;
     }
     private string Peso(decimal amount) => "₱" + string.Format("{0:N0}", amount);
 }
@@ -33,7 +40,7 @@
 
 <!-- Stats -->
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
         <div class="card text-center">
             <div class="card-body py-3">
                 <div class="fs-3 fw-bold text-primary">@Model.TotalPayments</div>
@@ -41,7 +48,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-2">
         <div class="card text-center">
             <div class="card-body py-3">
                 <div class="fs-3 fw-bold text-success">@Peso(Model.TotalCollected)</div>
@@ -49,16 +56,32 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center">
+    <div class="col-6 col-md-2">
+        <div class="card text-center" style="cursor:pointer;" onclick="filterByStatus('PendingVerification')">
             <div class="card-body py-3">
-                <div class="fs-3 fw-bold text-warning">@Model.PendingCount</div>
-                <div class="text-muted small">Pending</div>
+                <div class="fs-3 fw-bold text-warning">@Model.PendingVerificationCount</div>
+                <div class="text-muted small">Awaiting Verification</div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card text-center">
+    <div class="col-6 col-md-2">
+        <div class="card text-center" style="cursor:pointer;" onclick="filterByStatus('Approved')">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-success">@Model.ApprovedCount</div>
+                <div class="text-muted small">Approved</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card text-center" style="cursor:pointer;" onclick="filterByStatus('Rejected')">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-danger">@Model.RejectedCount</div>
+                <div class="text-muted small">Rejected</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card text-center" style="cursor:pointer;" onclick="filterByStatus('Failed')">
             <div class="card-body py-3">
                 <div class="fs-3 fw-bold text-danger">@Model.FailedCount</div>
                 <div class="text-muted small">Failed</div>
@@ -68,11 +91,46 @@
 </div>
 
 <div class="card">
-    <div class="card-header fw-bold">Payments</div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">Payments</span>
+        @if (!string.IsNullOrWhiteSpace(Model.StatusFilter))
+        {
+            <a href="@Url.Action("SubscriptionPayments", new { q = Model.SearchQuery })" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-x-circle me-1"></i>Clear Filter
+            </a>
+        }
+    </div>
     <div class="card-body">
+
+        <!-- Status Tabs -->
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link @(string.IsNullOrWhiteSpace(Model.StatusFilter) ? "active" : "")" 
+                   href="@Url.Action("SubscriptionPayments", new { q = Model.SearchQuery })">All</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Model.StatusFilter == "PendingVerification" ? "active" : "")" 
+                   href="@Url.Action("SubscriptionPayments", new { q = Model.SearchQuery, status = "PendingVerification" })">
+                    <i class="bi bi-clock-history me-1"></i>Pending Verification
+                    @if (Model.PendingVerificationCount > 0)
+                    {
+                        <span class="badge bg-warning text-dark ms-1">@Model.PendingVerificationCount</span>
+                    }
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Model.StatusFilter == "Approved" ? "active" : "")" 
+                   href="@Url.Action("SubscriptionPayments", new { q = Model.SearchQuery, status = "Approved" })">Approved</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(Model.StatusFilter == "Rejected" ? "active" : "")" 
+                   href="@Url.Action("SubscriptionPayments", new { q = Model.SearchQuery, status = "Rejected" })">Rejected</a>
+            </li>
+        </ul>
 
         <!-- Search -->
         <form method="get" asp-action="SubscriptionPayments" class="mb-3">
+            <input type="hidden" name="status" value="@Model.StatusFilter" />
             <input name="q" value="@Model.SearchQuery" class="form-control" placeholder="Search payments..." />
         </form>
 
@@ -92,7 +150,7 @@
                 <tbody>
                     @foreach (var p in Model.Payments)
                     {
-                        <tr class="clickable-row" style="cursor: pointer;"
+                        <tr class="clickable-row @(p.Status == "PendingVerification" ? "table-warning" : "")" style="cursor: pointer;"
                             data-id="@p.Id"
                             data-barangay="@p.BarangayName"
                             data-plan="@p.PlanName"
@@ -106,7 +164,7 @@
                             <td>@Peso(p.Amount)</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentDate</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentMethod</td>
-                            <td><span class="badge @BadgeClass(p.Status)">@p.Status</span></td>
+                            <td><span class="badge @BadgeClass(p.Status)">@StatusDisplay(p.Status)</span></td>
                             <td class="text-end" onclick="event.stopPropagation();">
 
                                 <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -121,23 +179,45 @@
                                     View
                                 </button>
 
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#editModal"
-                                        data-id="@p.Id"
-                                        data-barangay="@p.BarangayName"
-                                        data-plan="@p.PlanName"
-                                        data-amount="@p.Amount"
-                                        data-date="@p.PaymentDate"
-                                        data-method="@p.PaymentMethod"
-                                        data-status="@p.Status">
-                                    Edit
-                                </button>
+                                @if (p.Status == "PendingVerification")
+                                {
+                                    <form method="post" asp-action="ApprovePayment" style="display:inline;">
+                                        <input type="hidden" name="paymentId" value="@p.Id" />
+                                        <input type="hidden" name="q" value="@Model.SearchQuery" />
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-success" title="Approve Payment">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" asp-action="RejectPayment" style="display:inline;">
+                                        <input type="hidden" name="paymentId" value="@p.Id" />
+                                        <input type="hidden" name="q" value="@Model.SearchQuery" />
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Reject Payment">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#editModal"
+                                            data-id="@p.Id"
+                                            data-barangay="@p.BarangayName"
+                                            data-plan="@p.PlanName"
+                                            data-amount="@p.Amount"
+                                            data-date="@p.PaymentDate"
+                                            data-method="@p.PaymentMethod"
+                                            data-status="@p.Status">
+                                        Edit
+                                    </button>
 
-                                <button type="button" class="btn btn-sm btn-outline-warning"
-                                        data-bs-toggle="modal" data-bs-target="#archiveModal"
-                                        data-id="@p.Id">
-                                    Archive
-                                </button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning"
+                                            data-bs-toggle="modal" data-bs-target="#archiveModal"
+                                            data-id="@p.Id">
+                                        Archive
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }
@@ -300,6 +380,28 @@
 
 @section Scripts {
     <script>
+        // Filter by status when clicking stat cards
+        function filterByStatus(status) {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('status', status);
+            window.location.href = currentUrl.toString();
+        }
+
+        // Get badge class based on status
+        function getBadgeClass(status) {
+            if (status === "Paid" || status === "Approved") return "bg-success-subtle text-success border border-success-subtle";
+            if (status === "PendingVerification") return "bg-warning-subtle text-warning border border-warning-subtle";
+            if (status === "Pending") return "bg-secondary-subtle text-secondary border border-secondary-subtle";
+            if (status === "Rejected") return "bg-danger-subtle text-danger border border-danger-subtle";
+            return "bg-danger-subtle text-danger border border-danger-subtle";
+        }
+
+        // Format status for display
+        function formatStatus(status) {
+            if (status === "PendingVerification") return "Pending Verification";
+            return status;
+        }
+
         // Edit modal fill
         document.getElementById('editModal')?.addEventListener('show.bs.modal', function (event) {
             const btn = event.relatedTarget;
@@ -327,13 +429,8 @@
             document.getElementById('view_date').innerText = btn.getAttribute('data-date');
 
             const badge = document.getElementById('view_status');
-            badge.innerText = status;
-
-            badge.className = "badge " + (
-                status === "Paid" ? "bg-success-subtle text-success border border-success-subtle" :
-                status === "Pending" ? "bg-warning-subtle text-warning border border-warning-subtle" :
-                "bg-danger-subtle text-danger border border-danger-subtle"
-            );
+            badge.innerText = formatStatus(status);
+            badge.className = "badge " + getBadgeClass(status);
         });
 
         // Archive modal fill
@@ -354,13 +451,8 @@
             document.getElementById('view_date').innerText = row.getAttribute('data-date');
 
             const badge = document.getElementById('view_status');
-            badge.innerText = status;
-
-            badge.className = "badge " + (
-                status === "Paid" ? "bg-success-subtle text-success border border-success-subtle" :
-                status === "Pending" ? "bg-warning-subtle text-warning border border-warning-subtle" :
-                "bg-danger-subtle text-danger border border-danger-subtle"
-            );
+            badge.innerText = formatStatus(status);
+            badge.className = "badge " + getBadgeClass(status);
 
             var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
             viewModal.show();

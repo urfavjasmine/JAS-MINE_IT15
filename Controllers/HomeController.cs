@@ -426,12 +426,13 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/SubscriptionPayments
         [HttpGet]
-        public async Task<IActionResult> SubscriptionPayments(string q = "")
+        public async Task<IActionResult> SubscriptionPayments(string q = "", string status = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim();
+            status = (status ?? "").Trim();
 
             var allPayments = await _context.SubscriptionPayments
                 .Where(p => p.IsActive)
@@ -455,6 +456,7 @@ namespace JAS_MINE_IT15.Controllers
 
             var list = allPayments.AsEnumerable();
 
+            // Filter by search query
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var qq = q.ToLower();
@@ -464,9 +466,15 @@ namespace JAS_MINE_IT15.Controllers
                 );
             }
 
+            // Filter by status
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                list = list.Where(p => p.Status == status);
+            }
+
             var filtered = list.ToList();
 
-            var totalPaid = allPayments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
+            var totalPaid = allPayments.Where(p => p.Status == "Paid" || p.Status == "Approved").Sum(p => p.Amount);
 
             var barangays = await _context.Barangays.Where(b => b.IsActive).OrderBy(b => b.Name).Select(b => b.Name).ToListAsync();
             var plans = await _context.SubscriptionPlans.Where(p => p.IsActive).OrderBy(p => p.Name).Select(p => p.Name).ToListAsync();
@@ -475,11 +483,15 @@ namespace JAS_MINE_IT15.Controllers
             var vm = new SubscriptionPaymentsViewModel
             {
                 SearchQuery = q,
+                StatusFilter = status,
                 Payments = filtered,
 
                 TotalPayments = allPayments.Count,
                 TotalCollected = totalPaid,
                 PendingCount = allPayments.Count(p => p.Status == "Pending"),
+                PendingVerificationCount = allPayments.Count(p => p.Status == "PendingVerification"),
+                ApprovedCount = allPayments.Count(p => p.Status == "Approved" || p.Status == "Paid"),
+                RejectedCount = allPayments.Count(p => p.Status == "Rejected"),
                 FailedCount = allPayments.Count(p => p.Status == "Failed"),
 
                 Barangays = barangays,
@@ -5022,7 +5034,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/ApprovePayment — Super Admin approves a payment
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApprovePayment(int paymentId)
+        public async Task<IActionResult> ApprovePayment(int paymentId, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsSuperAdmin()) return RedirectToDashboard();
@@ -5036,7 +5048,7 @@ namespace JAS_MINE_IT15.Controllers
             if (payment == null)
             {
                 TempData["Error"] = "Payment not found or already processed.";
-                return RedirectToAction(nameof(PendingPayments));
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
             }
 
             // Approve the payment
@@ -5088,7 +5100,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             TempData["Success"] = $"Payment {label} approved. Subscription is now active.";
-            return RedirectToAction(nameof(PendingPayments));
+            return RedirectToAction(nameof(SubscriptionPayments), new { q, status = "PendingVerification" });
         }
 
         // GET: /Home/CreateBarangayAdmin — Super Admin creates a barangay admin after payment approval
@@ -5221,7 +5233,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/RejectPayment — Super Admin rejects a payment with reason
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectPayment(int paymentId, string rejectionReason)
+        public async Task<IActionResult> RejectPayment(int paymentId, string rejectionReason = "", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsSuperAdmin()) return RedirectToDashboard();
@@ -5233,7 +5245,7 @@ namespace JAS_MINE_IT15.Controllers
             if (payment == null)
             {
                 TempData["Error"] = "Payment not found or already processed.";
-                return RedirectToAction(nameof(PendingPayments));
+                return RedirectToAction(nameof(SubscriptionPayments), new { q });
             }
 
             payment.Status = "Rejected";
@@ -5249,7 +5261,7 @@ namespace JAS_MINE_IT15.Controllers
                 $"Rejected payment of ₱{payment.Amount:N0}. Reason: {payment.RejectionReason}");
 
             TempData["Success"] = $"Payment {label} rejected.";
-            return RedirectToAction(nameof(PendingPayments));
+            return RedirectToAction(nameof(SubscriptionPayments), new { q, status = "PendingVerification" });
         }
 
         // GET: /Home/SubmitPayment?invoiceId=... — Redesigned standalone manual payment page

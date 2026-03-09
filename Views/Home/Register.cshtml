@@ -367,7 +367,7 @@
         </div>
 
         <div class="reg-card">
-            <form asp-action="Register" method="post" id="regForm">
+            <form asp-action="Register" method="post" id="regForm" novalidate>
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="CurrentStep" id="current-step-input" />
 
@@ -742,6 +742,48 @@
                 icon.classList.add('bi-eye');
             }
         }
+
+        // Form submission validation
+        document.getElementById('regForm').addEventListener('submit', function(e) {
+            // Validate all required fields before submission
+            const fname = document.getElementById('FirstName').value.trim();
+            const lname = document.getElementById('LastName').value.trim();
+            const email = document.getElementById('Email').value.trim();
+            const pass = document.getElementById('Password').value;
+            const cpass = document.getElementById('ConfirmPassword').value;
+            const brgy = document.getElementById('BarangayName').value.trim();
+            const city = document.getElementById('Municipality').value.trim();
+            const prov = document.getElementById('Province').value.trim();
+            const region = document.getElementById('Region').value.trim();
+
+            let errors = [];
+
+            if (!fname) errors.push('First Name is required');
+            if (!lname) errors.push('Last Name is required');
+            if (!email) errors.push('Email is required');
+            if (!pass) errors.push('Password is required');
+            if (!cpass) errors.push('Confirm Password is required');
+            if (pass !== cpass) errors.push('Passwords do not match');
+            if (!brgy) errors.push('Barangay Name is required');
+            if (!city) errors.push('Municipality is required');
+            if (!prov) errors.push('Province is required');
+            if (!region) errors.push('Region is required');
+
+            if (errors.length > 0) {
+                e.preventDefault();
+                alert('Please fix the following errors:\n\n' + errors.join('\n'));
+                return false;
+            }
+
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            }
+
+            return true;
+        });
     </script>
 </body>
 </html>

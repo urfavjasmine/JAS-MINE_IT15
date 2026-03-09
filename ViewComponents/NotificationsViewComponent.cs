@@ -114,6 +114,160 @@ namespace JAS_MINE_IT15.ViewComponents
                         Link = "/Home/BestPractices?archiveStatus=active"
                     });
                 }
+
+                // --- BARANGAY ADMIN: Subscription/Payment Notifications ---
+                // Check for pending invoices (unpaid)
+                if (barangayId.HasValue)
+                {
+                    var unpaidInvoices = await _context.Invoices
+                        .Where(i => i.IsActive && i.BarangayId == barangayId && i.Status == "Unpaid")
+                        .CountAsync();
+
+                    if (unpaidInvoices > 0)
+                    {
+                        notifications.Insert(0, new NotificationItem
+                        {
+                            Id = 0,
+                            Title = $"{unpaidInvoices} unpaid invoice(s)",
+                            Time = "Payment required",
+                            Type = "urgent",
+                            Unread = true,
+                            Link = "/Home/MySubscription"
+                        });
+                    }
+
+                    // Check for overdue invoices
+                    var overdueInvoices = await _context.Invoices
+                        .Where(i => i.IsActive && i.BarangayId == barangayId && i.Status == "Unpaid" && i.DueDate < DateTime.Today)
+                        .CountAsync();
+
+                    if (overdueInvoices > 0)
+                    {
+                        notifications.Insert(0, new NotificationItem
+                        {
+                            Id = 0,
+                            Title = $"{overdueInvoices} overdue invoice(s)!",
+                            Time = "Urgent",
+                            Type = "urgent",
+                            Unread = true,
+                            Link = "/Home/MySubscription"
+                        });
+                    }
+
+                    // Check for subscription expiring soon (within 7 days)
+                    var expiringSoon = await _context.BarangaySubscriptions
+                        .Where(s => s.IsActive && s.BarangayId == barangayId && s.Status == "Active")
+                        .Where(s => s.EndDate <= DateTime.Today.AddDays(7) && s.EndDate >= DateTime.Today)
+                        .CountAsync();
+
+                    if (expiringSoon > 0)
+                    {
+                        notifications.Insert(0, new NotificationItem
+                        {
+                            Id = 0,
+                            Title = "Subscription expiring soon!",
+                            Time = "Within 7 days",
+                            Type = "urgent",
+                            Unread = true,
+                            Link = "/Home/MySubscription"
+                        });
+                    }
+                }
+            }
+
+            // --- SUPER ADMIN: Payment Verification and System Notifications ---
+            if (role == "super_admin")
+            {
+                // Pending payment verifications (proofs uploaded, waiting for approval)
+                var pendingVerifications = await _context.SubscriptionPayments
+                    .Where(p => p.IsActive && p.Status == "PendingVerification")
+                    .CountAsync();
+
+                if (pendingVerifications > 0)
+                {
+                    notifications.Insert(0, new NotificationItem
+                    {
+                        Id = 0,
+                        Title = $"{pendingVerifications} payment(s) awaiting verification",
+                        Time = "Action required",
+                        Type = "pending",
+                        Unread = true,
+                        Link = "/Home/SubscriptionPayments"
+                    });
+                }
+
+                // Overdue invoices across all barangays
+                var overdueInvoicesAll = await _context.Invoices
+                    .Where(i => i.IsActive && i.Status == "Unpaid" && i.DueDate < DateTime.Today)
+                    .CountAsync();
+
+                if (overdueInvoicesAll > 0)
+                {
+                    notifications.Insert(0, new NotificationItem
+                    {
+                        Id = 0,
+                        Title = $"{overdueInvoicesAll} overdue invoice(s) system-wide",
+                        Time = "Follow up needed",
+                        Type = "urgent",
+                        Unread = true,
+                        Link = "/Home/BarangaySubscriptions"
+                    });
+                }
+
+                // Pending subscriptions (subscriptions awaiting payment)
+                var pendingSubscriptions = await _context.BarangaySubscriptions
+                    .Where(s => s.IsActive && s.Status == "Pending")
+                    .CountAsync();
+
+                if (pendingSubscriptions > 0)
+                {
+                    notifications.Insert(0, new NotificationItem
+                    {
+                        Id = 0,
+                        Title = $"{pendingSubscriptions} pending subscription(s)",
+                        Time = "Awaiting payment",
+                        Type = "pending",
+                        Unread = true,
+                        Link = "/Home/BarangaySubscriptions"
+                    });
+                }
+
+                // Subscriptions expiring within 7 days
+                var expiringSoonAll = await _context.BarangaySubscriptions
+                    .Where(s => s.IsActive && s.Status == "Active")
+                    .Where(s => s.EndDate <= DateTime.Today.AddDays(7) && s.EndDate >= DateTime.Today)
+                    .CountAsync();
+
+                if (expiringSoonAll > 0)
+                {
+                    notifications.Insert(0, new NotificationItem
+                    {
+                        Id = 0,
+                        Title = $"{expiringSoonAll} subscription(s) expiring soon",
+                        Time = "Within 7 days",
+                        Type = "urgent",
+                        Unread = true,
+                        Link = "/Home/BarangaySubscriptions"
+                    });
+                }
+
+                // New barangay registrations in last 24 hours
+                var newBarangays = await _context.Barangays
+                    .Where(b => b.IsActive && b.CreatedAt >= DateTime.Now.AddHours(-24))
+                    .CountAsync();
+
+                if (newBarangays > 0)
+                {
+                    notifications.Insert(0, new NotificationItem
+                    {
+                        Id = 0,
+                        Title = $"{newBarangays} new barangay registration(s)",
+                        Time = "Last 24 hours",
+                        Type = "info",
+                        Unread = true,
+                        Link = "/Home/BarangaysManagement"
+                    });
+                }
             }
 
             // 3. Fallback: Recent announcements if no persisted notifications
