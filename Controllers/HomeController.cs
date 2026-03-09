@@ -2586,7 +2586,7 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction("Barangay", "Dashboard");
             }
 
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canPost = !string.IsNullOrEmpty(role); // All logged-in users can post
             bool canAnnounce = role == "barangay_admin" || role == "super_admin";
             bool canArchive = role == "barangay_admin" || role == "super_admin";
 
@@ -2698,7 +2698,7 @@ namespace JAS_MINE_IT15.Controllers
                 Announcements = new List<KnowledgeAnnouncementItem>(),
                 SharedDocuments = new List<KnowledgeSharedDocItem>(),
                 ActiveMembers = new List<string>(),
-                Categories = new List<string> { "All Categories", "Health", "Environment", "Youth", "Education", "Governance", "Finance" },
+                Categories = new List<string> { "All Categories", "General", "Health", "Environment", "Youth", "Education", "Governance", "Finance" },
                 MembersOnline = 0,
                 TotalDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
                 ArchivedDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
@@ -2721,15 +2721,13 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Create Discussion
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [DenyViewOnly]
         [RequireActiveSubscription]
-        [Authorize(Roles = "super_admin,barangay_admin,barangay_staff")]
         public async Task<IActionResult> CreateDiscussion(string title, string content, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
+            bool canPost = !string.IsNullOrEmpty(role); // All logged-in users can post
             if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
 
             title = (title ?? "").Trim();
@@ -2774,13 +2772,12 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Edit Discussion
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [DenyViewOnly]
         public async Task<IActionResult> EditDiscussion(string id, string title, string content, string category)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canEdit = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canEdit = !string.IsNullOrEmpty(role); // All logged-in users can edit their posts
             if (!canEdit) return RedirectToAction(nameof(KnowledgeSharing));
 
             if (!int.TryParse(id, out var discussionId))
@@ -2889,16 +2886,46 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(KnowledgeSharing), new { archiveStatus = "active" });
         }
 
+        // POST: Delete Discussion
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteDiscussion(string id)
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            if (int.TryParse(id, out var discussionId))
+            {
+                var discussion = await _context.KnowledgeDiscussions.FindAsync(discussionId);
+                if (discussion != null)
+                {
+                    // STRICT TENANT VALIDATION
+                    if (discussion.BarangayId != GetCurrentBarangayId())
+                    {
+                        TempData["Error"] = "You cannot delete discussions from another barangay.";
+                        return RedirectToAction(nameof(KnowledgeSharing));
+                    }
+
+                    var title = discussion.Title;
+                    discussion.IsActive = false;
+                    discussion.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    await LogAuditAsync("Delete", "KnowledgeSharing", discussion.Id, "Discussion", title, $"Deleted discussion: {title}");
+                    TempData["Success"] = "Discussion deleted.";
+                }
+            }
+
+            return RedirectToAction(nameof(KnowledgeSharing));
+        }
+
         // POST: Quick Post (simplified create)
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [DenyViewOnly]
         public async Task<IActionResult> QuickPostKnowledge(string content)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            bool canPost = role == "barangay_staff" || role == "barangay_secretary" || role == "barangay_admin";
+            bool canPost = !string.IsNullOrEmpty(role); // All logged-in users can post
             if (!canPost) return RedirectToAction(nameof(KnowledgeSharing));
 
             content = (content ?? "").Trim();
@@ -4186,7 +4213,7 @@ namespace JAS_MINE_IT15.Controllers
 
             // Always show success message (don't reveal if email exists)
             model.Submitted = true;
-            model.SuccessMessage = "If your email is registered, a password reset request has been submitted. An administrator will process your request.";
+            model.SuccessMessage = "If your email is registered, a password reset request has been submitted. Once approved by an administrator, you can login with the temporary password: Reset@123. Please change your password after logging in.";
 
             return View(model);
         }
