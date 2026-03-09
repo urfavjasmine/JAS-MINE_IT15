@@ -782,6 +782,8 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // POST: /Home/Register
+        // UPDATED: Do NOT create user yet - store data in session and proceed to plan selection
+        // User will be created only after successful payment
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -810,79 +812,39 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            // 2. Create the Barangay record
-            var barangay = new Barangay
+            // 2. Check if barangay name already exists
+            var existingBarangay = await _context.Barangays
+                .AnyAsync(b => b.Name.ToLower() == model.BarangayName.ToLower() && b.IsActive);
+            if (existingBarangay)
             {
-                Name = model.BarangayName,
-                Municipality = model.Municipality,
-                Province = model.Province,
-                Region = model.Region,
-                Address = model.Address,
-                ContactEmail = model.Email,
-                ContactPhone = model.PhoneNumber,
-                IsActive = true,
+                model.ErrorMessage = "A barangay with this name already exists.";
+                model.CurrentStep = 3;
+                return View(model);
+            }
+
+            // 3. Store registration data in session (DO NOT create user yet)
+            // User will be created after successful payment
+            var pendingReg = new
+            {
+                model.FirstName,
+                model.LastName,
+                model.Email,
+                model.Password,
+                model.PhoneNumber,
+                model.BarangayName,
+                model.Municipality,
+                model.Province,
+                model.Region,
+                model.Address,
                 CreatedAt = DateTime.Now
             };
-            _context.Barangays.Add(barangay);
-            await _context.SaveChangesAsync();
+            HttpContext.Session.SetString("PendingRegistration", System.Text.Json.JsonSerializer.Serialize(pendingReg));
 
-            // 3. Create the Identity User
-            var user = new IdentityUser { UserName = model.Email, Email = model.Email, PhoneNumber = model.PhoneNumber };
-            var result = await _userManager.CreateAsync(user, model.Password);
+            _logger.LogInformation("Pending registration stored for: {Email}, Barangay: {Barangay}", model.Email, model.BarangayName);
 
-            if (result.Succeeded)
-            {
-                // 4. Assign role 'barangay_admin'
-                await _userManager.AddToRoleAsync(user, "barangay_admin");
-
-                // 5. Create BusinessUser (User entity)
-                var businessUser = new Models.Entities.User
-                {
-                    Email = model.Email,
-                    FullName = $"{model.FirstName} {model.LastName}".Trim(),
-                    PhoneNumber = model.PhoneNumber,
-                    PasswordHash = "IDENTITY_MANAGED",
-                    Role = "barangay_admin",
-                    BarangayId = barangay.Id,
-                    BarangayName = barangay.Name,
-                    IsActive = true,
-                    CreatedAt = DateTime.Now
-                };
-                _context.BusinessUsers.Add(businessUser);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("New Barangay Registered: {Barangay} by {Email}", barangay.Name, model.Email);
-                await LogAuditAsync("Register", "Authentication", businessUser.Id, "User", model.Email, $"New barangay registration: {barangay.Name}");
-
-                // 6. Log the user in
-                await _signInManager.SignInAsync(user, isPersistent: false);
-
-                // Set session values
-                HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
-                HttpContext.Session.SetString("UserName", model.Email);
-                HttpContext.Session.SetString("FullName", businessUser.FullName);
-                HttpContext.Session.SetString("Role", "barangay_admin");
-                HttpContext.Session.SetString("RoleLabel", "Barangay Admin");
-                HttpContext.Session.SetString("BarangayId", barangay.Id.ToString());
-                HttpContext.Session.SetString("Barangay", barangay.Name);
-
-                // 7. Redirect to SelectPlan to let user choose their subscription
-                TempData["Success"] = "Registration successful! Please select a subscription plan to continue.";
-                return RedirectToAction(nameof(SelectPlan));
-            }
-
-            // If we got this far, something failed
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
-            
-            // Cleanup barangay if user creation failed
-            _context.Barangays.Remove(barangay);
-            await _context.SaveChangesAsync();
-
-            model.CurrentStep = 3;
-            return View(model);
+            // 4. Redirect to SelectPlan (user not created yet)
+            TempData["Success"] = "Please select a subscription plan to complete your registration.";
+            return RedirectToAction(nameof(SelectPlan));
         }
 
         // GET: /Home/Login
@@ -4507,19 +4469,37 @@ namespace JAS_MINE_IT15.Controllers
         // =============================================
 
         // GET: /Home/SelectPlan — Barangay Admin picks a subscription plan
+        // UPDATED: Also allow access for pending registrations (not logged in yet)
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> SelectPlan(int? planId = null)
         {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+            // Check for pending registration (user not created yet)
+            var hasPendingReg = HttpContext.Session.GetString("PendingRegistration") != null;
+            
+            // If not logged in AND no pending registration, redirect to login
+            if (!IsLoggedIn() && !hasPendingReg)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+            
+            // If logged in, check role (existing behavior)
+            if (IsLoggedIn() && GetCurrentRole() != "barangay_admin")
+            {
+                return RedirectToDashboard();
+            }
 
             var barangayId = GetCurrentBarangayId();
 
-            // Check if barangay already has an active or pending subscription
-            var existing = await _context.BarangaySubscriptions
-                .AnyAsync(s => s.IsActive && s.BarangayId == barangayId
-                    && (s.Status == "Active" || s.Status == "Pending")
-                    && s.EndDate >= DateTime.Today);
+            // Check if barangay already has an active or pending subscription (only for logged in users)
+            var existing = false;
+            if (barangayId != null)
+            {
+                existing = await _context.BarangaySubscriptions
+                    .AnyAsync(s => s.IsActive && s.BarangayId == barangayId
+                        && (s.Status == "Active" || s.Status == "Pending")
+                        && s.EndDate >= DateTime.Today);
+            }
 
             // Get all active plans, then dedupe by name in memory
             var allPlans = await _context.SubscriptionPlans
@@ -4558,14 +4538,126 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         // POST: /Home/SubscribeToPlan — Create Pending subscription + Unpaid invoice
+        // UPDATED: Also handles pending registrations - creates user if needed
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [AllowAnonymous]
         public async Task<IActionResult> SubscribeToPlan(int planId)
         {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+            int? barangayId = null;
+            
+            // Check for pending registration (new user flow)
+            var pendingRegJson = HttpContext.Session.GetString("PendingRegistration");
+            if (!string.IsNullOrEmpty(pendingRegJson))
+            {
+                // Parse pending registration data
+                var pendingReg = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(pendingRegJson);
+                if (pendingReg == null)
+                {
+                    TempData["Error"] = "Registration data expired. Please register again.";
+                    return RedirectToAction(nameof(Register));
+                }
 
-            var barangayId = GetCurrentBarangayId();
+                var email = pendingReg["Email"]?.ToString() ?? "";
+                var password = pendingReg["Password"]?.ToString() ?? "";
+                var firstName = pendingReg["FirstName"]?.ToString() ?? "";
+                var lastName = pendingReg["LastName"]?.ToString() ?? "";
+                var phoneNumber = pendingReg["PhoneNumber"]?.ToString() ?? "";
+                var barangayName = pendingReg["BarangayName"]?.ToString() ?? "";
+                var municipality = pendingReg["Municipality"]?.ToString() ?? "";
+                var province = pendingReg["Province"]?.ToString() ?? "";
+                var region = pendingReg["Region"]?.ToString() ?? "";
+                var address = pendingReg["Address"]?.ToString() ?? "";
+
+                // Double-check user doesn't exist (race condition protection)
+                var existingUser = await _userManager.FindByEmailAsync(email);
+                if (existingUser != null)
+                {
+                    HttpContext.Session.Remove("PendingRegistration");
+                    TempData["Error"] = "An account with this email already exists. Please login.";
+                    return RedirectToAction(nameof(Login));
+                }
+
+                // Create the Barangay record
+                var barangay = new Barangay
+                {
+                    Name = barangayName,
+                    Municipality = municipality,
+                    Province = province,
+                    Region = region,
+                    Address = address,
+                    ContactEmail = email,
+                    ContactPhone = phoneNumber,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Barangays.Add(barangay);
+                await _context.SaveChangesAsync();
+
+                // Create the Identity User
+                var user = new IdentityUser { UserName = email, Email = email, PhoneNumber = phoneNumber };
+                var result = await _userManager.CreateAsync(user, password);
+
+                if (!result.Succeeded)
+                {
+                    // Cleanup barangay if user creation failed
+                    _context.Barangays.Remove(barangay);
+                    await _context.SaveChangesAsync();
+                    
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    TempData["Error"] = $"Failed to create account: {errors}";
+                    return RedirectToAction(nameof(Register));
+                }
+
+                // Assign role 'barangay_admin'
+                await _userManager.AddToRoleAsync(user, "barangay_admin");
+
+                // Create BusinessUser (User entity)
+                var businessUser = new Models.Entities.User
+                {
+                    Email = email,
+                    FullName = $"{firstName} {lastName}".Trim(),
+                    PhoneNumber = phoneNumber,
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = "barangay_admin",
+                    BarangayId = barangay.Id,
+                    BarangayName = barangay.Name,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                _context.BusinessUsers.Add(businessUser);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("New Barangay Registered during subscription: {Barangay} by {Email}", barangay.Name, email);
+
+                // Sign in the user
+                await _signInManager.SignInAsync(user, isPersistent: false);
+
+                // Set session values
+                HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
+                HttpContext.Session.SetString("UserName", email);
+                HttpContext.Session.SetString("FullName", businessUser.FullName);
+                HttpContext.Session.SetString("Role", "barangay_admin");
+                HttpContext.Session.SetString("RoleLabel", "Barangay Admin");
+                HttpContext.Session.SetString("BarangayId", barangay.Id.ToString());
+                HttpContext.Session.SetString("Barangay", barangay.Name);
+
+                // Clear pending registration
+                HttpContext.Session.Remove("PendingRegistration");
+
+                barangayId = barangay.Id;
+
+                await LogAuditAsync("Register", "Authentication", businessUser.Id, "User", email, $"New barangay registration: {barangay.Name}");
+            }
+            else
+            {
+                // Existing user flow - must be logged in
+                if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+                if (GetCurrentRole() != "barangay_admin") return RedirectToDashboard();
+                
+                barangayId = GetCurrentBarangayId();
+            }
+            
             if (barangayId == null)
             {
                 TempData["Error"] = "No barangay associated with your account.";
@@ -4628,9 +4720,9 @@ namespace JAS_MINE_IT15.Controllers
             _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
 
-            var barangayName = HttpContext.Session.GetString("Barangay") ?? "Barangay";
+            var barangayNameForLog = HttpContext.Session.GetString("Barangay") ?? "Barangay";
             await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
-                $"{barangayName} - {plan.Name}", $"Subscribed to {plan.Name} (₱{plan.Price:N0}/mo). Invoice {invoiceNumber} generated.");
+                $"{barangayNameForLog} - {plan.Name}", $"Subscribed to {plan.Name} (₱{plan.Price:N0}/mo). Invoice {invoiceNumber} generated.");
 
             TempData["Success"] = $"Subscription created! Invoice {invoiceNumber} for ₱{plan.Price:N0} has been generated.";
 
