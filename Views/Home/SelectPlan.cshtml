@@ -5,7 +5,18 @@
     Layout = null;
 
     var fullName = Context?.Session?.GetString("FullName") ?? "User";
-    var plans = Model.Plans.ToList();
+    var allPlans = Model.Plans.ToList();
+    
+    // Reorder plans: Basic, Enterprise, Professional (Enterprise in center)
+    var plans = new List<JAS_MINE_IT15.Models.SelectPlanViewModel.AvailablePlan>();
+    var basic = allPlans.FirstOrDefault(p => p.Name == "Basic");
+    var enterprise = allPlans.FirstOrDefault(p => p.Name == "Enterprise");
+    var professional = allPlans.FirstOrDefault(p => p.Name == "Professional");
+    if (basic != null) plans.Add(basic);
+    if (enterprise != null) plans.Add(enterprise);
+    if (professional != null) plans.Add(professional);
+    // Add any remaining plans not in our defined order
+    plans.AddRange(allPlans.Where(p => !plans.Contains(p)));
 }
 
 <!doctype html>

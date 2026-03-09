@@ -4517,12 +4517,16 @@ namespace JAS_MINE_IT15.Controllers
                     && (s.Status == "Active" || s.Status == "Pending")
                     && s.EndDate >= DateTime.Today);
 
+            // Get all active plans, then dedupe by name in memory
+            var allPlans = await _context.SubscriptionPlans
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Price)
+                .ToListAsync();
 
             // Filter out duplicate plans by name (keep the lowest price per name)
-            var plans = await _context.SubscriptionPlans
-                .Where(p => p.IsActive)
+            var plans = allPlans
                 .GroupBy(p => p.Name)
-                .Select(g => g.OrderBy(p => p.Price).FirstOrDefault())
+                .Select(g => g.First())
                 .OrderBy(p => p.Price)
                 .Select(p => new SelectPlanViewModel.AvailablePlan
                 {
@@ -4534,7 +4538,7 @@ namespace JAS_MINE_IT15.Controllers
                     UserLimit = p.UserLimit,
                     Features = p.Features
                 })
-                .ToListAsync();
+                .ToList();
 
             var vm = new SelectPlanViewModel
             {

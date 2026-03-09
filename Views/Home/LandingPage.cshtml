@@ -3,7 +3,19 @@
     ViewData["Title"] = "JAS-MINE – Barangay ERP System";
     Layout = null;
     var year = DateTime.Now.Year;
-    var plans = (ViewBag.Plans as List<SubscriptionPlan>) ?? new List<SubscriptionPlan>();
+    var allPlans = (ViewBag.Plans as List<SubscriptionPlan>) ?? new List<SubscriptionPlan>();
+    
+    // Reorder plans: Basic, Enterprise, Professional (Enterprise in center)
+    var plans = new List<SubscriptionPlan>();
+    var basic = allPlans.FirstOrDefault(p => p.Name == "Basic");
+    var enterprise = allPlans.FirstOrDefault(p => p.Name == "Enterprise");
+    var professional = allPlans.FirstOrDefault(p => p.Name == "Professional");
+    if (basic != null) plans.Add(basic);
+    if (enterprise != null) plans.Add(enterprise);
+    if (professional != null) plans.Add(professional);
+    // Add any remaining plans not in our defined order
+    plans.AddRange(allPlans.Where(p => !plans.Contains(p)));
+    
     var planCount = plans.Count;
 }
 
@@ -762,7 +774,7 @@
                     @for (int i = 0; i < planCount; i++)
                     {
                         var plan         = plans[i];
-                        var isRecommended = plan.Name == "Professional";
+                        var isRecommended = plan.Name == "Enterprise";
                         var features     = (plan.Features ?? "").Split(new[] { ';', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                         var priceColor   = isRecommended ? "var(--brand)" : "#0284c7";
 
