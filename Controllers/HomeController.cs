@@ -4732,6 +4732,21 @@ namespace JAS_MINE_IT15.Controllers
             _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
 
+            // Create initial pending payment record (no proof yet)
+            var payment = new SubscriptionPayment
+            {
+                SubscriptionId = subscription.Id,
+                InvoiceId = invoice.Id,
+                Amount = plan.Price,
+                PaymentDate = DateTime.Today,
+                PaymentMethod = "",
+                Status = "Pending",
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+            _context.SubscriptionPayments.Add(payment);
+            await _context.SaveChangesAsync();
+
             var barangayNameForLog = HttpContext.Session.GetString("Barangay") ?? "Barangay";
             await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
                 $"{barangayNameForLog} - {plan.Name}", $"Subscribed to {plan.Name} (₱{plan.Price:N0}/mo). Invoice {invoiceNumber} generated.");
@@ -4785,7 +4800,7 @@ namespace JAS_MINE_IT15.Controllers
 
             foreach (var invoice in relatedInvoices)
             {
-                invoice.Status = "Cancelled";
+                invoice.Status = "Void";
                 invoice.IsActive = false;
                 invoice.UpdatedAt = DateTime.Now;
             }
@@ -5000,7 +5015,7 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsSuperAdmin()) return RedirectToDashboard();
 
             var pendingPayments = await _context.SubscriptionPayments
-                .Where(p => p.IsActive && p.Status == "PendingVerification")
+                .Where(p => p.IsActive && (p.Status == "Pending" || p.Status == "PendingVerification"))
                 .Include(p => p.Invoice)
                 .Include(p => p.Subscription)
                     .ThenInclude(s => s!.Barangay)
@@ -5039,11 +5054,13 @@ namespace JAS_MINE_IT15.Controllers
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsSuperAdmin()) return RedirectToDashboard();
 
+
+            // Allow approval of both 'Pending' and 'PendingVerification' payments
             var payment = await _context.SubscriptionPayments
                 .Include(p => p.Invoice)
                 .Include(p => p.Subscription)
                     .ThenInclude(s => s!.Plan)
-                .FirstOrDefaultAsync(p => p.Id == paymentId && p.IsActive && p.Status == "PendingVerification");
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.IsActive && (p.Status == "PendingVerification" || p.Status == "Pending"));
 
             if (payment == null)
             {
