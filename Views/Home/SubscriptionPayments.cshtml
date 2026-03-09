@@ -150,15 +150,23 @@
                 <tbody>
                     @foreach (var p in Model.Payments)
                     {
-                        <tr class="@(p.Status == "PendingVerification" ? "table-warning" : "")"
-                            data-id="@p.Id">
+                        <tr class="clickable-row @(p.Status == "PendingVerification" ? "table-warning" : "")"
+                            style="cursor: pointer;"
+                            data-id="@p.Id"
+                            data-barangay="@p.BarangayName"
+                            data-plan="@p.PlanName"
+                            data-amount="@p.Amount"
+                            data-date="@p.PaymentDate"
+                            data-method="@p.PaymentMethod"
+                            data-status="@p.Status"
+                            onclick="openViewFromRow(this)">
                             <td class="fw-semibold">@p.BarangayName</td>
                             <td>@p.PlanName</td>
                             <td>@Peso(p.Amount)</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentDate</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentMethod</td>
                             <td><span class="badge @BadgeClass(p.Status)">@StatusDisplay(p.Status)</span></td>
-                            <td class="text-end">
+                            <td class="text-end" onclick="event.stopPropagation();">
                                 @if (p.Status == "PendingVerification")
                                 {
                                     <form method="post" asp-action="ApprovePayment" style="display:inline;">
@@ -197,6 +205,51 @@
 </div>
 
 
+<!-- VIEW MODAL -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-3 small">
+                    <div class="col-6">
+                        <div class="text-muted">Barangay:</div>
+                        <div class="fw-semibold" id="view_barangay"></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Plan:</div>
+                        <div class="fw-semibold" id="view_plan"></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Amount:</div>
+                        <div class="fw-semibold" id="view_amount"></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Payment Date:</div>
+                        <div class="fw-semibold" id="view_date"></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Payment Method:</div>
+                        <div class="fw-semibold" id="view_method"></div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">Status:</div>
+                        <span class="badge" id="view_status_badge"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ARCHIVE MODAL -->
 <div class="modal fade" id="archiveModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -226,6 +279,22 @@
 
 @section Scripts {
     <script>
+        // Open view modal from row click
+        function openViewFromRow(row) {
+            document.getElementById('view_barangay').innerText = row.getAttribute('data-barangay');
+            document.getElementById('view_plan').innerText = row.getAttribute('data-plan');
+            document.getElementById('view_amount').innerText = '₱' + parseFloat(row.getAttribute('data-amount')).toLocaleString();
+            document.getElementById('view_date').innerText = row.getAttribute('data-date');
+            document.getElementById('view_method').innerText = row.getAttribute('data-method');
+            
+            const status = row.getAttribute('data-status');
+            const badgeEl = document.getElementById('view_status_badge');
+            badgeEl.innerText = formatStatus(status);
+            badgeEl.className = 'badge ' + getBadgeClass(status);
+            
+            new bootstrap.Modal(document.getElementById('viewModal')).show();
+        }
+
         // Filter by status when clicking stat cards
         function filterByStatus(status) {
             const currentUrl = new URL(window.location.href);

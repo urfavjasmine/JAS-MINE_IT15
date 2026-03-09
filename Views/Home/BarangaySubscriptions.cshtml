@@ -144,13 +144,15 @@
                             data-plan="@s.PlanName"
                             data-start="@s.StartDate"
                             data-end="@s.EndDate"
-                            data-status="@s.Status">
+                            data-status="@s.Status"
+                            class="clickable-row" style="cursor: pointer;"
+                            onclick="openViewFromRow(this)">
                             <td class="fw-semibold">@s.BarangayName</td>
                             <td>@s.PlanName</td>
                             <td class="d-none d-md-table-cell text-muted">@s.StartDate</td>
                             <td class="d-none d-md-table-cell text-muted">@s.EndDate</td>
                             <td><span class="badge @badgeClass">@s.Status</span></td>
-                            <td class="text-end">
+                            <td class="text-end" onclick="event.stopPropagation();">
                                 <div class="btn-group">
                                     @if (s.Status == "Active")
                                     {
@@ -399,6 +401,21 @@
 
 @section Scripts {
     <script>
+        // Open view modal from row click
+        function openViewFromRow(row) {
+            document.getElementById('view_barangay').innerText = row.getAttribute('data-barangay');
+            document.getElementById('view_plan').innerText = row.getAttribute('data-plan');
+            document.getElementById('view_start').innerText = row.getAttribute('data-start');
+            document.getElementById('view_end').innerText = row.getAttribute('data-end');
+            
+            const status = row.getAttribute('data-status');
+            const badgeEl = document.getElementById('view_status_badge');
+            badgeEl.innerText = status;
+            badgeEl.className = 'badge ' + (status === 'Active' ? 'badge-active' : status === 'Pending' ? 'badge-pending' : status === 'Expired' ? 'badge-expired' : 'badge-cancelled');
+            
+            new bootstrap.Modal(document.getElementById('viewModal')).show();
+        }
+
         // EDIT modal fill
         const editModal = document.getElementById('editModal');
         editModal?.addEventListener('show.bs.modal', function (event) {
