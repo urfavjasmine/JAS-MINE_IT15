@@ -316,6 +316,35 @@ namespace JAS_MINE_IT15.Controllers
             return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
         }
 
+        // POST: Archive Subscription
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [DenyViewOnly]
+        public async Task<IActionResult> ArchiveSubscription(string id, string q = "", string status = "all")
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+            if (!IsAdminRole()) return RedirectToDashboard();
+
+            if (int.TryParse(id, out var subscriptionId))
+            {
+                var subscription = await _context.BarangaySubscriptions
+                    .Include(s => s.Barangay)
+                    .Include(s => s.Plan)
+                    .FirstOrDefaultAsync(s => s.Id == subscriptionId);
+                if (subscription != null)
+                {
+                    subscription.IsActive = false;
+                    subscription.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                    var label = $"{subscription.Barangay?.Name} - {subscription.Plan?.Name}";
+                    await LogAuditAsync("Archived", "BarangaySubscriptions", subscription.Id, "Subscription", label, $"Archived subscription: {label}");
+                }
+            }
+
+            TempData["Success"] = "Subscription archived.";
+            return RedirectToAction(nameof(BarangaySubscriptions), new { q, status });
+        }
+
         // GET: /Home/MySubscription
         [HttpGet]
         public async Task<IActionResult> MySubscription(bool expired = false)

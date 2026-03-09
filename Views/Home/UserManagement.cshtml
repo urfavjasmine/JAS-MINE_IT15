@@ -247,14 +247,17 @@
 
                                         <ul class="dropdown-menu dropdown-menu-end">
 
-                                            <li>
-                                                <button class="dropdown-item"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#viewModal"
-                                                        onclick="openView('@u.Id','@u.Name','@u.Email','@roleKey','@u.Status','@u.Barangay')">
-                                                    <i class="bi bi-eye me-2"></i>View
-                                                </button>
-                                            </li>
+                                            @if (Model.CurrentUserRole == "super_admin")
+                                            {
+                                                <li>
+                                                    <button class="dropdown-item"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#viewModal"
+                                                            onclick="openView('@u.Id','@u.Name','@u.Email','@roleKey','@u.Status','@u.Barangay')">
+                                                        <i class="bi bi-eye me-2"></i>View
+                                                    </button>
+                                                </li>
+                                            }
 
                                             <li>
                                                 <button class="dropdown-item"

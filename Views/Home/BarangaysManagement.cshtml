@@ -81,7 +81,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Barangay</th>
-                            <th class="d-none d-md-table-cell">Code</th>
+                            <th class="d-none d-md-table-cell">Region</th>
                             <th class="d-none d-md-table-cell">Municipality</th>
                             <th class="d-none d-md-table-cell">Contact</th>
                             <th>Status</th>
@@ -102,7 +102,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="d-none d-md-table-cell muted">@b.Code</td>
+                                <td class="d-none d-md-table-cell muted">@b.Region</td>
                                 <td class="d-none d-md-table-cell muted">@b.Municipality, @b.Province</td>
                                 <td class="d-none d-md-table-cell">
                                     <div class="small">@b.ContactEmail</div>
@@ -114,17 +114,17 @@
                                     </span>
                                 </td>
                                 <td class="text-end" onclick="event.stopPropagation();">
-                                    <div class="dropdown">
+                                    <button class="btn btn-sm btn-light text-secondary border-0 me-1"
+                                            title="View Details"
+                                            data-bs-toggle="modal" data-bs-target="#viewModal"
+                                            onclick="openView('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <div class="dropdown d-inline">
                                         <button class="btn btn-light kebab" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
-                                            <li>
-                                                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewModal"
-                                                        onclick="openView('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
-                                                    View
-                                                </button>
-                                            </li>
                                             @if (Model.CanEdit)
                                             {
                                                 <li>

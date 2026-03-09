@@ -150,35 +150,15 @@
                 <tbody>
                     @foreach (var p in Model.Payments)
                     {
-                        <tr class="clickable-row @(p.Status == "PendingVerification" ? "table-warning" : "")" style="cursor: pointer;"
-                            data-id="@p.Id"
-                            data-barangay="@p.BarangayName"
-                            data-plan="@p.PlanName"
-                            data-amount="@p.Amount"
-                            data-date="@p.PaymentDate"
-                            data-method="@p.PaymentMethod"
-                            data-status="@p.Status"
-                            onclick="openViewFromRow(this)">
+                        <tr class="@(p.Status == "PendingVerification" ? "table-warning" : "")"
+                            data-id="@p.Id">
                             <td class="fw-semibold">@p.BarangayName</td>
                             <td>@p.PlanName</td>
                             <td>@Peso(p.Amount)</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentDate</td>
                             <td class="d-none d-md-table-cell text-muted">@p.PaymentMethod</td>
                             <td><span class="badge @BadgeClass(p.Status)">@StatusDisplay(p.Status)</span></td>
-                            <td class="text-end" onclick="event.stopPropagation();">
-
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        data-bs-toggle="modal" data-bs-target="#viewModal"
-                                        data-id="@p.Id"
-                                        data-barangay="@p.BarangayName"
-                                        data-plan="@p.PlanName"
-                                        data-amount="@p.Amount"
-                                        data-date="@p.PaymentDate"
-                                        data-method="@p.PaymentMethod"
-                                        data-status="@p.Status">
-                                    View
-                                </button>
-
+                            <td class="text-end">
                                 @if (p.Status == "PendingVerification")
                                 {
                                     <form method="post" asp-action="ApprovePayment" style="display:inline;">
@@ -200,18 +180,6 @@
                                 }
                                 else
                                 {
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                            data-bs-toggle="modal" data-bs-target="#editModal"
-                                            data-id="@p.Id"
-                                            data-barangay="@p.BarangayName"
-                                            data-plan="@p.PlanName"
-                                            data-amount="@p.Amount"
-                                            data-date="@p.PaymentDate"
-                                            data-method="@p.PaymentMethod"
-                                            data-status="@p.Status">
-                                        Edit
-                                    </button>
-
                                     <button type="button" class="btn btn-sm btn-outline-warning"
                                             data-bs-toggle="modal" data-bs-target="#archiveModal"
                                             data-id="@p.Id">
@@ -228,128 +196,6 @@
     </div>
 </div>
 
-
-<!-- EDIT MODAL -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="post" asp-action="EditPayment">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="q" value="@Model.SearchQuery" />
-                <input type="hidden" name="id" id="edit_id" />
-
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Payment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">Barangay</label>
-                            <select class="form-select" name="barangayName" id="edit_barangay" required>
-                                <option value="">Select barangay</option>
-                                @foreach (var b in Model.Barangays)
-                                {
-                                    <option value="@b">@b</option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="col-12">
-                            <label class="form-label">Plan</label>
-                            <select class="form-select" name="planName" id="edit_plan" required>
-                                <option value="">Select plan</option>
-                                @foreach (var pl in Model.Plans)
-                                {
-                                    <option value="@pl">@pl</option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Amount (₱)</label>
-                            <input class="form-control" type="number" name="amount" id="edit_amount" min="1" step="0.01" required />
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Payment Date</label>
-                            <input class="form-control" type="date" name="paymentDate" id="edit_date" />
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Payment Method</label>
-                            <select class="form-select" name="paymentMethod" id="edit_method">
-                                <option value="">Select</option>
-                                @foreach (var m in Model.Methods)
-                                {
-                                    <option value="@m">@m</option>
-                                }
-                            </select>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label">Status</label>
-                            <select class="form-select" name="status" id="edit_status">
-                                <option value="Paid">Paid</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Failed">Failed</option>
-                            </select>
-                        </div>
-
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- VIEW MODAL -->
-<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Payment Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body">
-                <div class="mb-2 fw-bold fs-5" id="view_amount"></div>
-                <div class="text-muted" id="view_barangay"></div>
-
-                <hr />
-
-                <div class="row g-2 small">
-                    <div class="col-6">
-                        <div class="text-muted">Plan</div>
-                        <div class="fw-semibold" id="view_plan"></div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Method</div>
-                        <div class="fw-semibold" id="view_method"></div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Date</div>
-                        <div class="fw-semibold" id="view_date"></div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted">Status</div>
-                        <span class="badge" id="view_status"></span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- ARCHIVE MODAL -->
 <div class="modal fade" id="archiveModal" tabindex="-1" aria-hidden="true">
@@ -402,60 +248,10 @@
             return status;
         }
 
-        // Edit modal fill
-        document.getElementById('editModal')?.addEventListener('show.bs.modal', function (event) {
-            const btn = event.relatedTarget;
-
-            document.getElementById('edit_id').value = btn.getAttribute('data-id');
-            document.getElementById('edit_barangay').value = btn.getAttribute('data-barangay');
-            document.getElementById('edit_plan').value = btn.getAttribute('data-plan');
-            document.getElementById('edit_amount').value = btn.getAttribute('data-amount');
-            document.getElementById('edit_date').value = btn.getAttribute('data-date');
-            document.getElementById('edit_method').value = btn.getAttribute('data-method');
-            document.getElementById('edit_status').value = btn.getAttribute('data-status');
-        });
-
-        // View modal fill
-        document.getElementById('viewModal')?.addEventListener('show.bs.modal', function (event) {
-            const btn = event.relatedTarget;
-
-            const amount = btn.getAttribute('data-amount');
-            const status = btn.getAttribute('data-status');
-
-            document.getElementById('view_amount').innerText = "₱" + Number(amount).toLocaleString();
-            document.getElementById('view_barangay').innerText = btn.getAttribute('data-barangay');
-            document.getElementById('view_plan').innerText = btn.getAttribute('data-plan');
-            document.getElementById('view_method').innerText = btn.getAttribute('data-method');
-            document.getElementById('view_date').innerText = btn.getAttribute('data-date');
-
-            const badge = document.getElementById('view_status');
-            badge.innerText = formatStatus(status);
-            badge.className = "badge " + getBadgeClass(status);
-        });
-
         // Archive modal fill
         document.getElementById('archiveModal')?.addEventListener('show.bs.modal', function (event) {
             const btn = event.relatedTarget;
             document.getElementById('archive_id').value = btn.getAttribute('data-id');
         });
-
-        // Open view modal from row click
-        function openViewFromRow(row) {
-            const amount = row.getAttribute('data-amount');
-            const status = row.getAttribute('data-status');
-
-            document.getElementById('view_amount').innerText = "₱" + Number(amount).toLocaleString();
-            document.getElementById('view_barangay').innerText = row.getAttribute('data-barangay');
-            document.getElementById('view_plan').innerText = row.getAttribute('data-plan');
-            document.getElementById('view_method').innerText = row.getAttribute('data-method');
-            document.getElementById('view_date').innerText = row.getAttribute('data-date');
-
-            const badge = document.getElementById('view_status');
-            badge.innerText = formatStatus(status);
-            badge.className = "badge " + getBadgeClass(status);
-
-            var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
-            viewModal.show();
-        }
     </script>
 }
