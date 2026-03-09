@@ -789,6 +789,8 @@ namespace JAS_MINE_IT15.Controllers
         {
             if (!ModelState.IsValid)
             {
+                // Keep user on review step when there are validation errors
+                model.CurrentStep = 3;
                 return View(model);
             }
 
@@ -800,6 +802,7 @@ namespace JAS_MINE_IT15.Controllers
             if (existingUser != null)
             {
                 model.ErrorMessage = "A user with this email already exists.";
+                model.CurrentStep = 3;
                 return View(model);
             }
 
@@ -853,11 +856,59 @@ namespace JAS_MINE_IT15.Controllers
                 // Set session values
                 HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
                 HttpContext.Session.SetString("UserName", model.Email);
+                HttpContext.Session.SetString("FullName", businessUser.FullName);
                 HttpContext.Session.SetString("Role", "barangay_admin");
                 HttpContext.Session.SetString("RoleLabel", "Barangay Admin");
                 HttpContext.Session.SetString("BarangayId", barangay.Id.ToString());
                 HttpContext.Session.SetString("Barangay", barangay.Name);
 
+                // 7. Auto-create subscription with the cheapest plan and redirect to payment
+                var cheapestPlan = await _context.SubscriptionPlans
+                    .Where(p => p.IsActive)
+                    .OrderBy(p => p.Price)
+                    .FirstOrDefaultAsync();
+
+                if (cheapestPlan != null)
+                {
+                    // Create subscription with Pending status
+                    var subscription = new BarangaySubscription
+                    {
+                        BarangayId = barangay.Id,
+                        PlanId = cheapestPlan.Id,
+                        StartDate = DateTime.Today,
+                        EndDate = DateTime.Today.AddMonths(cheapestPlan.DurationMonths),
+                        Status = "Pending",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.BarangaySubscriptions.Add(subscription);
+                    await _context.SaveChangesAsync();
+
+                    // Create invoice
+                    var invoiceNumber = $"INV-{DateTime.Now:yyyyMMdd}-{subscription.Id:D5}";
+                    var invoice = new Invoice
+                    {
+                        InvoiceNumber = invoiceNumber,
+                        SubscriptionId = subscription.Id,
+                        BarangayId = barangay.Id,
+                        Amount = cheapestPlan.Price,
+                        DueDate = DateTime.Today.AddDays(7),
+                        Status = "Unpaid",
+                        IssuedAt = DateTime.Now,
+                        Notes = $"Subscription to {cheapestPlan.Name} ({cheapestPlan.DurationMonths} month{(cheapestPlan.DurationMonths > 1 ? "s" : "")})",
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.Invoices.Add(invoice);
+                    await _context.SaveChangesAsync();
+
+                    await LogAuditAsync("Create", "SubscriptionPayments", subscription.Id, "Subscription",
+                        $"{barangay.Name} - {cheapestPlan.Name}", $"Auto-subscribed to {cheapestPlan.Name} (₱{cheapestPlan.Price:N0}/mo) after registration.");
+
+                    TempData["Success"] = "Registration successful! Please complete your payment to activate your account.";
+                    return RedirectToAction(nameof(SubmitPayment), new { invoiceId = invoice.Id });
+                }
+
+                // Fallback: if no plan exists, redirect to SelectPlan
                 TempData["Success"] = "Registration successful! Welcome to JAS-MINE. Please select a subscription plan to continue.";
                 return RedirectToAction(nameof(SelectPlan));
             }
@@ -872,6 +923,7 @@ namespace JAS_MINE_IT15.Controllers
             _context.Barangays.Remove(barangay);
             await _context.SaveChangesAsync();
 
+            model.CurrentStep = 3;
             return View(model);
         }
 
@@ -4769,6 +4821,10 @@ namespace JAS_MINE_IT15.Controllers
                 ViewBag.Email = "";
                 ViewBag.Status = "Active";
             }
+
+            // Sign out the user so they can login fresh
+            await _signInManager.SignOutAsync();
+            HttpContext.Session.Clear();
 
             return View();
         }

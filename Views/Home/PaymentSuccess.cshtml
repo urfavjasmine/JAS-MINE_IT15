@@ -208,17 +208,6 @@
             color: var(--text-dark);
         }
 
-        .redirect-notice {
-            margin-top: 1.5rem;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .redirect-notice span {
-            font-weight: 700;
-            color: var(--brand);
-        }
-
         @@media (max-width: 480px) {
             .success-card {
                 padding: 2rem 1.5rem;
@@ -281,26 +270,7 @@
             <a href="@Url.Action("LandingPage", "Home")" class="btn-home">
                 Back to Home
             </a>
-
-            <div class="redirect-notice">
-                Redirecting to login in <span id="countdown">5</span> seconds...
-            </div>
         </div>
     </div>
-
-    <script>
-        let seconds = 5;
-        const countdownEl = document.getElementById('countdown');
-        
-        const interval = setInterval(() => {
-            seconds--;
-            countdownEl.textContent = seconds;
-            
-            if (seconds <= 0) {
-                clearInterval(interval);
-                window.location.href = '@Url.Action("Login", "Home")';
-            }
-        }, 1000);
-    </script>
 </body>
 </html>
