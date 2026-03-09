@@ -330,31 +330,53 @@
         doc.setTextColor(100);
         doc.text("Generated on: " + new Date().toLocaleString(), 40, 60);
 
-        const table = document.querySelector(".table-wrap table");
-        
+        const table = document.querySelector(".table-wrap table tbody");
+        const rows = table.querySelectorAll("tr");
+
+        // Check if there are any actual data rows (not just the "No logs found" message)
+        if (rows.length === 0 || (rows.length === 1 && rows[0].cells.length === 1)) {
+            doc.setFontSize(12);
+            doc.setTextColor(150);
+            doc.text("No audit logs available to export.", 40, 100);
+            doc.save("AuditLogs_" + new Date().toISOString().split('T')[0] + ".pdf");
+            return;
+        }
+
+        // Extract data from visible rows
+        const tableData = Array.from(rows).filter(tr => {
+            // Filter out the "No logs found" row
+            return tr.cells.length > 1;
+        }).map(tr => {
+            const cells = tr.querySelectorAll("td");
+            return {
+                timestamp: cells[0]?.innerText.trim() || '',
+                user: cells[1]?.innerText.trim() || '',
+                action: cells[2]?.innerText.trim() || '',
+                module: cells[3]?.innerText.trim() || '',
+                target: cells[4]?.innerText.trim() || ''
+            };
+        });
+
+        if (tableData.length === 0) {
+            doc.setFontSize(12);
+            doc.setTextColor(150);
+            doc.text("No audit logs available to export.", 40, 100);
+            doc.save("AuditLogs_" + new Date().toISOString().split('T')[0] + ".pdf");
+            return;
+        }
+
         doc.autoTable({
-            html: table,
             startY: 80,
             theme: 'striped',
-            headStyles: { fillColor: [13, 110, 253] }, // Bootstrap Primary
-            columns: [
-                { header: 'Timestamp', dataKey: 'timestamp' },
-                { header: 'User', dataKey: 'user' },
-                { header: 'Action', dataKey: 'action' },
-                { header: 'Module', dataKey: 'module' },
-                { header: 'Target', dataKey: 'target' }
-            ],
-            // We need to extract data manually because the table has hidden columns and icons
-            body: Array.from(table.querySelectorAll("tbody tr")).map(tr => {
-                const cells = tr.querySelectorAll("td");
-                return [
-                    cells[0].innerText.trim(),
-                    cells[1].innerText.trim(),
-                    cells[2].innerText.trim(),
-                    cells[3].innerText.trim(),
-                    cells[4].innerText.trim()
-                ];
-            }),
+            headStyles: { fillColor: [22, 58, 95] }, // #163a5f
+            head: [['Timestamp', 'User', 'Action', 'Module', 'Target']],
+            body: tableData.map(row => [
+                row.timestamp,
+                row.user,
+                row.action,
+                row.module,
+                row.target
+            ]),
             margin: { left: 40, right: 40 },
             styles: { fontSize: 9 }
         });

@@ -9,18 +9,18 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace JAS_MINE_IT15.Data.Migrations
+namespace JAS_MINE_IT15.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260219144515_CleanStructure")]
-    partial class CleanStructure
+    [Migration("20260309111337_InitialCleanBaseline")]
+    partial class InitialCleanBaseline
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "8.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -55,6 +55,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPinned")
                         .ValueGeneratedOnAdd()
@@ -114,6 +117,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("BarangayId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -340,15 +346,37 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsFeatured")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("OwnerOffice")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Purpose")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("Rating")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(3,2)")
                         .HasDefaultValue(0.00m);
+
+                    b.Property<string>("ResourcesNeeded")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Steps")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SubmittedById")
                         .HasColumnType("int");
@@ -368,6 +396,142 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.HasIndex("SubmittedById");
 
                     b.ToTable("BestPractices");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.DiscussionComment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int>("DiscussionId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DiscussionId");
+
+                    b.ToTable("DiscussionComments");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.DiscussionLike", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int>("DiscussionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DiscussionId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("DiscussionLikes");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.Invoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("BarangayId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Unpaid");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BarangayId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("Invoices");
                 });
 
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.KnowledgeDiscussion", b =>
@@ -401,6 +565,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
 
                     b.Property<int>("LikesCount")
                         .ValueGeneratedOnAdd()
@@ -470,8 +637,8 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("FileType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("FileUrl")
                         .HasMaxLength(500)
@@ -481,6 +648,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -533,6 +703,10 @@ namespace JAS_MINE_IT15.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ActionTaken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -552,15 +726,25 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
 
+                    b.Property<DateTime>("DateRecorded")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<int>("LikesCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
+
+                    b.Property<string>("Problem")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ProjectName")
                         .HasMaxLength(200)
@@ -569,6 +753,13 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.Property<string>("ProjectType")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Recommendation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -603,6 +794,77 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.HasIndex("SubmittedById");
 
                     b.ToTable("LessonsLearned");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BarangayId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RelatedEntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RelatedEntityType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("info");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BarangayId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId", "IsRead", "IsActive");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.PasswordResetRequest", b =>
@@ -714,6 +976,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -745,52 +1010,6 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.ToTable("Policies");
                 });
 
-            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.SharedDocument", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<int>("DownloadCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<int>("SharedById")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SharedById");
-
-                    b.ToTable("SharedDocuments");
-                });
-
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.SubscriptionPayment", b =>
                 {
                     b.Property<int>("Id")
@@ -806,6 +1025,9 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int?>("InvoiceId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -823,18 +1045,29 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("ProcessedById")
                         .HasColumnType("int");
+
+                    b.Property<string>("ProofOfPaymentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ReferenceNumber")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
                         .HasDefaultValue("Pending");
 
                     b.Property<int>("SubscriptionId")
@@ -844,6 +1077,8 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
 
                     b.HasIndex("ProcessedById");
 
@@ -872,7 +1107,7 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.Property<int>("DurationMonths")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(12);
+                        .HasDefaultValue(1);
 
                     b.Property<string>("Features")
                         .HasColumnType("nvarchar(max)");
@@ -894,6 +1129,11 @@ namespace JAS_MINE_IT15.Data.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("UserLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(4);
 
                     b.HasKey("Id");
 
@@ -1233,6 +1473,62 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.Navigation("SubmittedBy");
                 });
 
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.DiscussionComment", b =>
+                {
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.KnowledgeDiscussion", "Discussion")
+                        .WithMany()
+                        .HasForeignKey("DiscussionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Discussion");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.DiscussionLike", b =>
+                {
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.KnowledgeDiscussion", "Discussion")
+                        .WithMany()
+                        .HasForeignKey("DiscussionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Discussion");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.Invoice", b =>
+                {
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.Barangay", "Barangay")
+                        .WithMany()
+                        .HasForeignKey("BarangayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.BarangaySubscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Barangay");
+
+                    b.Navigation("Subscription");
+                });
+
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.KnowledgeDiscussion", b =>
                 {
                     b.HasOne("JAS_MINE_IT15.Models.Entities.User", "Author")
@@ -1280,6 +1576,24 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.Navigation("SubmittedBy");
                 });
 
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.Notification", b =>
+                {
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.Barangay", "Barangay")
+                        .WithMany()
+                        .HasForeignKey("BarangayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Barangay");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.PasswordResetRequest", b =>
                 {
                     b.HasOne("JAS_MINE_IT15.Models.Entities.User", "ProcessedBy")
@@ -1315,19 +1629,13 @@ namespace JAS_MINE_IT15.Data.Migrations
                     b.Navigation("Author");
                 });
 
-            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.SharedDocument", b =>
-                {
-                    b.HasOne("JAS_MINE_IT15.Models.Entities.User", "SharedBy")
-                        .WithMany()
-                        .HasForeignKey("SharedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("SharedBy");
-                });
-
             modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.SubscriptionPayment", b =>
                 {
+                    b.HasOne("JAS_MINE_IT15.Models.Entities.Invoice", "Invoice")
+                        .WithMany("Payments")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("JAS_MINE_IT15.Models.Entities.User", "ProcessedBy")
                         .WithMany()
                         .HasForeignKey("ProcessedById")
@@ -1338,6 +1646,8 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasForeignKey("SubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Invoice");
 
                     b.Navigation("ProcessedBy");
 
@@ -1408,6 +1718,11 @@ namespace JAS_MINE_IT15.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("JAS_MINE_IT15.Models.Entities.Invoice", b =>
+                {
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

@@ -30,25 +30,16 @@ builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 
-// PayMongo configuration - reads from appsettings.json or environment variables (PayMongo__SecretKey, PayMongo__PublicKey)
-builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(builder.Configuration.GetSection("PayMongo"));
+// PayMongo configuration
+builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(
+    builder.Configuration.GetSection("PayMongo"));
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 
 // DB
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var connectionString = "Server=JASMINE\\SQLEXPRESS;Database=JAS_MINE_DB_New;Integrated Security=True;MultipleActiveResultSets=True;Encrypt=False;TrustServerCertificate=True";
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString, sqlOptions =>
-    {
-        sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 2,
-            maxRetryDelay: TimeSpan.FromSeconds(3),
-            errorNumbersToAdd: null);
-        sqlOptions.CommandTimeout(30);
-    }));
-
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+    options.UseSqlServer(connectionString));
 
 // Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
@@ -81,7 +72,6 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Login: 5 attempts per 1 minute per IP
     options.AddPolicy("login", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -92,10 +82,11 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // API: 60 requests per minute per user
     options.AddPolicy("api", context =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User?.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            partitionKey: context.User?.Identity?.Name
+                          ?? context.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 60,
@@ -163,8 +154,6 @@ using (var scope = app.Services.CreateScope())
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
 
-        // ── Run EF Migrations (includes ConsolidateSchemaColumns) ──
-        // All column-ensure DDL has been moved to Data/Migrations/20260302000000_ConsolidateSchemaColumns.cs
         await db.Database.MigrateAsync();
         logger.LogInformation("EF migrations applied successfully.");
 
@@ -174,7 +163,6 @@ using (var scope = app.Services.CreateScope())
         await IdentitySeeder.SeedTestBarangayAndLinkUsers(db);
         await IdentitySeeder.SeedSubscriptionPlans(db);
 
-        // ── Auto-expire subscriptions past EndDate ──
         var expiredCount = await db.Database.ExecuteSqlRawAsync(@"
             UPDATE dbo.BarangaySubscriptions
             SET Status = 'Expired', UpdatedAt = GETDATE()
@@ -185,7 +173,6 @@ using (var scope = app.Services.CreateScope())
         if (expiredCount > 0)
             logger.LogInformation("Auto-expired {Count} subscription(s) past EndDate.", expiredCount);
 
-        // ── Auto-mark overdue invoices ──
         var overdueCount = await db.Database.ExecuteSqlRawAsync(@"
             UPDATE dbo.Invoices
             SET Status = 'Overdue', UpdatedAt = GETDATE()
@@ -198,11 +185,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        // ✅ Prevent 500.30 from killing the whole app
         logger.LogError(ex, "Startup migration/seed failed.");
-
-        // OPTIONAL: Comment this out to allow the site to start even if DB is failing
-        // throw;
     }
 }
 

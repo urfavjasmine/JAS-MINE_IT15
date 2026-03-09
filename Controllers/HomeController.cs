@@ -3671,10 +3671,10 @@ namespace JAS_MINE_IT15.Controllers
             // STRICT TENANT ISOLATION: Query audit logs based on role
             var logQuery = _context.AuditLogs.Where(l => l.IsActive);
 
-            // Super_admin: only see system-level logs (NULL BarangayId)
+            // Super_admin: see ALL logs (both system-level NULL and barangay logs)
             if (role == "super_admin")
             {
-                logQuery = logQuery.Where(l => l.BarangayId == null);
+                // No additional filter - super admin sees everything
             }
             // Barangay roles: only see logs from their barangay
             else if (barangayId.HasValue)
@@ -4511,8 +4511,12 @@ namespace JAS_MINE_IT15.Controllers
                     && (s.Status == "Active" || s.Status == "Pending")
                     && s.EndDate >= DateTime.Today);
 
+
+            // Filter out duplicate plans by name (keep the lowest price per name)
             var plans = await _context.SubscriptionPlans
                 .Where(p => p.IsActive)
+                .GroupBy(p => p.Name)
+                .Select(g => g.OrderBy(p => p.Price).FirstOrDefault())
                 .OrderBy(p => p.Price)
                 .Select(p => new SelectPlanViewModel.AvailablePlan
                 {
