@@ -606,7 +606,37 @@
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        let currentStep = 1;
+        // Initialize from model's CurrentStep (preserves step on validation errors)
+        let currentStep = @(Model.CurrentStep > 0 ? Model.CurrentStep : 1);
+
+        // On page load, show the correct step and update stepper
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide all steps, show current
+            document.querySelectorAll('.reg-step').forEach(el => el.classList.remove('active'));
+            const stepEl = document.getElementById('step-' + currentStep);
+            if (stepEl) stepEl.classList.add('active');
+            
+            // Update stepper UI
+            updateStepper();
+            
+            // If there are validation errors and we're on review step, populate review fields
+            if (currentStep === 3) {
+                populateReviewFromInputs();
+            }
+        });
+
+        function populateReviewFromInputs() {
+            const fname = document.getElementById('FirstName')?.value || '';
+            const lname = document.getElementById('LastName')?.value || '';
+            document.getElementById('rv-name').innerText = (fname + ' ' + lname).trim() || '---';
+            document.getElementById('rv-email').innerText = document.getElementById('Email')?.value || '---';
+            document.getElementById('rv-phone').innerText = document.getElementById('PhoneNumber')?.value || '---';
+            document.getElementById('rv-brgy').innerText = document.getElementById('BarangayName')?.value || '---';
+            document.getElementById('rv-city').innerText = document.getElementById('Municipality')?.value || '---';
+            document.getElementById('rv-province').innerText = document.getElementById('Province')?.value || '---';
+            document.getElementById('rv-region').innerText = document.getElementById('Region')?.value || '---';
+            document.getElementById('rv-address').innerText = document.getElementById('Address')?.value || '---';
+        }
 
         function updateStepper() {
             // Update circles
