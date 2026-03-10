@@ -2020,10 +2020,12 @@ namespace JAS_MINE_IT15.Controllers
         [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary,barangay_staff")]
         public async Task<IActionResult> CreateLesson(string title, string problem, string actionTaken, string result, string recommendation)
         {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            var role = HttpContext.Session.GetString("Role") ?? "";
-            if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff" && role != "super_admin")
-                return RedirectToAction(nameof(LessonsLearned));
+      if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+        var role = HttpContext.Session.GetString("Role") ?? "";
+        if (role != "barangay_admin" && role != "barangay_secretary" && role != "barangay_staff" && role != "super_admin") {
+            TempData["Error"] = "You do not have permission to submit lessons.";
+            return RedirectToAction(nameof(LessonsLearned));
+        }
 
             var barangayId = GetCurrentBarangayId();
             var userId = GetCurrentUserId() ?? 0;

@@ -391,19 +391,9 @@
                                         </div>
 
                                     <div class="k-border-top mt-3 pt-3 d-flex gap-2 flex-wrap">
-                                        <form method="post" action="@Url.Action("LikeDiscussion", "Home")" class="d-inline m-0">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@d.Id" />
-                                            <button type="submit" class="btn-ghost @(d.UserHasLiked ? "text-primary" : "")">
-                                                <i class="bi @(d.UserHasLiked ? "bi-hand-thumbs-up-fill" : "bi-hand-thumbs-up") me-2"></i>@d.Likes
-                                            </button>
-                                        </form>
-                                        <button class="btn-ghost" type="button" onclick="toggleComments('@d.Id')">
-                                            <i class="bi bi-chat-dots me-2"></i>@d.Replies replies
-                                        </button>
-                                        <button class="btn-ghost" type="button">
-                                            <i class="bi bi-share me-2"></i>Share
-                                        </button>
+        <button class="btn-ghost" type="button" onclick="toggleComments('@d.Id')">
+            <i class="bi bi-chat-dots me-2"></i>@d.Replies replies
+        </button>
                                     </div>
 
                                     <!-- Comments Section -->
