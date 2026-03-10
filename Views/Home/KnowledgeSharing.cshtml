@@ -13,7 +13,6 @@
     // Load from ViewModel
     var announcements = Model?.Announcements ?? new List<JAS_MINE_IT15.Models.KnowledgeAnnouncementItem>();
     var discussions = Model?.Discussions ?? new List<JAS_MINE_IT15.Models.KnowledgeDiscussionItem>();
-    var sharedDocuments = Model?.SharedDocuments ?? new List<JAS_MINE_IT15.Models.KnowledgeSharedDocItem>();
 
     // Permissions (from controller)
     var canPost = Model?.CanPost ?? false;
@@ -439,39 +438,6 @@
         <!-- Sidebar -->
         <div class="col-12 col-lg-4">
 
-            <!-- Shared Documents -->
-            <div class="soft-card mb-4">
-                <div class="p-4 pb-2">
-                    <div class="fw-bold d-flex align-items-center gap-2" style="font-size:18px; color:#1f2d3d;">
-                        <i class="bi bi-file-earmark-text" style="color:#6c7a89;"></i>
-                        Shared Documents
-                    </div>
-                </div>
-
-                <div class="p-4 pt-2">
-                    @if (sharedDocuments.Count == 0)
-                    {
-                        <div class="text-center text-muted py-3">No shared documents.</div>
-                    }
-                    else
-                    {
-                        <div class="d-grid gap-2">
-                            @foreach (var doc in sharedDocuments)
-                            {
-                                <div class="doc-pill">
-                                    <div class="fw-semibold" style="color:#1f2d3d;">@doc.Title</div>
-                                    <div class="muted-sm">@doc.SharedBy • @doc.Downloads downloads</div>
-                                </div>
-                            }
-                        </div>
-
-                        <button class="btn btn-outline-secondary w-100 mt-3" style="height:44px; border-radius:10px;">
-                            View All Documents
-                        </button>
-                    }
-                </div>
-            </div>
-
             <!-- Active Members -->
             <div class="soft-card">
                 <div class="p-4 pb-2">
@@ -505,7 +471,7 @@
                             }
                         </div>
 
-                        <div class="muted-sm mt-3">@membersOnline members online</div>
+                        <div class="muted-sm mt-3">@membersOnline members active (last 30 days)</div>
                     }
                 </div>
             </div>

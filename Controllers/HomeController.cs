@@ -2689,6 +2689,14 @@ namespace JAS_MINE_IT15.Controllers
                 }
             }
 
+            // Fetch active members from barangay (users who logged in within last 30 days)
+            var thirtyDaysAgo = DateTime.Now.AddDays(-30);
+            var activeMembersList = await _context.BusinessUsers
+                .Where(u => u.IsActive && u.BarangayId == barangayId.Value && u.LastLoginAt >= thirtyDaysAgo)
+                .OrderByDescending(u => u.LastLoginAt)
+                .Select(u => GetInitials(u.FullName ?? u.Email ?? "U"))
+                .ToListAsync();
+
             var vm = new KnowledgeSharingViewModel
             {
                 CanPost = canPost,
@@ -2700,9 +2708,9 @@ namespace JAS_MINE_IT15.Controllers
                 Discussions = discussions,
                 Announcements = new List<KnowledgeAnnouncementItem>(),
                 SharedDocuments = new List<KnowledgeSharedDocItem>(),
-                ActiveMembers = new List<string>(),
+                ActiveMembers = activeMembersList,
                 Categories = new List<string> { "All Categories", "General", "Health", "Environment", "Youth", "Education", "Governance", "Finance" },
-                MembersOnline = 0,
+                MembersOnline = activeMembersList.Count,
                 TotalDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && !d.IsArchived && d.BarangayId == barangayId),
                 ArchivedDiscussions = await _context.KnowledgeDiscussions.CountAsync(d => d.IsActive && d.IsArchived && d.BarangayId == barangayId),
                 CurrentUserId = currentUserId,
@@ -3705,41 +3713,63 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> AuditLogs(string q = "", string module = "all", string action = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            
+            var role = GetCurrentRole();
+            var barangayId = GetCurrentBarangayId();
+            
+            Console.WriteLine($"[AuditLogs] ========================================");
+            Console.WriteLine($"[AuditLogs] Role from session: '{role}'");
+            Console.WriteLine($"[AuditLogs] BarangayId from session: '{barangayId}'");
+            Console.WriteLine($"[AuditLogs] IsAdminRole(): {IsAdminRole()}");
+            
+            if (!IsAdminRole()) 
+            {
+                Console.WriteLine($"[AuditLogs] Not admin role, redirecting to dashboard");
+                return RedirectToDashboard();
+            }
 
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
             action = (action ?? "all").Trim();
 
-            var role = GetCurrentRole();
-            var barangayId = GetCurrentBarangayId();
-
-            // STRICT TENANT ISOLATION: Query audit logs based on role
-            var logQuery = _context.AuditLogs.Where(l => l.IsActive);
-
-            // Super_admin: see ALL logs (both system-level NULL and barangay logs)
-            if (role == "super_admin")
+            List<AuditLog> rawLogs;
+            try
             {
-                // No additional filter - super admin sees everything
-            }
-            // Barangay roles: only see logs from their barangay
-            else if (barangayId.HasValue)
-            {
-                logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
-            }
-            // No barangay assigned: no logs visible
-            else
-            {
-                logQuery = logQuery.Where(l => false); // Return empty result
-            }
+                // First, just get ALL logs to verify the connection works
+                var totalCount = await _context.AuditLogs.CountAsync();
+                var activeCount = await _context.AuditLogs.CountAsync(l => l.IsActive);
+                Console.WriteLine($"[AuditLogs] Total logs in DB: {totalCount}");
+                Console.WriteLine($"[AuditLogs] Active logs in DB: {activeCount}");
 
-            // First materialize from database, then project to LogItem (avoids EF Core translation issues)
-            var rawLogs = await logQuery
-                .OrderByDescending(l => l.CreatedAt)
-                .ToListAsync();
+                // Build query based on role
+                IQueryable<AuditLog> logQuery = _context.AuditLogs.Where(l => l.IsActive);
 
-            _logger.LogInformation("AuditLogs query returned {Count} raw logs for role={Role}, barangayId={BarangayId}", 
-                rawLogs.Count, role, barangayId);
+                if (role == "super_admin")
+                {
+                    Console.WriteLine("[AuditLogs] Super admin - fetching ALL active logs");
+                    // No additional filter
+                }
+                else if (barangayId.HasValue)
+                {
+                    Console.WriteLine($"[AuditLogs] Barangay admin - filtering by BarangayId={barangayId.Value}");
+                    logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
+                }
+                else
+                {
+                    Console.WriteLine("[AuditLogs] No barangay assigned - returning empty");
+                    logQuery = logQuery.Where(l => false);
+                }
+
+                rawLogs = await logQuery.OrderByDescending(l => l.CreatedAt).ToListAsync();
+                Console.WriteLine($"[AuditLogs] Query returned {rawLogs.Count} logs");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AuditLogs] EXCEPTION: {ex.Message}");
+                Console.WriteLine($"[AuditLogs] Stack: {ex.StackTrace}");
+                _logger.LogError(ex, "AuditLogs: Error querying audit logs");
+                rawLogs = new List<AuditLog>();
+            }
 
             var allLogs = rawLogs.Select(l => new LogItem
             {
@@ -3778,7 +3808,10 @@ namespace JAS_MINE_IT15.Controllers
                 SearchQuery = q,
                 ModuleFilter = module,
                 ActionFilter = action,
-                Logs = list
+                Logs = list,
+                DebugRole = role,
+                DebugBarangayId = barangayId?.ToString() ?? "null",
+                DebugMessage = $"Total logs in DB: {rawLogs.Count}, Filtered to: {list.Count}"
             };
 
             return View(vm);
