@@ -1630,7 +1630,7 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
-        [Authorize(Roles = "super_admin,barangay_admin")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<IActionResult> CreatePolicy(string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -2017,7 +2017,7 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
-        [Authorize(Roles = "super_admin,barangay_admin")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary,barangay_staff")]
         public async Task<IActionResult> CreateLesson(string title, string problem, string actionTaken, string result, string recommendation)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
