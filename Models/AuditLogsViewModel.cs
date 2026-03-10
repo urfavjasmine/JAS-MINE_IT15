@@ -24,11 +24,6 @@ namespace JAS_MINE_IT15.Models
         public string ModuleFilter { get; set; } = "all";
         public string ActionFilter { get; set; } = "all";
 
-        // Debug info (will show in the view)
-        public string DebugRole { get; set; } = "";
-        public string DebugBarangayId { get; set; } = "";
-        public string DebugMessage { get; set; } = "";
-
         public List<string> Modules => Logs.Select(l => l.Module).Distinct().OrderBy(x => x).ToList();
 
         // Stats
