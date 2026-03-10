@@ -119,28 +119,21 @@
     @if (!isStaffOrCouncil)
     {
         <div class="row g-3 mb-3">
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-4">
                 <div class="card stat-card">
                     <div class="card-body text-center py-4">
                         <div class="fs-2 fw-bold text-primary">@total</div><div class="small muted">Total</div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-4">
                 <div class="card stat-card">
                     <div class="card-body text-center py-4">
                         <div class="fs-2 fw-bold text-success">@published</div><div class="small muted">Published</div>
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-3">
-                <div class="card stat-card">
-                    <div class="card-body text-center py-4">
-                        <div class="fs-2 fw-bold text-warning">@drafts</div><div class="small muted">Drafts</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-3">
+            <div class="col-12 col-md-4">
                 <div class="card stat-card">
                     <div class="card-body text-center py-4">
                         <div class="fs-2 fw-bold text-secondary">@archived</div><div class="small muted">Archived</div>
@@ -171,9 +164,6 @@
 
             <a class="btn pill-btn @(filter == "published" ? "btn-primary" : "btn-outline-secondary") btn-sm"
                href="@Url.Action("Announcements", "Home", new { filter = "published", archiveStatus = archiveStatus })">Published</a>
-
-            <a class="btn pill-btn @(filter == "draft" ? "btn-primary" : "btn-outline-secondary") btn-sm"
-               href="@Url.Action("Announcements", "Home", new { filter = "draft", archiveStatus = archiveStatus })">Draft</a>
         </div>
     }
 
@@ -318,8 +308,7 @@
                         <div class="col-12 col-md-6">
                             <label class="form-label">Status</label>
                             <select class="form-select" id="formStatus" name="status">
-                                <option value="draft" selected>Draft</option>
-                                <option value="published">Publish Now</option>
+                                <option value="published" selected>Publish Now</option>
                             </select>
                         </div>
                     </div>
@@ -378,7 +367,7 @@
         document.getElementById('formTitle').value = '';
         document.getElementById('formContent').value = '';
         document.getElementById('formPriority').value = 'medium';
-        document.getElementById('formStatus').value = 'draft';
+        document.getElementById('formStatus').value = 'published';
     }
 
     function openEdit(id, title, content, priority, status) {

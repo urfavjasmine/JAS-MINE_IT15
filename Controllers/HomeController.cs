@@ -3462,7 +3462,7 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [RequireActiveSubscription]
-        [Authorize(Roles = "super_admin,barangay_admin")]
+        [Authorize(Roles = "super_admin,barangay_admin,barangay_secretary")]
         public async Task<IActionResult> CreateAnnouncement(string title, string content, string priority, string status, string filter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -3733,19 +3733,24 @@ namespace JAS_MINE_IT15.Controllers
                 logQuery = logQuery.Where(l => false); // Return empty result
             }
 
-            var allLogs = await logQuery
+            // First materialize from database, then project to LogItem (avoids EF Core translation issues)
+            var rawLogs = await logQuery
                 .OrderByDescending(l => l.CreatedAt)
-                .Select(l => new LogItem
-                {
-                    Id = l.Id.ToString(),
-                    Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                    User = l.UserName ?? l.UserEmail ?? "System",
-                    Action = l.Action ?? "",
-                    Module = l.Module ?? "",
-                    Target = l.TargetName ?? l.TargetType ?? "",
-                    Ip = l.IpAddress ?? ""
-                })
                 .ToListAsync();
+
+            _logger.LogInformation("AuditLogs query returned {Count} raw logs for role={Role}, barangayId={BarangayId}", 
+                rawLogs.Count, role, barangayId);
+
+            var allLogs = rawLogs.Select(l => new LogItem
+            {
+                Id = l.Id.ToString(),
+                Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                User = l.UserName ?? l.UserEmail ?? "System",
+                Action = l.Action ?? "",
+                Module = l.Module ?? "",
+                Target = l.TargetName ?? l.TargetType ?? "",
+                Ip = l.IpAddress ?? ""
+            }).ToList();
 
             var list = allLogs;
 
@@ -3838,25 +3843,29 @@ namespace JAS_MINE_IT15.Controllers
             // STRICT TENANT ISOLATION: same as AuditLogs GET
             var logQuery = _context.AuditLogs.Where(l => l.IsActive);
             if (role == "super_admin")
-                logQuery = logQuery.Where(l => l.BarangayId == null);
+            {
+                // Super admin sees ALL logs (no additional filter)
+            }
             else if (barangayId.HasValue)
                 logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
             else
                 logQuery = logQuery.Where(l => false);
 
-            var allLogs = await logQuery
+            // First materialize from database, then project (avoids EF Core translation issues)
+            var rawLogs = await logQuery
                 .OrderByDescending(l => l.CreatedAt)
-                .Select(l => new LogItem
-                {
-                    Id = l.Id.ToString(),
-                    Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                    User = l.UserName ?? l.UserEmail ?? "System",
-                    Action = l.Action ?? "",
-                    Module = l.Module ?? "",
-                    Target = l.TargetName ?? l.TargetType ?? "",
-                    Ip = l.IpAddress ?? ""
-                })
                 .ToListAsync();
+
+            var allLogs = rawLogs.Select(l => new LogItem
+            {
+                Id = l.Id.ToString(),
+                Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                User = l.UserName ?? l.UserEmail ?? "System",
+                Action = l.Action ?? "",
+                Module = l.Module ?? "",
+                Target = l.TargetName ?? l.TargetType ?? "",
+                Ip = l.IpAddress ?? ""
+            }).ToList();
 
             var list = allLogs.AsEnumerable();
 

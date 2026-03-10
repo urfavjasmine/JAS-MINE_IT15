@@ -312,7 +312,18 @@ namespace JAS_MINE_IT15.Controllers.Api
             var weekStart = today.AddDays(-(int)today.DayOfWeek);
             var monthStart = new DateTime(now.Year, now.Month, 1);
 
-            var allLogs = await _context.AuditLogs.Where(a => a.IsActive).ToListAsync();
+            // Apply tenant isolation
+            var query = _context.AuditLogs.Where(a => a.IsActive);
+            if (!_tenantService.IsSuperAdmin())
+            {
+                var barangayId = _tenantService.GetCurrentBarangayId();
+                if (barangayId.HasValue)
+                    query = query.Where(a => a.BarangayId == barangayId.Value);
+                else
+                    query = query.Where(_ => false);
+            }
+
+            var allLogs = await query.ToListAsync();
 
             var stats = new AuditLogStats
             {
@@ -350,8 +361,19 @@ namespace JAS_MINE_IT15.Controllers.Api
         [HttpGet("actions")]
         public async Task<ActionResult<List<string>>> GetActions()
         {
-            var actions = await _context.AuditLogs
-                .Where(a => a.IsActive)
+            var query = _context.AuditLogs.Where(a => a.IsActive);
+            
+            // Apply tenant isolation
+            if (!_tenantService.IsSuperAdmin())
+            {
+                var barangayId = _tenantService.GetCurrentBarangayId();
+                if (barangayId.HasValue)
+                    query = query.Where(a => a.BarangayId == barangayId.Value);
+                else
+                    query = query.Where(_ => false);
+            }
+
+            var actions = await query
                 .Select(a => a.Action)
                 .Distinct()
                 .OrderBy(a => a)
@@ -366,8 +388,19 @@ namespace JAS_MINE_IT15.Controllers.Api
         [HttpGet("modules")]
         public async Task<ActionResult<List<string>>> GetModules()
         {
-            var modules = await _context.AuditLogs
-                .Where(a => a.IsActive)
+            var query = _context.AuditLogs.Where(a => a.IsActive);
+            
+            // Apply tenant isolation
+            if (!_tenantService.IsSuperAdmin())
+            {
+                var barangayId = _tenantService.GetCurrentBarangayId();
+                if (barangayId.HasValue)
+                    query = query.Where(a => a.BarangayId == barangayId.Value);
+                else
+                    query = query.Where(_ => false);
+            }
+
+            var modules = await query
                 .Select(a => a.Module)
                 .Distinct()
                 .OrderBy(m => m)
