@@ -86,11 +86,13 @@ namespace JAS_MINE_IT15.Services
     {
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<NotificationService> _logger;
 
-        public NotificationService(IHubContext<NotificationHub> hubContext, ApplicationDbContext context)
+        public NotificationService(IHubContext<NotificationHub> hubContext, ApplicationDbContext context, ILogger<NotificationService> logger)
         {
             _hubContext = hubContext;
             _context = context;
+            _logger = logger;
         }
 
         /// <summary>
@@ -153,144 +155,221 @@ namespace JAS_MINE_IT15.Services
 
         public async Task NotifyPendingDocument(int barangayId, string documentTitle, string uploadedBy)
         {
-            var title = "New document pending approval";
-            var message = $"'{documentTitle}' uploaded by {uploadedBy}";
-            var type = "pending";
-            var link = "/Home/KnowledgeRepository?status=pending&archiveStatus=active";
+            try
+            {
+                var title = "New document pending approval";
+                var message = $"'{documentTitle}' uploaded by {uploadedBy}";
+                var type = "pending";
+                var link = "/Home/KnowledgeRepository?status=pending&archiveStatus=active";
 
-            // Persist to database
-            await PersistForAdmins(barangayId, title, message, type, link, "Document");
+                // Persist to database
+                await PersistForAdmins(barangayId, title, message, type, link, "Document");
 
-            // Send real-time notification
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+                // Send real-time notification
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPendingDocument for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyPendingPolicy(int barangayId, string policyTitle, string uploadedBy)
         {
-            var title = "New policy pending approval";
-            var message = $"'{policyTitle}' uploaded by {uploadedBy}";
-            var type = "pending";
-            var link = "/Home/PoliciesManagement?status=pending&archiveStatus=active";
+            try
+            {
+                var title = "New policy pending approval";
+                var message = $"'{policyTitle}' uploaded by {uploadedBy}";
+                var type = "pending";
+                var link = "/Home/PoliciesManagement?status=pending&archiveStatus=active";
 
-            await PersistForAdmins(barangayId, title, message, type, link, "Policy");
+                await PersistForAdmins(barangayId, title, message, type, link, "Policy");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPendingPolicy for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyDocumentStatusChange(int barangayId, string documentTitle, string newStatus)
         {
-            var title = $"Document {newStatus}";
-            var message = $"'{documentTitle}' has been {newStatus}";
-            var type = newStatus == "approved" ? "approval" : "rejected";
-            var link = "/Home/KnowledgeRepository";
+            try
+            {
+                var title = $"Document {newStatus}";
+                var message = $"'{documentTitle}' has been {newStatus}";
+                var type = newStatus == "approved" ? "approval" : "rejected";
+                var link = "/Home/KnowledgeRepository";
 
-            await PersistForBarangay(barangayId, title, message, type, link, "Document");
+                await PersistForBarangay(barangayId, title, message, type, link, "Document");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyDocumentStatusChange for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyBarangay(int barangayId, string title, string message, string type)
         {
-            var link = "#";
+            try
+            {
+                var link = "#";
 
-            await PersistForBarangay(barangayId, title, message, type, link);
+                await PersistForBarangay(barangayId, title, message, type, link);
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyBarangay for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyPendingLesson(int barangayId, string lessonTitle, string submittedBy)
         {
-            var title = "New lesson pending approval";
-            var message = $"'{lessonTitle}' submitted by {submittedBy}";
-            var type = "pending";
-            var link = "/Home/LessonsLearned?archiveStatus=active";
+            try
+            {
+                var title = "New lesson pending approval";
+                var message = $"'{lessonTitle}' submitted by {submittedBy}";
+                var type = "pending";
+                var link = "/Home/LessonsLearned?archiveStatus=active";
 
-            await PersistForAdmins(barangayId, title, message, type, link, "Lesson");
+                await PersistForAdmins(barangayId, title, message, type, link, "Lesson");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPendingLesson for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyPendingPractice(int barangayId, string practiceTitle, string submittedBy)
         {
-            var title = "New best practice pending approval";
-            var message = $"'{practiceTitle}' submitted by {submittedBy}";
-            var type = "pending";
-            var link = "/Home/BestPractices?archiveStatus=active";
+            try
+            {
+                var title = "New best practice pending approval";
+                var message = $"'{practiceTitle}' submitted by {submittedBy}";
+                var type = "pending";
+                var link = "/Home/BestPractices?archiveStatus=active";
 
-            await PersistForAdmins(barangayId, title, message, type, link, "Practice");
+                await PersistForAdmins(barangayId, title, message, type, link, "Practice");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}_admins").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPendingPractice for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyNewAnnouncement(int barangayId, string announcementTitle, string priority, string authorName)
         {
-            var title = priority == "high" ? "Important Announcement" : "New Announcement";
+            try
+            {
+                var title = priority == "high" ? "Important Announcement" : "New Announcement";
             var message = $"'{announcementTitle}' posted by {authorName}";
             var type = priority == "high" ? "urgent" : "announcement";
             var link = "/Home/Announcements";
 
             await PersistForBarangay(barangayId, title, message, type, link, "Announcement");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyNewAnnouncement for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyPolicyStatusChange(int barangayId, string policyTitle, string newStatus)
         {
-            var title = $"Policy {newStatus}";
-            var message = $"'{policyTitle}' has been {newStatus}";
-            var type = newStatus == "approved" ? "approval" : "rejected";
-            var link = "/Home/PoliciesManagement";
+            try
+            {
+                var title = $"Policy {newStatus}";
+                var message = $"'{policyTitle}' has been {newStatus}";
+                var type = newStatus == "approved" ? "approval" : "rejected";
+                var link = "/Home/PoliciesManagement";
 
-            await PersistForBarangay(barangayId, title, message, type, link, "Policy");
+                await PersistForBarangay(barangayId, title, message, type, link, "Policy");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPolicyStatusChange for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyLessonStatusChange(int barangayId, string lessonTitle, string newStatus)
         {
-            var title = $"Lesson {newStatus}";
-            var message = $"'{lessonTitle}' has been {newStatus}";
-            var type = newStatus == "approved" ? "approval" : "rejected";
-            var link = "/Home/LessonsLearned";
+            try
+            {
+                var title = $"Lesson {newStatus}";
+                var message = $"'{lessonTitle}' has been {newStatus}";
+                var type = newStatus == "approved" ? "approval" : "rejected";
+                var link = "/Home/LessonsLearned";
 
-            await PersistForBarangay(barangayId, title, message, type, link, "Lesson");
+                await PersistForBarangay(barangayId, title, message, type, link, "Lesson");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyLessonStatusChange for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyPracticeStatusChange(int barangayId, string practiceTitle, string newStatus)
         {
-            var title = $"Best Practice {newStatus}";
-            var message = $"'{practiceTitle}' has been {newStatus}";
-            var type = newStatus == "approved" ? "approval" : "rejected";
-            var link = "/Home/BestPractices";
+            try
+            {
+                var title = $"Best Practice {newStatus}";
+                var message = $"'{practiceTitle}' has been {newStatus}";
+                var type = newStatus == "approved" ? "approval" : "rejected";
+                var link = "/Home/BestPractices";
 
-            await PersistForBarangay(barangayId, title, message, type, link, "Practice");
+                await PersistForBarangay(barangayId, title, message, type, link, "Practice");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyPracticeStatusChange for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task NotifyDiscussionReply(int barangayId, string discussionTitle, string replierName)
         {
-            var title = "New discussion reply";
-            var message = $"{replierName} replied to '{discussionTitle}'";
-            var type = "discussion";
-            var link = "/Home/KnowledgeSharing";
+            try
+            {
+                var title = "New discussion reply";
+                var message = $"{replierName} replied to '{discussionTitle}'";
+                var type = "discussion";
+                var link = "/Home/KnowledgeSharing";
 
-            await PersistForBarangay(barangayId, title, message, type, link, "Discussion");
+                await PersistForBarangay(barangayId, title, message, type, link, "Discussion");
 
-            var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
-            await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+                var notification = new { Title = title, Message = message, Type = type, Link = link, Time = DateTime.Now.ToString("h:mm tt") };
+                await _hubContext.Clients.Group($"barangay_{barangayId}").SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send NotifyDiscussionReply for barangay {BarangayId}", barangayId);
+            }
         }
 
         public async Task MarkAsRead(int notificationId, int userId)

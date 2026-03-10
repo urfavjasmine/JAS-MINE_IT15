@@ -253,7 +253,8 @@
                                                     <button class="dropdown-item"
                                                             data-bs-toggle="modal"
                                                             data-bs-target="#viewModal"
-                                                            onclick="openView('@u.Id','@u.Name','@u.Email','@roleKey','@u.Status','@u.Barangay')">
+                                                            data-id="@u.Id" data-name="@u.Name" data-email="@u.Email" data-role="@roleKey" data-status="@u.Status" data-barangay="@u.Barangay"
+                                                            onclick="openViewFromData(this)">
                                                         <i class="bi bi-eye me-2"></i>View
                                                     </button>
                                                 </li>
@@ -263,7 +264,8 @@
                                                 <button class="dropdown-item"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#createEditModal"
-                                                        onclick="openEdit('@u.Id','@u.Name','@u.Email','@roleKey','@u.Barangay')">
+                                                        data-id="@u.Id" data-name="@u.Name" data-email="@u.Email" data-role="@roleKey" data-barangay="@u.Barangay"
+                                                        onclick="openEditFromData(this)">
                                                     <i class="bi bi-pencil me-2"></i>Edit
                                                 </button>
                                             </li>
@@ -291,7 +293,8 @@
                                                 <button class="dropdown-item text-danger"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#archiveUserModal"
-                                                        onclick="openArchiveUser('@u.Id','@u.Name')">
+                                                        data-id="@u.Id" data-name="@u.Name"
+                                                        onclick="openArchiveUserFromData(this)">
                                                     <i class="bi bi-archive me-2"></i>Archive
                                                 </button>
                                             </li>
@@ -466,6 +469,19 @@
     function openArchiveUser(id, name) {
         document.getElementById('archiveUserId').value = id;
         document.getElementById('archiveUserName').textContent = name;
+    }
+
+    // Safe data-attribute based functions (XSS-protected)
+    function openEditFromData(btn) {
+        openEdit(btn.dataset.id, btn.dataset.name, btn.dataset.email, btn.dataset.role, btn.dataset.barangay);
+    }
+
+    function openViewFromData(btn) {
+        openView(btn.dataset.id, btn.dataset.name, btn.dataset.email, btn.dataset.role, btn.dataset.status, btn.dataset.barangay);
+    }
+
+    function openArchiveUserFromData(btn) {
+        openArchiveUser(btn.dataset.id, btn.dataset.name);
     }
 
     function validateUserForm() {

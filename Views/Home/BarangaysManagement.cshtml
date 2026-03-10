@@ -92,7 +92,8 @@
                         @foreach (var b in Model.Barangays)
                         {
                             <tr class="clickable-row" style="cursor: pointer;"
-                                onclick="openViewAndShowModal('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                data-id="@b.Id" data-name="@b.Name" data-code="@b.Code" data-municipality="@b.Municipality" data-province="@b.Province" data-region="@b.Region" data-email="@b.ContactEmail" data-phone="@b.ContactPhone" data-address="@b.Address"
+                                onclick="openViewAndShowModalFromData(this)">
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">@b.Name.Substring(0, 1).ToUpper()</div>
@@ -117,7 +118,8 @@
                                     <button class="btn btn-sm btn-light text-secondary border-0 me-1"
                                             title="View Details"
                                             data-bs-toggle="modal" data-bs-target="#viewModal"
-                                            onclick="openView('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                            data-id="@b.Id" data-name="@b.Name" data-code="@b.Code" data-municipality="@b.Municipality" data-province="@b.Province" data-region="@b.Region" data-email="@b.ContactEmail" data-phone="@b.ContactPhone" data-address="@b.Address"
+                                            onclick="openViewFromData(this)">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                     <div class="dropdown d-inline">
@@ -129,7 +131,8 @@
                                             {
                                                 <li>
                                                     <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createEditModal"
-                                                            onclick="openEdit('@b.Id','@b.Name','@b.Code','@b.Municipality','@b.Province','@b.Region','@b.ContactEmail','@b.ContactPhone','@b.Address')">
+                                                            data-id="@b.Id" data-name="@b.Name" data-code="@b.Code" data-municipality="@b.Municipality" data-province="@b.Province" data-region="@b.Region" data-email="@b.ContactEmail" data-phone="@b.ContactPhone" data-address="@b.Address"
+                                                            onclick="openEditFromData(this)">
                                                         Edit
                                                     </button>
                                                 </li>
@@ -283,6 +286,19 @@
         openView(id, name, code, municipality, province, region, email, phone, address);
         var viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
         viewModal.show();
+    }
+
+    // Safe data-attribute based functions (XSS-protected)
+    function openEditFromData(btn) {
+        openEdit(btn.dataset.id, btn.dataset.name, btn.dataset.code, btn.dataset.municipality, btn.dataset.province, btn.dataset.region, btn.dataset.email, btn.dataset.phone, btn.dataset.address);
+    }
+
+    function openViewFromData(btn) {
+        openView(btn.dataset.id, btn.dataset.name, btn.dataset.code, btn.dataset.municipality, btn.dataset.province, btn.dataset.region, btn.dataset.email, btn.dataset.phone, btn.dataset.address);
+    }
+
+    function openViewAndShowModalFromData(el) {
+        openViewAndShowModal(el.dataset.id, el.dataset.name, el.dataset.code, el.dataset.municipality, el.dataset.province, el.dataset.region, el.dataset.email, el.dataset.phone, el.dataset.address);
     }
 
     // Ensure Bootstrap dropdowns are initialized

@@ -189,6 +189,11 @@ namespace JAS_MINE_IT15.Controllers.Api
             if (document == null)
                 return NotFound(new { error = "Document not found" });
 
+            // TENANT VALIDATION: Ensure user can only access their barangay's documents
+            var currentBarangayId = _tenantService.GetCurrentBarangayId();
+            if (!_tenantService.IsSuperAdmin() && document.BarangayId != currentBarangayId)
+                return Forbid();
+
             // Increment view count
             document.ViewCount++;
             await _context.SaveChangesAsync();

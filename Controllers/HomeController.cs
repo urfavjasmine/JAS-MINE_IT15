@@ -1700,12 +1700,13 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [DenyViewOnly]
         public async Task<IActionResult> EditPolicy(string id, string title, string description, string status = "all", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
 
             var role = HttpContext.Session.GetString("Role") ?? "";
-            var canEdit = role == "barangay_secretary" || role == "barangay_admin";
+            var canEdit = role == "barangay_secretary" || role == "barangay_admin" || role == "super_admin";
             if (!canEdit) return RedirectToAction(nameof(PoliciesManagement), new { status, q });
 
             if (!int.TryParse(id, out var policyId))
