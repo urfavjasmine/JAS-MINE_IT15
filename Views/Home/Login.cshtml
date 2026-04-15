@@ -125,8 +125,44 @@
             margin-top: 6px;
         }
 
+        /* reCAPTCHA Widget Styling */
+        .g-recaptcha {
+            display: flex;
+            justify-content: center;
+            margin: 8px 0;
+        }
 
-    </style>
+        .recaptcha-error {
+            border: 1px solid #dc3545;
+            border-radius: 4px;
+            padding: 8px 12px;
+            background-color: #f8d7da;
+            color: #721c24;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .recaptcha-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .recaptcha-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #163a5f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 </head>
 
 <body>
@@ -155,7 +191,7 @@
                 }
 
                 <form asp-action="Login" method="post" id="loginForm">
-                    @Html.AntiForgeryToken()
+                    @* Hidden field for reCAPTCHA v3 token *@
                     <input asp-for="RecaptchaToken" type="hidden" id="recaptcha-token" />
 
                     <div class="mb-3">
@@ -182,23 +218,6 @@
                         </div>
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
-
-                    @if (Model.CaptchaRequired)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Security Verification</label>
-                            @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
-                            {
-                                <div class="alert alert-warning small mb-0">
-                                    Security verification is unavailable. Please contact the administrator.
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="g-recaptcha" data-sitekey="@recaptchaSiteKey"></div>
-                            }
-                        </div>
-                    }
 
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
@@ -229,10 +248,56 @@
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }
     <script>
-        // Toggle password visibility
-        document.getElementById('togglePassword')?.addEventListener('click', function () {
+        // ════════════════════════════════════════════════════════════════════════
+        // Google reCAPTCHA v3 Integration - Login Form (Invisible)
+        // ════════════════════════════════════════════════════════════════════════
+
+        // Configuration
+        const RecaptchaConfig = {
+            action: 'login',
+            enabled: @(string.IsNullOrWhiteSpace(recaptchaSiteKey) ? "false" : "true"),
+            siteKey: '@recaptchaSiteKey'
+        };
+
+        // Debug logging utility
+        const RecaptchaDebug = {
+            enabled: true,
+            log: function(message, data) {
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    console.log(`[reCAPTCHA v3] ${message}`, data || '');
+                }
+            },
+            error: function(message, data) {
+                console.error(`[reCAPTCHA v3 ERROR] ${message}`, data || '');
+            }
+        };
+
+        // Wait for reCAPTCHA to be ready, then initialize
+        if (RecaptchaConfig.enabled) {
+            grecaptcha.ready(function() {
+                RecaptchaDebug.log('reCAPTCHA v3 API ready');
+                
+                // Pre-fetch token when page loads (optional, for better UX)
+                grecaptcha.execute(RecaptchaConfig.siteKey, { action: RecaptchaConfig.action })
+                    .then(function(token) {
+                        RecaptchaDebug.log('Initial token fetched', token.substring(0, 20) + '...');
+                    })
+                    .catch(function(error) {
+                        RecaptchaDebug.error('Failed to fetch initial token', error);
+                    });
+            });
+        } else {
+            RecaptchaDebug.error('reCAPTCHA is not configured or enabled');
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // Password visibility toggle
+        // ────────────────────────────────────────────────────────────────
+        document.getElementById('togglePassword')?.addEventListener('click', function (e) {
+            e.preventDefault();
             const passwordInput = document.getElementById('passwordInput');
             const toggleIcon = document.getElementById('toggleIcon');
+            
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 toggleIcon.classList.remove('bi-eye');
@@ -244,23 +309,61 @@
             }
         });
 
-        document.getElementById('loginForm')?.addEventListener('submit', function (e) {
-            const captchaRequired = @Model.CaptchaRequired.ToString().ToLower();
-            if (!captchaRequired) {
-                return;
+        // ────────────────────────────────────────────────────────────────
+        // Form submission with reCAPTCHA v3 token generation
+        // ────────────────────────────────────────────────────────────────
+        document.getElementById('loginForm')?.addEventListener('submit', async function (e) {
+            // If reCAPTCHA is not enabled, allow normal form submission
+            if (!RecaptchaConfig.enabled) {
+                RecaptchaDebug.log('reCAPTCHA not enabled, proceeding with login');
+                return true;
             }
 
-            const tokenInput = document.getElementById('recaptcha-token');
-            const hasCaptchaApi = typeof grecaptcha !== 'undefined';
-            const token = hasCaptchaApi ? grecaptcha.getResponse() : '';
-
-            if (!token) {
+            // Validate reCAPTCHA API is available
+            if (typeof grecaptcha === 'undefined') {
+                RecaptchaDebug.error('grecaptcha API not available');
                 e.preventDefault();
-                alert('Please complete the CAPTCHA verification.');
-                return;
+                alert('Security verification is not available. Please refresh the page and try again.');
+                return false;
             }
 
-            tokenInput.value = token;
+            RecaptchaDebug.log('Form submit triggered, executing reCAPTCHA v3...');
+            e.preventDefault();
+
+            try {
+                // Execute reCAPTCHA v3 to get token
+                const token = await grecaptcha.execute(RecaptchaConfig.siteKey, { action: RecaptchaConfig.action });
+                
+                if (!token || token.trim() === '') {
+                    RecaptchaDebug.error('reCAPTCHA returned empty token');
+                    alert('Security verification failed. Please try again.');
+                    return false;
+                }
+
+                RecaptchaDebug.log('reCAPTCHA v3 token received', token.substring(0, 20) + '...');
+
+                // Set token in hidden input
+                const tokenInput = document.getElementById('recaptcha-token');
+                tokenInput.value = token;
+
+                // Show loading state
+                const submitButton = this.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    const originalText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
+                }
+
+                // Submit the form
+                RecaptchaDebug.log('Submitting form with reCAPTCHA token');
+                this.submit();
+                return false; // Prevent default submission
+            }
+            catch (error) {
+                RecaptchaDebug.error('reCAPTCHA execution failed', error);
+                alert('Security verification encountered an error. Please try again.');
+                return false;
+            }
         });
     </script>
 

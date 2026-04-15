@@ -101,16 +101,54 @@ namespace JAS_MINE_IT15.Controllers
             ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
         }
 
+        /// <summary>
+        /// Validates if reCAPTCHA is properly configured with both keys.
+        /// </summary>
+        private bool IsCaptchaConfigured()
+        {
+            return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
+                && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey)
+                && _recaptchaSettings.SecretKey != "YOUR_SECRET_KEY_HERE";
+        }
+
+        /// <summary>
+        /// Verifies a reCAPTCHA v3 token and returns whether the score meets the threshold.
+        /// Logs detailed score information for monitoring.
+        /// </summary>
         private async Task<bool> IsRecaptchaValidAsync(string? token)
         {
             if (!IsCaptchaConfigured())
             {
-                _logger.LogWarning("reCAPTCHA is not configured. Security verification blocked.");
+                _logger.LogError("reCAPTCHA is not properly configured. " +
+                    "Please ensure both SiteKey and SecretKey are set in appsettings.json. " +
+                    "Security verification has been blocked.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _logger.LogWarning("reCAPTCHA token is empty or null. Verification failed.");
                 return false;
             }
 
             var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-            return await _recaptchaService.VerifyTokenAsync(token ?? string.Empty, remoteIp);
+            _logger.LogDebug("Attempting reCAPTCHA v3 verification. RemoteIP: {RemoteIp}, Action: {Action}, Threshold: {Threshold}",
+                remoteIp ?? "unknown", _recaptchaSettings.Action, _recaptchaSettings.ScoreThreshold);
+
+            var (isValid, score, details) = await _recaptchaService.VerifyTokenWithScoreAsync(token, remoteIp);
+
+            if (!isValid)
+            {
+                _logger.LogWarning("reCAPTCHA v3 verification failed. Score: {Score}, Details: {Details}, IP: {RemoteIp}",
+                    score >= 0 ? score.ToString("F2") : "N/A", details, remoteIp ?? "unknown");
+            }
+            else
+            {
+                _logger.LogDebug("reCAPTCHA v3 verification succeeded. Score: {Score:F2}, Action: {Action}, IP: {RemoteIp}",
+                    score, _recaptchaSettings.Action, remoteIp ?? "unknown");
+            }
+
+            return isValid;
         }
 
         // GET: Home Index
@@ -978,7 +1016,7 @@ namespace JAS_MINE_IT15.Controllers
             });
         }
 
-        // ✅ UPDATED: POST /Home/Login (Identity DB login)
+        // ✅ POST /Home/Login (Identity DB login with reCAPTCHA validation)
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -988,35 +1026,48 @@ namespace JAS_MINE_IT15.Controllers
             var failedAttempts = GetLoginFailedAttempts();
             var captchaRequired = failedAttempts >= 3;
 
+            // Validate model state
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Login attempt failed - invalid model state for email: {Email}", model.Email ?? "unknown");
                 model.ErrorMessage = "Please fill up all required fields.";
                 model.CaptchaRequired = captchaRequired;
                 SetRecaptchaSiteKey();
                 return View(model);
             }
 
-            if (captchaRequired && !await IsRecaptchaValidAsync(model.RecaptchaToken))
+            // 🔒 Validate reCAPTCHA if required (after 3 failed attempts)
+            if (captchaRequired)
             {
-                failedAttempts = IncrementLoginFailedAttempts();
-                _logger.LogWarning("Login blocked due to invalid CAPTCHA after {AttemptCount} failed attempts.", failedAttempts);
-                model.ErrorMessage = "Please complete CAPTCHA verification before signing in.";
-                model.CaptchaRequired = true;
-                SetRecaptchaSiteKey();
-                return View(model);
+                _logger.LogInformation("reCAPTCHA validation required - {FailedAttempts} failed attempts. Email: {Email}",
+                    failedAttempts, model.Email ?? "unknown");
+
+                if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
+                {
+                    failedAttempts = IncrementLoginFailedAttempts();
+                    _logger.LogWarning("Login blocked due to invalid CAPTCHA. " +
+                        "Failed attempts: {FailedAttempts}, Email: {Email}", failedAttempts, model.Email ?? "unknown");
+                    
+                    model.ErrorMessage = "CAPTCHA verification failed. Please complete the security check and try again.";
+                    model.CaptchaRequired = true;
+                    SetRecaptchaSiteKey();
+                    return View(model);
+                }
+
+                _logger.LogInformation("reCAPTCHA validation succeeded for email: {Email}", model.Email ?? "unknown");
             }
 
+            // Prepare email and password
             model.Email = (model.Email ?? "").Trim();
             model.Password = (model.Password ?? "").Trim();
 
-            Console.WriteLine($"[Login] Attempting login for: {model.Email}");
-            _logger.LogInformation("Login attempt for: {Email}", model.Email);
+            _logger.LogInformation("Login attempt for email: {Email}", model.Email);
 
+            // Find user by email
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
-                Console.WriteLine($"[Login] User NOT found: {model.Email}");
-                _logger.LogWarning("Failed login attempt — user not found: {Email}", model.Email);
+                _logger.LogWarning("Failed login - user not found: {Email}", model.Email);
                 failedAttempts = IncrementLoginFailedAttempts();
                 model.ErrorMessage = "Invalid email or password.";
                 model.CaptchaRequired = failedAttempts >= 3;
@@ -1024,8 +1075,9 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            _logger.LogInformation("User found: {Email}", user.Email);
+            _logger.LogDebug("User found: {Email}, attempting password sign-in", user.Email);
 
+            // Attempt password sign-in
             var result = await _signInManager.PasswordSignInAsync(
                 user.UserName!,
                 model.Password,
@@ -1033,11 +1085,11 @@ namespace JAS_MINE_IT15.Controllers
                 lockoutOnFailure: true
             );
 
-            _logger.LogInformation("SignIn result for {Email}: Succeeded={Succeeded}", model.Email, result.Succeeded);
-
             if (!result.Succeeded)
             {
-                _logger.LogWarning("Failed login attempt for: {Email} — Succeeded={Succeeded}, IsLockedOut={IsLockedOut}", model.Email, result.Succeeded, result.IsLockedOut);
+                _logger.LogWarning("Failed login attempt - invalid password or locked out. " +
+                    "Email: {Email}, IsLockedOut: {IsLockedOut}", model.Email, result.IsLockedOut);
+                
                 failedAttempts = IncrementLoginFailedAttempts();
                 model.ErrorMessage = "Invalid email or password.";
                 model.CaptchaRequired = failedAttempts >= 3;
@@ -1045,7 +1097,7 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            // Get user roles from Identity
+            // Login succeeded - continue with role and business user processing
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
