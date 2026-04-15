@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace JAS_MINE_IT15.Controllers
 {
@@ -26,7 +27,9 @@ namespace JAS_MINE_IT15.Controllers
         /// </summary>
         private string GetCurrentRole()
         {
-            return HttpContext.Session.GetString("Role") ?? "";
+            return User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value
+                ?? HttpContext.Session.GetString("Role")
+                ?? "";
         }
 
         /// <summary>
@@ -34,10 +37,47 @@ namespace JAS_MINE_IT15.Controllers
         /// </summary>
         private int? GetCurrentBarangayId()
         {
+            var claimValue = User.Claims.FirstOrDefault(c => c.Type == "BarangayId")?.Value;
+            if (int.TryParse(claimValue, out var claimId))
+                return claimId;
+
             var barangayIdStr = HttpContext.Session.GetString("BarangayId");
             if (int.TryParse(barangayIdStr, out var id))
                 return id;
+
+            var userIdStr = HttpContext.Session.GetString("UserId");
+            if (int.TryParse(userIdStr, out var userId))
+            {
+                return _context.BusinessUsers
+                    .Where(u => u.IsActive && u.Id == userId)
+                    .Select(u => u.BarangayId)
+                    .FirstOrDefault();
+            }
+
             return null;
+        }
+
+        private string GetRoleLabel()
+        {
+            return GetCurrentRole() switch
+            {
+                "super_admin" => "Super Admin",
+                "barangay_admin" => "Barangay Administrator",
+                "user" => "User",
+                _ => "User"
+            };
+        }
+
+        private string GetCurrentBarangayName()
+        {
+            var barangayId = GetCurrentBarangayId();
+            if (!barangayId.HasValue)
+                return string.Empty;
+
+            return _context.Barangays
+                .Where(b => b.IsActive && b.Id == barangayId.Value)
+                .Select(b => b.Name)
+                .FirstOrDefault() ?? string.Empty;
         }
 
         /// <summary>
@@ -79,7 +119,7 @@ namespace JAS_MINE_IT15.Controllers
             var vm = new SystemDashboardViewModel
             {
                 Role = GetCurrentRole(),
-                RoleLabel = HttpContext.Session.GetString("RoleLabel") ?? "Super Admin"
+                RoleLabel = GetRoleLabel()
             };
 
             // System-wide stats
@@ -583,7 +623,7 @@ namespace JAS_MINE_IT15.Controllers
         /// Barangay-specific dashboard filtered by the user's BarangayId.
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = "barangay_admin,barangay_secretary,barangay_staff,council_member")]
+        [Authorize(Roles = "barangay_admin")]
         public async Task<IActionResult> Barangay()
         {
             var barangayId = GetCurrentBarangayId();
@@ -592,9 +632,9 @@ namespace JAS_MINE_IT15.Controllers
             var vm = new BarangayDashboardViewModel
             {
                 Role = role,
-                RoleLabel = HttpContext.Session.GetString("RoleLabel") ?? "",
+                RoleLabel = GetRoleLabel(),
                 BarangayId = barangayId,
-                BarangayName = HttpContext.Session.GetString("Barangay") ?? "",
+                BarangayName = GetCurrentBarangayName(),
                 IsViewOnly = IsViewOnly(),
                 CanModify = CanModify()
             };

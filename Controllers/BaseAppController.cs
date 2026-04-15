@@ -20,19 +20,23 @@ namespace JAS_MINE_IT15.Controllers
         // ── Session helpers ──
 
         protected bool IsLoggedIn() =>
-            !string.IsNullOrEmpty(HttpContext.Session.GetString("UserName"));
+            User?.Identity?.IsAuthenticated == true;
 
         protected bool IsAdminRole()
         {
-            var role = HttpContext.Session.GetString("Role");
-            return role == "super_admin" || role == "barangay_admin";
+            return User.IsInRole("super_admin") || User.IsInRole("barangay_admin");
         }
 
         protected string GetCurrentRole() =>
-            HttpContext.Session.GetString("Role") ?? "";
+            User.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role)?.Value
+            ?? HttpContext.Session.GetString("Role")
+            ?? "";
 
         protected int? GetCurrentBarangayId()
         {
+            var claimValue = User.Claims.FirstOrDefault(c => c.Type == "BarangayId")?.Value;
+            if (int.TryParse(claimValue, out var claimId)) return claimId;
+
             var s = HttpContext.Session.GetString("BarangayId");
             return int.TryParse(s, out var id) ? id : null;
         }
@@ -41,6 +45,9 @@ namespace JAS_MINE_IT15.Controllers
 
         protected int? GetCurrentUserId()
         {
+            var claimValue = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(claimValue, out var claimId)) return claimId;
+
             var s = HttpContext.Session.GetString("UserId");
             return int.TryParse(s, out var id) ? id : null;
         }
@@ -77,8 +84,8 @@ namespace JAS_MINE_IT15.Controllers
                 var log = new AuditLog
                 {
                     UserId = GetCurrentUserId(),
-                    UserEmail = HttpContext.Session.GetString("UserName"),
-                    UserName = HttpContext.Session.GetString("UserName"),
+                    UserEmail = User?.Identity?.Name ?? HttpContext.Session.GetString("UserName"),
+                    UserName = User?.Identity?.Name ?? HttpContext.Session.GetString("UserName"),
                     Action = action,
                     Module = module,
                     TargetId = targetId,

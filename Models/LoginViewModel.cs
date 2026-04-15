@@ -13,6 +13,9 @@ namespace JAS_MINE_IT15.Models
         [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters.")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
+
+        public string? RecaptchaToken { get; set; }
+        public bool CaptchaRequired { get; set; }
         public string ErrorMessage { get; set; } = "";
     }
 }

@@ -4,6 +4,7 @@
 @{
     Layout = null;
     ViewData["Title"] = "Login";
+    var recaptchaSiteKey = ViewData["RecaptchaSiteKey"]?.ToString() ?? "";
 }
 
 <!DOCTYPE html>
@@ -153,8 +154,9 @@
                     <div class="alert alert-danger">@Model.ErrorMessage</div>
                 }
 
-                <form asp-action="Login" method="post">
+                <form asp-action="Login" method="post" id="loginForm">
                     @Html.AntiForgeryToken()
+                    <input asp-for="RecaptchaToken" type="hidden" id="recaptcha-token" />
 
                     <div class="mb-3">
                         <label class="form-label">Email Address</label>
@@ -181,6 +183,23 @@
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
 
+                    @if (Model.CaptchaRequired)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Security Verification</label>
+                            @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
+                            {
+                                <div class="alert alert-warning small mb-0">
+                                    Security verification is unavailable. Please contact the administrator.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="g-recaptcha" data-sitekey="@recaptchaSiteKey"></div>
+                            }
+                        </div>
+                    }
+
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
                     </button>
@@ -205,6 +224,10 @@
     </div>
 
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
+    {
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    }
     <script>
         // Toggle password visibility
         document.getElementById('togglePassword')?.addEventListener('click', function () {
@@ -219,6 +242,25 @@
                 toggleIcon.classList.remove('bi-eye-slash');
                 toggleIcon.classList.add('bi-eye');
             }
+        });
+
+        document.getElementById('loginForm')?.addEventListener('submit', function (e) {
+            const captchaRequired = @Model.CaptchaRequired.ToString().ToLower();
+            if (!captchaRequired) {
+                return;
+            }
+
+            const tokenInput = document.getElementById('recaptcha-token');
+            const hasCaptchaApi = typeof grecaptcha !== 'undefined';
+            const token = hasCaptchaApi ? grecaptcha.getResponse() : '';
+
+            if (!token) {
+                e.preventDefault();
+                alert('Please complete the CAPTCHA verification.');
+                return;
+            }
+
+            tokenInput.value = token;
         });
     </script>
 

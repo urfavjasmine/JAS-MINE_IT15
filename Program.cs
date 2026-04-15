@@ -1,7 +1,10 @@
 using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Filters;
 using JAS_MINE_IT15.Hubs;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -14,7 +17,16 @@ builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration)
           .Enrich.FromLogContext());
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<SanitizeInputFilter>();
+builder.Services.AddScoped<ValidatePostModelFilter>();
+builder.Services.AddScoped<CrudActionLoggingFilter>();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.AddService<SanitizeInputFilter>();
+    options.Filters.AddService<ValidatePostModelFilter>();
+    options.Filters.AddService<CrudActionLoggingFilter>();
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
 builder.Services.AddSignalR();
 builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
@@ -33,7 +45,10 @@ builder.Services.AddScoped<IReportingService, ReportingService>();
 // PayMongo configuration
 builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(
     builder.Configuration.GetSection("PayMongo"));
+builder.Services.Configure<JAS_MINE_IT15.Models.RecaptchaSettings>(
+    builder.Configuration.GetSection("Recaptcha"));
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
+builder.Services.AddHttpClient<IRecaptchaService, RecaptchaService>();
 
 // DB
 var connectionString = "Server=JASMINE\\SQLEXPRESS;Database=JAS_MINE_DB_New;Integrated Security=True;MultipleActiveResultSets=True;Encrypt=False;TrustServerCertificate=True";
@@ -45,14 +60,36 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+    options.Password.RequiredUniqueChars = 1;
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultProvider;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(1);
+});
+
+builder.Services.AddTransient<IEmailSender, MockEmailSender>();
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = true;
     options.LoginPath = "/Home/Login";
-    options.AccessDeniedPath = "/Home/Login";
+    options.AccessDeniedPath = "/Home/AccessDenied";
     options.LogoutPath = "/Home/Logout";
 });
 
@@ -60,11 +97,11 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.IdleTimeout = TimeSpan.FromMinutes(20);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 // ── Rate Limiting ──
@@ -113,6 +150,7 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseStatusCodePagesWithReExecute("/Home/StatusCodePage", "?code={0}");
 
 // ── Security Headers Middleware ──
 app.Use(async (context, next) =>
@@ -158,30 +196,37 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("EF migrations applied successfully.");
 
         await IdentitySeeder.SeedRoles(services);
-        await IdentitySeeder.SeedSuperAdmin(services);
-        await IdentitySeeder.SeedDefaultUsers(services);
-        await IdentitySeeder.SeedTestBarangayAndLinkUsers(db);
         await IdentitySeeder.SeedSubscriptionPlans(db);
 
-        var expiredCount = await db.Database.ExecuteSqlRawAsync(@"
-            UPDATE dbo.BarangaySubscriptions
-            SET Status = 'Expired', UpdatedAt = GETDATE()
-            WHERE IsActive = 1
-              AND Status = 'Active'
-              AND EndDate < CAST(GETDATE() AS DATE)
-        ");
+        var expiredSubs = await db.BarangaySubscriptions
+            .Where(s => s.IsActive && s.Status == "Active" && s.EndDate < DateTime.Today)
+            .ToListAsync();
+        foreach (var sub in expiredSubs)
+        {
+            sub.Status = "Expired";
+            sub.UpdatedAt = DateTime.Now;
+        }
+        var expiredCount = expiredSubs.Count;
         if (expiredCount > 0)
+        {
+            await db.SaveChangesAsync();
             logger.LogInformation("Auto-expired {Count} subscription(s) past EndDate.", expiredCount);
+        }
 
-        var overdueCount = await db.Database.ExecuteSqlRawAsync(@"
-            UPDATE dbo.Invoices
-            SET Status = 'Overdue', UpdatedAt = GETDATE()
-            WHERE IsActive = 1
-              AND Status = 'Unpaid'
-              AND DueDate < CAST(GETDATE() AS DATE)
-        ");
+        var overdueInvoices = await db.Invoices
+            .Where(i => i.IsActive && i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < DateTime.Today)
+            .ToListAsync();
+        foreach (var invoice in overdueInvoices)
+        {
+            invoice.Status = "Overdue";
+            invoice.UpdatedAt = DateTime.Now;
+        }
+        var overdueCount = overdueInvoices.Count;
         if (overdueCount > 0)
+        {
+            await db.SaveChangesAsync();
             logger.LogInformation("Marked {Count} invoice(s) as Overdue.", overdueCount);
+        }
     }
     catch (Exception ex)
     {

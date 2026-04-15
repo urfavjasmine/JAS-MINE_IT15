@@ -12,9 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
 
 namespace JAS_MINE_IT15.Controllers
 {
@@ -28,6 +31,10 @@ namespace JAS_MINE_IT15.Controllers
         private readonly INotificationService _notificationService;
         private readonly ILogger<HomeController> _logger;
         private readonly IPayMongoService _payMongoService;
+        private readonly IEmailSender _emailSender;
+        private readonly IRecaptchaService _recaptchaService;
+        private readonly RecaptchaSettings _recaptchaSettings;
+        private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
@@ -35,7 +42,10 @@ namespace JAS_MINE_IT15.Controllers
             ApplicationDbContext context,
             INotificationService notificationService,
             ILogger<HomeController> logger,
-            IPayMongoService payMongoService)
+            IPayMongoService payMongoService,
+            IEmailSender emailSender,
+            IRecaptchaService recaptchaService,
+            IOptions<RecaptchaSettings> recaptchaOptions)
             : base(context)
         {
             _signInManager = signInManager;
@@ -44,6 +54,9 @@ namespace JAS_MINE_IT15.Controllers
             _notificationService = notificationService;
             _logger = logger;
             _payMongoService = payMongoService;
+            _emailSender = emailSender;
+            _recaptchaService = recaptchaService;
+            _recaptchaSettings = recaptchaOptions.Value;
         }
 
         // Helper methods inherited from BaseAppController
@@ -57,6 +70,47 @@ namespace JAS_MINE_IT15.Controllers
                 .AnyAsync(u => u.BarangayId == barangayId 
                     && u.Role == "barangay_admin" 
                     && u.IsActive);
+        }
+
+        private int GetLoginFailedAttempts()
+        {
+            var raw = HttpContext.Session.GetString(LoginFailedAttemptsKey);
+            return int.TryParse(raw, out var value) ? value : 0;
+        }
+
+        private int IncrementLoginFailedAttempts()
+        {
+            var nextValue = GetLoginFailedAttempts() + 1;
+            HttpContext.Session.SetString(LoginFailedAttemptsKey, nextValue.ToString());
+            return nextValue;
+        }
+
+        private void ResetLoginFailedAttempts()
+        {
+            HttpContext.Session.Remove(LoginFailedAttemptsKey);
+        }
+
+        private bool IsCaptchaConfigured()
+        {
+            return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
+                && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey);
+        }
+
+        private void SetRecaptchaSiteKey()
+        {
+            ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
+        }
+
+        private async Task<bool> IsRecaptchaValidAsync(string? token)
+        {
+            if (!IsCaptchaConfigured())
+            {
+                _logger.LogWarning("reCAPTCHA is not configured. Security verification blocked.");
+                return false;
+            }
+
+            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            return await _recaptchaService.VerifyTokenAsync(token ?? string.Empty, remoteIp);
         }
 
         // GET: Home Index
@@ -819,6 +873,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult Register()
         {
             if (IsLoggedIn()) return RedirectToDashboard();
+            SetRecaptchaSiteKey();
             return View(new RegisterViewModel());
         }
 
@@ -838,6 +893,15 @@ namespace JAS_MINE_IT15.Controllers
                 
                 // Keep user on review step when there are validation errors
                 model.CurrentStep = 3;
+                SetRecaptchaSiteKey();
+                return View(model);
+            }
+
+            if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
+            {
+                model.ErrorMessage = "Security verification failed. Please complete CAPTCHA and try again.";
+                model.CurrentStep = 3;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -850,6 +914,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 model.ErrorMessage = "A user with this email already exists.";
                 model.CurrentStep = 3;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -860,6 +925,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 model.ErrorMessage = "A barangay with this name already exists.";
                 model.CurrentStep = 3;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -894,7 +960,7 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult Login(int? planId = null)
         {
             // If already logged in and a plan was selected, go to SelectPlan
-            if (IsLoggedIn())
+            if (User.Identity?.IsAuthenticated == true)
             {
                 if (planId.HasValue && GetCurrentRole() == "barangay_admin")
                     return RedirectToAction(nameof(SelectPlan), new { planId = planId.Value });
@@ -905,7 +971,11 @@ namespace JAS_MINE_IT15.Controllers
             if (planId.HasValue)
                 TempData["SelectedPlanId"] = planId.Value;
 
-            return View(new LoginViewModel());
+            SetRecaptchaSiteKey();
+            return View(new LoginViewModel
+            {
+                CaptchaRequired = GetLoginFailedAttempts() >= 3
+            });
         }
 
         // ✅ UPDATED: POST /Home/Login (Identity DB login)
@@ -915,9 +985,24 @@ namespace JAS_MINE_IT15.Controllers
         [EnableRateLimiting("login")]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
+            var failedAttempts = GetLoginFailedAttempts();
+            var captchaRequired = failedAttempts >= 3;
+
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill up all required fields.";
+                model.CaptchaRequired = captchaRequired;
+                SetRecaptchaSiteKey();
+                return View(model);
+            }
+
+            if (captchaRequired && !await IsRecaptchaValidAsync(model.RecaptchaToken))
+            {
+                failedAttempts = IncrementLoginFailedAttempts();
+                _logger.LogWarning("Login blocked due to invalid CAPTCHA after {AttemptCount} failed attempts.", failedAttempts);
+                model.ErrorMessage = "Please complete CAPTCHA verification before signing in.";
+                model.CaptchaRequired = true;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -932,7 +1017,10 @@ namespace JAS_MINE_IT15.Controllers
             {
                 Console.WriteLine($"[Login] User NOT found: {model.Email}");
                 _logger.LogWarning("Failed login attempt — user not found: {Email}", model.Email);
+                failedAttempts = IncrementLoginFailedAttempts();
                 model.ErrorMessage = "Invalid email or password.";
+                model.CaptchaRequired = failedAttempts >= 3;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -942,7 +1030,7 @@ namespace JAS_MINE_IT15.Controllers
                 user.UserName!,
                 model.Password,
                 isPersistent: false,
-                lockoutOnFailure: false
+                lockoutOnFailure: true
             );
 
             _logger.LogInformation("SignIn result for {Email}: Succeeded={Succeeded}", model.Email, result.Succeeded);
@@ -950,7 +1038,10 @@ namespace JAS_MINE_IT15.Controllers
             if (!result.Succeeded)
             {
                 _logger.LogWarning("Failed login attempt for: {Email} — Succeeded={Succeeded}, IsLockedOut={IsLockedOut}", model.Email, result.Succeeded, result.IsLockedOut);
+                failedAttempts = IncrementLoginFailedAttempts();
                 model.ErrorMessage = "Invalid email or password.";
+                model.CaptchaRequired = failedAttempts >= 3;
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -962,33 +1053,18 @@ namespace JAS_MINE_IT15.Controllers
             var businessUser = await _context.BusinessUsers
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
 
-            // Auto-create or reactivate BusinessUser record if needed
-            if (businessUser == null)
+            if (businessUser == null || !businessUser.IsActive)
             {
-                // No BusinessUser exists at all - create one
-                businessUser = new Models.Entities.User
-                {
-                    Email = user.Email ?? model.Email,
-                    FullName = user.UserName ?? model.Email,
-                    PasswordHash = "IDENTITY_MANAGED",
-                    Role = role,
-                    IsActive = true,
-                    CreatedAt = DateTime.Now
-                };
-                _context.BusinessUsers.Add(businessUser);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Auto-created BusinessUser for: {Email}, Id: {Id}", model.Email, businessUser.Id);
-            }
-            else if (!businessUser.IsActive)
-            {
-                // BusinessUser exists but is inactive - reactivate it
-                businessUser.IsActive = true;
-                businessUser.UpdatedAt = DateTime.Now;
-                _logger.LogInformation("Reactivated BusinessUser for: {Email}, Id: {Id}", model.Email, businessUser.Id);
+                _logger.LogWarning("Login denied for {Email}: no active business profile found", model.Email);
+                await _signInManager.SignOutAsync();
+                failedAttempts = IncrementLoginFailedAttempts();
+                model.ErrorMessage = "Invalid email or password.";
+                model.CaptchaRequired = failedAttempts >= 3;
+                SetRecaptchaSiteKey();
+                return View(model);
             }
 
             int? barangayId = businessUser.BarangayId;
-            string barangayName = businessUser.BarangayName ?? "";
 
             // Update last login timestamp
             businessUser.LastLoginAt = DateTime.Now;
@@ -999,42 +1075,39 @@ namespace JAS_MINE_IT15.Controllers
 
             // ── Session fixation prevention: clear old session before setting new values ──
             HttpContext.Session.Clear();
+            ResetLoginFailedAttempts();
 
-            // Save to session
+            // Keep session minimal for security.
             HttpContext.Session.SetString("UserId", businessUser?.Id.ToString() ?? "");
-            HttpContext.Session.SetString("UserName", user.Email ?? "User");
             HttpContext.Session.SetString("Role", role);
-            HttpContext.Session.SetString("RoleLabel", GetRoleLabel(role));
-            HttpContext.Session.SetString("BarangayId", barangayId?.ToString() ?? "");
-            HttpContext.Session.SetString("Barangay", barangayName);
 
             _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", model.Email, role, barangayId);
 
+            await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
+
             // Redirect based on role
-            if (role == "super_admin")
+            switch (role)
             {
-                // Log login
-                await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
-                return RedirectToAction("System", "Dashboard"); // System dashboard
-            }
-            else
-            {
-                // Log login
-                await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
+                case "super_admin":
+                    return RedirectToAction("System", "Dashboard");
 
-                // If a plan was selected before login, check if they actually need to subscribe
-                if (TempData["SelectedPlanId"] is int selectedPlanId && role == "barangay_admin")
-                {
-                    var hasValidSub = await _context.BarangaySubscriptions
-                        .AnyAsync(s => s.BarangayId == barangayId && s.IsActive && (s.Status == "Active" || s.Status == "Pending") && s.EndDate >= DateTime.Today);
-
-                    if (!hasValidSub)
+                case "barangay_admin":
+                    // If a plan was selected before login, check if they actually need to subscribe
+                    if (TempData["SelectedPlanId"] is int selectedPlanId)
                     {
-                        return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
-                    }
-                }
+                        var hasValidSub = await _context.BarangaySubscriptions
+                            .AnyAsync(s => s.BarangayId == barangayId && s.IsActive && (s.Status == "Active" || s.Status == "Pending") && s.EndDate >= DateTime.Today);
 
-                return RedirectToAction("Barangay", "Dashboard"); // Barangay dashboard
+                        if (!hasValidSub)
+                            return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
+                    }
+                    return RedirectToAction("Barangay", "Dashboard");
+
+                case "user":
+                    return RedirectToAction("Index", "Home");
+
+                default:
+                    return RedirectToAction("Barangay", "Dashboard");
             }
         }
 
@@ -4140,7 +4213,13 @@ namespace JAS_MINE_IT15.Controllers
                 var identityUser = await _userManager.FindByEmailAsync(request.Email);
                 if (identityUser != null)
                 {
-                    var tempPassword = string.IsNullOrWhiteSpace(newPassword) ? "Reset@123" : newPassword;
+                    if (string.IsNullOrWhiteSpace(newPassword))
+                    {
+                        TempData["Error"] = "A new password is required to approve this request.";
+                        return RedirectToAction(nameof(PasswordRequests));
+                    }
+
+                    var tempPassword = newPassword;
                     var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
                     var resetResult = await _userManager.ResetPasswordAsync(identityUser, token, tempPassword);
 
@@ -4184,6 +4263,7 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public IActionResult ForgotPassword()
         {
+            SetRecaptchaSiteKey();
             return View(new ForgotPasswordViewModel());
         }
 
@@ -4196,38 +4276,116 @@ namespace JAS_MINE_IT15.Controllers
             if (!ModelState.IsValid)
             {
                 model.Submitted = false;
+                SetRecaptchaSiteKey();
+                return View(model);
+            }
+
+            if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
+            {
+                model.Submitted = false;
+                model.ErrorMessage = "Security verification failed. Please complete CAPTCHA and try again.";
+                SetRecaptchaSiteKey();
                 return View(model);
             }
 
             var email = (model.Email ?? "").Trim();
 
-            // Check if user exists
-            var user = await _context.BusinessUsers.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && u.IsActive);
-
-            if (user != null)
+            // Always return the same success response to prevent user enumeration.
+            var identityUser = await _userManager.FindByEmailAsync(email);
+            if (identityUser != null)
             {
-                // Generate a reset token
-                var token = Guid.NewGuid().ToString("N");
+                var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var callbackUrl = Url.Action(
+                    nameof(ResetPassword),
+                    "Home",
+                    new { token = encodedToken, email = identityUser.Email },
+                    protocol: Request.Scheme);
 
-                var resetRequest = new PasswordResetRequest
+                if (!string.IsNullOrWhiteSpace(callbackUrl))
                 {
-                    UserId = user.Id,
-                    Email = user.Email,
-                    Token = token,
-                    Status = "Pending",
-                    ExpiresAt = DateTime.Now.AddHours(24),
-                    IsActive = true,
-                    CreatedAt = DateTime.Now
-                };
-
-                _context.PasswordResetRequests.Add(resetRequest);
-                await _context.SaveChangesAsync();
+                    var body = $"Please reset your password by clicking this link: <a href='{callbackUrl}'>Reset Password</a>";
+                    try
+                    {
+                        await _emailSender.SendEmailAsync(identityUser.Email!, "Reset your JAS-MINE password", body);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send password reset email to {Email}", identityUser.Email);
+                    }
+                }
             }
 
-            // Always show success message (don't reveal if email exists)
             model.Submitted = true;
-            model.SuccessMessage = "If your email is registered, a password reset request has been submitted. Once approved by an administrator, you can login with the temporary password: Reset@123. Please change your password after logging in.";
+            model.SuccessMessage = "If your email is registered, a password reset link has been sent.";
 
+            return View(model);
+        }
+
+        // GET: /Home/ResetPassword
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult ResetPassword(string? token, string? email)
+        {
+            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(email))
+            {
+                return View(new ResetPasswordViewModel
+                {
+                    ErrorMessage = "Invalid password reset link."
+                });
+            }
+
+            return View(new ResetPasswordViewModel
+            {
+                Email = email,
+                Token = token
+            });
+        }
+
+        // POST: /Home/ResetPassword
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var user = await _userManager.FindByEmailAsync((model.Email ?? "").Trim());
+            if (user == null)
+            {
+                model.Submitted = true;
+                model.SuccessMessage = "Your password has been reset successfully. You may now log in.";
+                return View(model);
+            }
+
+            string decodedToken;
+            try
+            {
+                decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token ?? ""));
+            }
+            catch
+            {
+                model.ErrorMessage = "Invalid or expired reset token.";
+                return View(model);
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, model.Password);
+            if (result.Succeeded)
+            {
+                model.Submitted = true;
+                model.SuccessMessage = "Your password has been reset successfully. You may now log in.";
+                return View(model);
+            }
+
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
+
+            model.ErrorMessage = "Password reset failed. The token may be invalid or expired.";
             return View(model);
         }
 
@@ -4236,10 +4394,11 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
-            await LogAuditAsync("Logout", "Authentication", GetCurrentUserId(), "User", HttpContext.Session.GetString("UserName"), $"User logged out");
+            _logger.LogInformation("Logout for user {User}", User?.Identity?.Name ?? "unknown");
+            await LogAuditAsync("Logout", "Authentication", GetCurrentUserId(), "User", User?.Identity?.Name, "User logged out");
             HttpContext.Session.Clear();
             await _signInManager.SignOutAsync();
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Login));
         }
 
         // =============================================
@@ -4247,6 +4406,7 @@ namespace JAS_MINE_IT15.Controllers
         // =============================================
 
         [HttpGet]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> BarangaysManagement(string q = "")
         {
             if (!IsSuperAdmin()) return RedirectToDashboard();
@@ -4325,6 +4485,7 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> EditBarangay(int id, string name, string? code, string? municipality,
             string? province, string? region, string? contactEmail, string? contactPhone, string? address, string q = "")
         {
@@ -4972,10 +5133,22 @@ namespace JAS_MINE_IT15.Controllers
                 ViewBag.Status = "Active";
             }
 
-            // Sign out the user so they can login fresh
-            await _signInManager.SignOutAsync();
-            HttpContext.Session.Clear();
+            return View();
+        }
 
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult AccessDenied()
+        {
+            return View();
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult StatusCodePage(int code)
+        {
+            Response.StatusCode = code;
+            ViewBag.StatusCode = code;
             return View();
         }
 
@@ -5078,6 +5251,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/PendingPayments — Super Admin reviews pending payment proofs
         [HttpGet]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> PendingPayments()
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -5118,6 +5292,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/ApprovePayment — Super Admin approves a payment
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> ApprovePayment(int paymentId, string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -5191,6 +5366,7 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/CreateBarangayAdmin — Super Admin creates a barangay admin after payment approval
         [HttpGet]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> CreateBarangayAdmin(int barangayId, int subscriptionId, int paymentId)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -5227,6 +5403,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/CreateBarangayAdmin — Create the barangay admin user
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> CreateBarangayAdmin(CreateBarangayAdminViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
@@ -5319,6 +5496,7 @@ namespace JAS_MINE_IT15.Controllers
         // POST: /Home/RejectPayment — Super Admin rejects a payment with reason
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> RejectPayment(int paymentId, string rejectionReason = "", string q = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));

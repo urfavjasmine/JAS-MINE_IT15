@@ -362,3 +362,22 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 appsettings.Production.json
+
+# Sensitive configuration (may contain secrets)
+appsettings.json
+appsettings.Development.json
+appsettings.*.local.json
+secrets.json
+
+# Logs and temporary runtime files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.log
+logs/
+
+# OS-generated files
+Thumbs.db
+.DS_Store

@@ -44,26 +44,38 @@ namespace JAS_MINE_IT15.Services
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             // Auto-expire subscriptions past EndDate
-            var expiredCount = await db.Database.ExecuteSqlRawAsync(@"
-                UPDATE dbo.BarangaySubscriptions
-                SET Status = 'Expired', UpdatedAt = GETDATE()
-                WHERE IsActive = 1
-                  AND Status = 'Active'
-                  AND EndDate < CAST(GETDATE() AS DATE)
-            ", ct);
+            var expiredSubs = await db.BarangaySubscriptions
+                .Where(s => s.IsActive && s.Status == "Active" && s.EndDate < DateTime.Today)
+                .ToListAsync(ct);
+            foreach (var sub in expiredSubs)
+            {
+                sub.Status = "Expired";
+                sub.UpdatedAt = DateTime.Now;
+            }
+
+            var expiredCount = expiredSubs.Count;
             if (expiredCount > 0)
+            {
+                await db.SaveChangesAsync(ct);
                 _logger.LogInformation("Auto-expired {Count} subscription(s) past EndDate.", expiredCount);
+            }
 
             // Auto-mark overdue invoices
-            var overdueCount = await db.Database.ExecuteSqlRawAsync(@"
-                UPDATE dbo.Invoices
-                SET Status = 'Overdue', UpdatedAt = GETDATE()
-                WHERE IsActive = 1
-                  AND Status = 'Unpaid'
-                  AND DueDate < CAST(GETDATE() AS DATE)
-            ", ct);
+            var overdueInvoices = await db.Invoices
+                .Where(i => i.IsActive && i.Status == "Unpaid" && i.DueDate.HasValue && i.DueDate.Value < DateTime.Today)
+                .ToListAsync(ct);
+            foreach (var invoice in overdueInvoices)
+            {
+                invoice.Status = "Overdue";
+                invoice.UpdatedAt = DateTime.Now;
+            }
+
+            var overdueCount = overdueInvoices.Count;
             if (overdueCount > 0)
+            {
+                await db.SaveChangesAsync(ct);
                 _logger.LogInformation("Marked {Count} invoice(s) as Overdue.", overdueCount);
+            }
         }
     }
 }

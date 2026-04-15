@@ -282,24 +282,54 @@
                               notification.Type === 'discussion' ? 'bi-chat-dots text-secondary' :
                               'bi-bell text-primary';
 
-            const toastHtml = `
-                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" style="animation: slideIn 0.3s ease-out;">
-                    <div class="toast-header ${notification.Type === 'urgent' ? 'bg-danger text-white' : ''}">
-                        <i class="bi ${iconClass} me-2"></i>
-                        <strong class="me-auto">${notification.Title}</strong>
-                        <small>${notification.Time}</small>
-                        <button type="button" class="btn-close ${notification.Type === 'urgent' ? 'btn-close-white' : ''}" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        ${notification.Message}
-                        ${notification.Link !== '#' ? `<div class="mt-2"><a href="${notification.Link}" class="btn btn-sm btn-primary">View</a></div>` : ''}
-                    </div>
-                </div>
-            `;
+            const toast = document.createElement('div');
+            toast.className = 'toast show';
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            toast.style.animation = 'slideIn 0.3s ease-out';
 
-            const toastEl = document.createElement('div');
-            toastEl.innerHTML = toastHtml;
-            toastContainer.appendChild(toastEl.firstElementChild);
+            const toastHeader = document.createElement('div');
+            toastHeader.className = `toast-header ${notification.Type === 'urgent' ? 'bg-danger text-white' : ''}`;
+
+            const icon = document.createElement('i');
+            icon.className = `bi ${iconClass} me-2`;
+
+            const title = document.createElement('strong');
+            title.className = 'me-auto';
+            title.textContent = notification.Title ?? 'Notification';
+
+            const time = document.createElement('small');
+            time.textContent = notification.Time ?? '';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = `btn-close ${notification.Type === 'urgent' ? 'btn-close-white' : ''}`;
+            closeBtn.setAttribute('data-bs-dismiss', 'toast');
+
+            toastHeader.appendChild(icon);
+            toastHeader.appendChild(title);
+            toastHeader.appendChild(time);
+            toastHeader.appendChild(closeBtn);
+
+            const toastBody = document.createElement('div');
+            toastBody.className = 'toast-body';
+            toastBody.textContent = notification.Message ?? '';
+
+            if (notification.Link && notification.Link !== '#') {
+                const actionWrap = document.createElement('div');
+                actionWrap.className = 'mt-2';
+                const actionLink = document.createElement('a');
+                actionLink.className = 'btn btn-sm btn-primary';
+                actionLink.textContent = 'View';
+                actionLink.href = notification.Link;
+                actionWrap.appendChild(actionLink);
+                toastBody.appendChild(actionWrap);
+            }
+
+            toast.appendChild(toastHeader);
+            toast.appendChild(toastBody);
+            toastContainer.appendChild(toast);
 
             // Auto-remove after 8 seconds
             setTimeout(() => {
@@ -324,20 +354,37 @@
                               notification.Type === 'discussion' ? 'bi-chat-dots text-secondary' :
                               'bi-megaphone text-primary';
 
-            const itemHtml = `
-                <a href="${notification.Link}" class="dropdown-item small py-2 d-block text-decoration-none" style="white-space: normal;">
-                    <div class="d-flex align-items-start gap-2">
-                        <span class="bg-success rounded-circle flex-shrink-0 mt-1" style="width:8px;height:8px;"></span>
-                        <div>
-                            <i class="bi ${iconClass} me-1"></i>
-                            <span class="fw-medium text-dark">${notification.Title}</span>
-                            <div class="text-muted" style="font-size: 11px;">${notification.Time}</div>
-                        </div>
-                    </div>
-                </a>
-            `;
+            const anchor = document.createElement('a');
+            anchor.href = notification.Link || '#';
+            anchor.className = 'dropdown-item small py-2 d-block text-decoration-none';
+            anchor.style.whiteSpace = 'normal';
 
-            hr.insertAdjacentHTML('beforebegin', itemHtml);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'd-flex align-items-start gap-2';
+
+            const dot = document.createElement('span');
+            dot.className = 'bg-success rounded-circle flex-shrink-0 mt-1';
+            dot.style.width = '8px';
+            dot.style.height = '8px';
+
+            const content = document.createElement('div');
+            const icon = document.createElement('i');
+            icon.className = `bi ${iconClass} me-1`;
+            const title = document.createElement('span');
+            title.className = 'fw-medium text-dark';
+            title.textContent = notification.Title ?? 'Notification';
+            const time = document.createElement('div');
+            time.className = 'text-muted';
+            time.style.fontSize = '11px';
+            time.textContent = notification.Time ?? '';
+
+            content.appendChild(icon);
+            content.appendChild(title);
+            content.appendChild(time);
+            wrapper.appendChild(dot);
+            wrapper.appendChild(content);
+            anchor.appendChild(wrapper);
+            dropdown.insertBefore(anchor, hr);
         }
     </script>
 
