@@ -90,12 +90,6 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.Remove(LoginFailedAttemptsKey);
         }
 
-        private bool IsCaptchaConfigured()
-        {
-            return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
-                && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey);
-        }
-
         private void SetRecaptchaSiteKey()
         {
             ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
@@ -103,11 +97,13 @@ namespace JAS_MINE_IT15.Controllers
 
         /// <summary>
         /// Validates if reCAPTCHA is properly configured with both keys.
+        /// Checks for placeholder values to ensure real keys are configured.
         /// </summary>
         private bool IsCaptchaConfigured()
         {
             return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
                 && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey)
+                && _recaptchaSettings.SecretKey != "REPLACE_WITH_YOUR_REAL_SECRET_KEY"
                 && _recaptchaSettings.SecretKey != "YOUR_SECRET_KEY_HERE";
         }
 
@@ -131,21 +127,24 @@ namespace JAS_MINE_IT15.Controllers
                 return false;
             }
 
-            var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var remoteIp = HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            var action = _recaptchaSettings?.Action ?? "login";
+            var threshold = _recaptchaSettings?.ScoreThreshold ?? 0.5f;
+
             _logger.LogDebug("Attempting reCAPTCHA v3 verification. RemoteIP: {RemoteIp}, Action: {Action}, Threshold: {Threshold}",
-                remoteIp ?? "unknown", _recaptchaSettings.Action, _recaptchaSettings.ScoreThreshold);
+                remoteIp ?? "unknown", action, threshold);
 
             var (isValid, score, details) = await _recaptchaService.VerifyTokenWithScoreAsync(token, remoteIp);
 
             if (!isValid)
             {
                 _logger.LogWarning("reCAPTCHA v3 verification failed. Score: {Score}, Details: {Details}, IP: {RemoteIp}",
-                    score >= 0 ? score.ToString("F2") : "N/A", details, remoteIp ?? "unknown");
+                    score >= 0 ? score.ToString("F2") : "N/A", details ?? "unknown error", remoteIp ?? "unknown");
             }
             else
             {
                 _logger.LogDebug("reCAPTCHA v3 verification succeeded. Score: {Score:F2}, Action: {Action}, IP: {RemoteIp}",
-                    score, _recaptchaSettings.Action, remoteIp ?? "unknown");
+                    score, action, remoteIp ?? "unknown");
             }
 
             return isValid;
@@ -5119,7 +5118,7 @@ namespace JAS_MINE_IT15.Controllers
             var barangayId = GetCurrentBarangayId();
             var invoice = await _context.Invoices
                 .Include(i => i.Subscription)
-                .ThenInclude(s => s.Plan)
+                .ThenInclude(s => s!.Plan)
                 .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive && i.BarangayId == barangayId);
 
             if (invoice == null || invoice.Status == "Paid")
@@ -5589,7 +5588,7 @@ namespace JAS_MINE_IT15.Controllers
             var barangayId = GetCurrentBarangayId();
             var invoice = await _context.Invoices
                 .Include(i => i.Subscription)
-                .ThenInclude(s => s.Plan)
+                .ThenInclude(s => s!.Plan)
                 .FirstOrDefaultAsync(i => i.Id == invoiceId && i.IsActive && i.BarangayId == barangayId);
 
             if (invoice == null)
