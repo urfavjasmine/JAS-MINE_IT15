@@ -108,8 +108,7 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         /// <summary>
-        /// Verifies a reCAPTCHA v3 token and returns whether the score meets the threshold.
-        /// Logs detailed score information for monitoring.
+        /// Verifies a reCAPTCHA v2 token.
         /// </summary>
         private async Task<bool> IsRecaptchaValidAsync(string? token)
         {
@@ -128,23 +127,18 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             var remoteIp = HttpContext?.Connection?.RemoteIpAddress?.ToString();
-            var action = _recaptchaSettings?.Action ?? "login";
-            var threshold = _recaptchaSettings?.ScoreThreshold ?? 0.5f;
 
-            _logger.LogDebug("Attempting reCAPTCHA v3 verification. RemoteIP: {RemoteIp}, Action: {Action}, Threshold: {Threshold}",
-                remoteIp ?? "unknown", action, threshold);
+            _logger.LogDebug("Attempting reCAPTCHA v2 verification. RemoteIP: {RemoteIp}", remoteIp ?? "unknown");
 
-            var (isValid, score, details) = await _recaptchaService.VerifyTokenWithScoreAsync(token, remoteIp);
+            var isValid = await _recaptchaService.VerifyTokenAsync(token, remoteIp);
 
             if (!isValid)
             {
-                _logger.LogWarning("reCAPTCHA v3 verification failed. Score: {Score}, Details: {Details}, IP: {RemoteIp}",
-                    score >= 0 ? score.ToString("F2") : "N/A", details ?? "unknown error", remoteIp ?? "unknown");
+                _logger.LogWarning("reCAPTCHA v2 verification failed. IP: {RemoteIp}", remoteIp ?? "unknown");
             }
             else
             {
-                _logger.LogDebug("reCAPTCHA v3 verification succeeded. Score: {Score:F2}, Action: {Action}, IP: {RemoteIp}",
-                    score, action, remoteIp ?? "unknown");
+                _logger.LogDebug("reCAPTCHA v2 verification succeeded. IP: {RemoteIp}", remoteIp ?? "unknown");
             }
 
             return isValid;

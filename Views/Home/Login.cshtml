@@ -191,7 +191,7 @@
                 }
 
                 <form asp-action="Login" method="post" id="loginForm">
-                    @* Hidden field for reCAPTCHA v3 token *@
+                    @Html.AntiForgeryToken()
                     <input asp-for="RecaptchaToken" type="hidden" id="recaptcha-token" />
 
                     <div class="mb-3">
@@ -218,6 +218,33 @@
                         </div>
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
+
+                    @if (Model?.CaptchaRequired ?? false)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Security Verification</label>
+                            <div id="recaptcha-error" class="recaptcha-error" style="display: none;"></div>
+                            @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
+                            {
+                                <div class="alert alert-danger small mb-0">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    Security verification is not configured. Please contact the administrator.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="g-recaptcha" 
+                                     data-sitekey="@recaptchaSiteKey"
+                                     data-callback="RecaptchaCallbacks.onLoad"
+                                     data-expired-callback="RecaptchaCallbacks.onExpire"
+                                     data-error-callback="RecaptchaCallbacks.onError"></div>
+                                <small class="text-muted">This site is protected by reCAPTCHA and the Google
+                                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
+                                    <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
+                                </small>
+                            }
+                        </div>
+                    }
 
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
@@ -249,46 +276,44 @@
     }
     <script>
         // ════════════════════════════════════════════════════════════════════════
-        // Google reCAPTCHA v3 Integration - Login Form (Invisible)
+        // Google reCAPTCHA v2 Integration - Login Form (Visible Checkbox)
         // ════════════════════════════════════════════════════════════════════════
-
-        // Configuration
-        const RecaptchaConfig = {
-            action: 'login',
-            enabled: @(string.IsNullOrWhiteSpace(recaptchaSiteKey) ? "false" : "true"),
-            siteKey: '@recaptchaSiteKey'
-        };
 
         // Debug logging utility
         const RecaptchaDebug = {
-            enabled: true,
+            enabled: @((Model?.CaptchaRequired ?? false) ? "true" : "false"),
             log: function(message, data) {
                 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    console.log(`[reCAPTCHA v3] ${message}`, data || '');
+                    console.log(`[reCAPTCHA v2] ${message}`, data || '');
                 }
             },
             error: function(message, data) {
-                console.error(`[reCAPTCHA v3 ERROR] ${message}`, data || '');
+                console.error(`[reCAPTCHA v2 ERROR] ${message}`, data || '');
             }
         };
 
-        // Wait for reCAPTCHA to be ready, then initialize
-        if (RecaptchaConfig.enabled) {
-            grecaptcha.ready(function() {
-                RecaptchaDebug.log('reCAPTCHA v3 API ready');
-                
-                // Pre-fetch token when page loads (optional, for better UX)
-                grecaptcha.execute(RecaptchaConfig.siteKey, { action: RecaptchaConfig.action })
-                    .then(function(token) {
-                        RecaptchaDebug.log('Initial token fetched', token.substring(0, 20) + '...');
-                    })
-                    .catch(function(error) {
-                        RecaptchaDebug.error('Failed to fetch initial token', error);
-                    });
-            });
-        } else {
-            RecaptchaDebug.error('reCAPTCHA is not configured or enabled');
-        }
+        // Initialize reCAPTCHA callback handlers
+        window.RecaptchaCallbacks = {
+            onLoad: function() {
+                RecaptchaDebug.log('reCAPTCHA v2 widget loaded successfully');
+            },
+            onExpire: function() {
+                RecaptchaDebug.log('reCAPTCHA token expired, user needs to re-verify');
+                const errorDiv = document.getElementById('recaptcha-error');
+                if (errorDiv) {
+                    errorDiv.textContent = 'Your CAPTCHA verification has expired. Please complete it again.';
+                    errorDiv.style.display = 'block';
+                }
+            },
+            onError: function() {
+                RecaptchaDebug.error('reCAPTCHA encountered an error');
+                const errorDiv = document.getElementById('recaptcha-error');
+                if (errorDiv) {
+                    errorDiv.textContent = 'CAPTCHA verification failed. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+            }
+        };
 
         // ────────────────────────────────────────────────────────────────
         // Password visibility toggle
@@ -310,59 +335,95 @@
         });
 
         // ────────────────────────────────────────────────────────────────
-        // Form submission with reCAPTCHA v3 token generation
+        // Form submission with reCAPTCHA v2 validation
         // ────────────────────────────────────────────────────────────────
-        document.getElementById('loginForm')?.addEventListener('submit', async function (e) {
-            // If reCAPTCHA is not enabled, allow normal form submission
-            if (!RecaptchaConfig.enabled) {
-                RecaptchaDebug.log('reCAPTCHA not enabled, proceeding with login');
+        document.getElementById('loginForm')?.addEventListener('submit', function (e) {
+            const captchaRequired = @((Model?.CaptchaRequired ?? false).ToString().ToLower());
+
+            RecaptchaDebug.log('Form submit triggered. CAPTCHA required: ' + captchaRequired);
+
+            // If CAPTCHA is not required, allow form submission
+            if (!captchaRequired) {
+                RecaptchaDebug.log('CAPTCHA not required, proceeding with login');
                 return true;
             }
 
-            // Validate reCAPTCHA API is available
+            // Validate reCAPTCHA is available
             if (typeof grecaptcha === 'undefined') {
                 RecaptchaDebug.error('grecaptcha API not available');
                 e.preventDefault();
-                alert('Security verification is not available. Please refresh the page and try again.');
+                alert('reCAPTCHA API is not loaded. Please refresh the page and try again.');
                 return false;
             }
 
-            RecaptchaDebug.log('Form submit triggered, executing reCAPTCHA v3...');
-            e.preventDefault();
+            // Get the reCAPTCHA v2 response token
+            const token = grecaptcha.getResponse();
+            RecaptchaDebug.log('reCAPTCHA response obtained. Token length: ' + (token ? token.length : 0));
 
-            try {
-                // Execute reCAPTCHA v3 to get token
-                const token = await grecaptcha.execute(RecaptchaConfig.siteKey, { action: RecaptchaConfig.action });
+            // Validate token is present
+            if (!token || token.trim() === '') {
+                RecaptchaDebug.error('reCAPTCHA token is empty');
+                e.preventDefault();
                 
-                if (!token || token.trim() === '') {
-                    RecaptchaDebug.error('reCAPTCHA returned empty token');
-                    alert('Security verification failed. Please try again.');
-                    return false;
+                // Show error message to user
+                const errorDiv = document.getElementById('recaptcha-error');
+                if (errorDiv) {
+                    errorDiv.textContent = 'Please complete the CAPTCHA verification below.';
+                    errorDiv.style.display = 'block';
+                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    alert('Please complete the CAPTCHA verification.');
                 }
-
-                RecaptchaDebug.log('reCAPTCHA v3 token received', token.substring(0, 20) + '...');
-
-                // Set token in hidden input
-                const tokenInput = document.getElementById('recaptcha-token');
-                tokenInput.value = token;
-
-                // Show loading state
-                const submitButton = this.querySelector('button[type="submit"]');
-                if (submitButton) {
-                    const originalText = submitButton.innerHTML;
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
-                }
-
-                // Submit the form
-                RecaptchaDebug.log('Submitting form with reCAPTCHA token');
-                this.submit();
-                return false; // Prevent default submission
-            }
-            catch (error) {
-                RecaptchaDebug.error('reCAPTCHA execution failed', error);
-                alert('Security verification encountered an error. Please try again.');
                 return false;
+            }
+
+            // Set the token in the hidden input field
+            const tokenInput = document.getElementById('recaptcha-token');
+            tokenInput.value = token;
+            RecaptchaDebug.log('Token set in hidden input field');
+
+            // Show loading state
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton) {
+                const originalText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
+                
+                // Reset on form error (in case server returns error)
+                this.addEventListener('reset', function() {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalText;
+                });
+            }
+
+            RecaptchaDebug.log('Form validation passed, submitting...');
+            return true;
+        });
+
+        // ────────────────────────────────────────────────────────────────
+        // Handle reCAPTCHA API ready state
+        // ────────────────────────────────────────────────────────────────
+        if (typeof grecaptcha !== 'undefined') {
+            grecaptcha.ready(function() {
+                RecaptchaDebug.log('grecaptcha.ready() callback executed');
+            });
+        } else if (@((Model?.CaptchaRequired ?? false).ToString().ToLower())) {
+            // If CAPTCHA is required but API is not loaded, warn the user
+            RecaptchaDebug.error('CAPTCHA is required but grecaptcha API is not loaded');
+            const errorDiv = document.getElementById('recaptcha-error');
+            if (errorDiv) {
+                errorDiv.textContent = 'Security verification is loading. Please wait...';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // Clear error messages when user interacts with form
+        // ────────────────────────────────────────────────────────────────
+        document.getElementById('loginForm')?.addEventListener('input', function() {
+            const errorDiv = document.getElementById('recaptcha-error');
+            if (errorDiv && errorDiv.textContent.includes('CAPTCHA')) {
+                errorDiv.style.display = 'none';
             }
         });
     </script>

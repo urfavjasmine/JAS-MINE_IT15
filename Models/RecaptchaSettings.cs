@@ -1,7 +1,7 @@
 namespace JAS_MINE_IT15.Models
 {
     /// <summary>
-    /// Configuration settings for Google reCAPTCHA v3.
+    /// Configuration settings for Google reCAPTCHA v2 ("I'm not a robot" checkbox).
     /// </summary>
     public class RecaptchaSettings
     {
@@ -16,23 +16,8 @@ namespace JAS_MINE_IT15.Models
         public string SecretKey { get; set; } = string.Empty;
 
         /// <summary>
-        /// Google's reCAPTCHA v3 verification endpoint.
+        /// Google's reCAPTCHA verification endpoint.
         /// </summary>
         public string VerifyUrl { get; set; } = "https://www.google.com/recaptcha/api/siteverify";
-
-        /// <summary>
-        /// Action name for reCAPTCHA v3 (e.g., "login", "submit", "purchase").
-        /// Must match the action used in grecaptcha.execute().
-        /// </summary>
-        public string Action { get; set; } = "login";
-
-        /// <summary>
-        /// Score threshold for reCAPTCHA v3 (0.0 to 1.0).
-        /// - 1.0: Very likely legitimate traffic
-        /// - 0.5: Medium confidence
-        /// - 0.0: Very likely bot traffic
-        /// Requests with score below this threshold are rejected.
-        /// </summary>
-        public float ScoreThreshold { get; set; } = 0.5f;
     }
 }
