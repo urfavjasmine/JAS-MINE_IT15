@@ -1,0 +1,123 @@
+@model JAS_MINE_IT15.Models.VerifyOtpViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Verify Login Code";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - JAS-MINE</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons-1.11.3/font/bootstrap-icons.css" />
+
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: #f3f5f7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .otp-card {
+            width: 100%;
+            max-width: 480px;
+            border: 0;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.12);
+        }
+
+        .otp-card .card-body {
+            padding: 28px;
+        }
+
+        .brand-logo {
+            width: 82px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+
+        .page-title {
+            font-weight: 800;
+            color: #173a63;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            color: #66788a;
+            margin-bottom: 16px;
+        }
+
+        .otp-input {
+            height: 48px;
+            letter-spacing: 3px;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .btn-verify {
+            height: 46px;
+            font-weight: 700;
+            background: #173a63;
+            border-color: #173a63;
+        }
+
+        .btn-verify:hover {
+            background: #0f2f55;
+            border-color: #0f2f55;
+        }
+
+        .expiry-note {
+            color: #6b7a90;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card otp-card">
+        <div class="card-body">
+            <div class="text-center mb-3">
+                <img src="~/images/jasmine-logo.png" class="brand-logo" alt="JAS-MINE" />
+                <h3 class="page-title">Two-Factor Verification</h3>
+                <p class="subtitle mb-0">Enter the code sent to <strong>@Model.MaskedEmail</strong></p>
+            </div>
+
+            <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">@Model.ErrorMessage</div>
+            }
+
+            <form method="post" asp-action="VerifyOtp" asp-controller="Home" autocomplete="off">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Verification Code</label>
+                    <input asp-for="Code" class="form-control otp-input" maxlength="8" placeholder="Enter code" />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3 expiry-note">
+                    This code expires in about @(Math.Max(1, (int)Math.Ceiling(Model.RemainingSeconds / 60.0))) minute(s).
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-verify w-100 mb-3">Verify and Sign In</button>
+
+                <a asp-action="Login" asp-controller="Home" class="btn btn-outline-secondary w-100">Back to Login</a>
+            </form>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+</body>
+</html>

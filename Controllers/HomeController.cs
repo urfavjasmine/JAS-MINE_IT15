@@ -40,6 +40,12 @@ namespace JAS_MINE_IT15.Controllers
         private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
         private const string PendingRegistrationKey = "PendingRegistration";
         private const string PendingRegistrationCreatedAtKey = "PendingRegistrationCreatedAtTicks";
+        private const string PendingTwoFactorUserIdKey = "PendingTwoFactorUserId";
+        private const string PendingTwoFactorEmailKey = "PendingTwoFactorEmail";
+        private const string PendingTwoFactorRoleKey = "PendingTwoFactorRole";
+        private const string PendingTwoFactorExpiresAtKey = "PendingTwoFactorExpiresAtTicks";
+        private const string PendingTwoFactorAttemptsKey = "PendingTwoFactorAttempts";
+        private static readonly TimeSpan TwoFactorOtpLifetime = TimeSpan.FromMinutes(5);
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
@@ -95,6 +101,159 @@ namespace JAS_MINE_IT15.Controllers
         private void ResetLoginFailedAttempts()
         {
             HttpContext.Session.Remove(LoginFailedAttemptsKey);
+        }
+
+        private sealed class PendingTwoFactorState
+        {
+            public string UserId { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string Role { get; set; } = string.Empty;
+            public DateTime ExpiresAtUtc { get; set; }
+            public int Attempts { get; set; }
+        }
+
+        private static bool RequiresEmailTwoFactorForRole(string role)
+        {
+            var normalized = (role ?? string.Empty).Trim().ToLowerInvariant();
+            return normalized == "super_admin" || normalized == "barangay_admin" || normalized == "admin";
+        }
+
+        private static string MaskEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            {
+                return "your email";
+            }
+
+            var parts = email.Split('@', 2);
+            var local = parts[0];
+            var domain = parts[1];
+
+            if (local.Length <= 2)
+            {
+                return $"{local[0]}***@{domain}";
+            }
+
+            return $"{local[..1]}***{local[^1]}@{domain}";
+        }
+
+        private PendingTwoFactorState? GetPendingTwoFactorState()
+        {
+            var userId = HttpContext.Session.GetString(PendingTwoFactorUserIdKey);
+            var email = HttpContext.Session.GetString(PendingTwoFactorEmailKey);
+            var role = HttpContext.Session.GetString(PendingTwoFactorRoleKey) ?? string.Empty;
+            var expiresRaw = HttpContext.Session.GetString(PendingTwoFactorExpiresAtKey);
+            var attemptsRaw = HttpContext.Session.GetString(PendingTwoFactorAttemptsKey);
+
+            if (string.IsNullOrWhiteSpace(userId)
+                || string.IsNullOrWhiteSpace(email)
+                || !long.TryParse(expiresRaw, out var expiresTicks))
+            {
+                return null;
+            }
+
+            var attempts = int.TryParse(attemptsRaw, out var parsedAttempts) ? parsedAttempts : 0;
+
+            return new PendingTwoFactorState
+            {
+                UserId = userId,
+                Email = email,
+                Role = role,
+                ExpiresAtUtc = new DateTime(expiresTicks, DateTimeKind.Utc),
+                Attempts = attempts
+            };
+        }
+
+        private void ClearPendingTwoFactorState()
+        {
+            HttpContext.Session.Remove(PendingTwoFactorUserIdKey);
+            HttpContext.Session.Remove(PendingTwoFactorEmailKey);
+            HttpContext.Session.Remove(PendingTwoFactorRoleKey);
+            HttpContext.Session.Remove(PendingTwoFactorExpiresAtKey);
+            HttpContext.Session.Remove(PendingTwoFactorAttemptsKey);
+        }
+
+        private async Task<bool> BeginEmailTwoFactorFlowAsync(IdentityUser user, string role)
+        {
+            var expiresAtUtc = DateTime.UtcNow.Add(TwoFactorOtpLifetime);
+            var token = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+
+            HttpContext.Session.SetString(PendingTwoFactorUserIdKey, user.Id);
+            HttpContext.Session.SetString(PendingTwoFactorEmailKey, user.Email ?? string.Empty);
+            HttpContext.Session.SetString(PendingTwoFactorRoleKey, role);
+            HttpContext.Session.SetString(PendingTwoFactorExpiresAtKey, expiresAtUtc.Ticks.ToString());
+            HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, "0");
+
+            var body = $@"
+<p>Your JAS-MINE verification code is:</p>
+<h2 style='letter-spacing:2px;'>{token}</h2>
+<p>This code will expire in {(int)TwoFactorOtpLifetime.TotalMinutes} minutes.</p>
+<p>If you did not initiate this login, please ignore this email.</p>";
+
+            try
+            {
+                await _emailSender.SendEmailAsync(user.Email!, "JAS-MINE Login Verification Code", body);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send 2FA OTP email for user {UserId}", user.Id);
+                ClearPendingTwoFactorState();
+                return false;
+            }
+        }
+
+        private async Task<IActionResult> CompleteLoginAsync(IdentityUser identityUser, User businessUser, string role)
+        {
+            var barangayId = businessUser.BarangayId;
+
+            businessUser.LastLoginAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            await AddBarangayClaimAsync(identityUser, barangayId);
+
+            // Session fixation prevention
+            HttpContext.Session.Clear();
+            Response.Cookies.Delete(".AspNetCore.Session");
+            ResetLoginFailedAttempts();
+
+            HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
+            HttpContext.Session.SetString("Role", role);
+
+            _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", identityUser.Email, role, barangayId);
+
+            await LogAuditAsync("Login", "Authentication", businessUser.Id, "User", identityUser.Email, $"User logged in: {identityUser.Email}");
+
+            return await RedirectAfterLoginByRoleAsync(role, barangayId);
+        }
+
+        private async Task<IActionResult> RedirectAfterLoginByRoleAsync(string role, int? barangayId)
+        {
+            switch (role)
+            {
+                case "super_admin":
+                    return RedirectToAction("System", "Dashboard");
+
+                case "barangay_admin":
+                    if (TempData["SelectedPlanId"] is int selectedPlanId)
+                    {
+                        var hasValidSub = await _context.BarangaySubscriptions
+                            .AnyAsync(s => s.BarangayId == barangayId && s.IsActive && (s.Status == "Active" || s.Status == "Pending") && s.EndDate >= DateTime.Today);
+
+                        if (!hasValidSub)
+                        {
+                            return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
+                        }
+                    }
+
+                    return RedirectToAction("Barangay", "Dashboard");
+
+                case "user":
+                    return RedirectToAction("Index", "Home");
+
+                default:
+                    return RedirectToAction("Barangay", "Dashboard");
+            }
         }
 
         private int GetPendingRegistrationRetentionDays()
@@ -1115,13 +1274,8 @@ namespace JAS_MINE_IT15.Controllers
             Response.Cookies.Delete(".AspNetCore.Session");
             await _signInManager.SignOutAsync();
 
-            // Attempt password sign-in
-            var result = await _signInManager.PasswordSignInAsync(
-                user.UserName!,
-                model.Password,
-                isPersistent: false,
-                lockoutOnFailure: true
-            );
+            // Validate password first without creating auth session.
+            var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, lockoutOnFailure: true);
 
             if (!result.Succeeded)
             {
@@ -1135,7 +1289,7 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            // Login succeeded - continue with role and business user processing
+            // Password check succeeded - continue with role and business user processing
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
@@ -1154,52 +1308,125 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            int? barangayId = businessUser.BarangayId;
-
-            // Update last login timestamp
-            businessUser.LastLoginAt = DateTime.Now;
-            await _context.SaveChangesAsync();
-
-            // Add BarangayId as claim
-            await AddBarangayClaimAsync(user, barangayId);
-
-            // ── Session fixation prevention: clear old session before setting new values ──
-            HttpContext.Session.Clear();
-            Response.Cookies.Delete(".AspNetCore.Session");
-            ResetLoginFailedAttempts();
-
-            // Keep session minimal for security.
-            HttpContext.Session.SetString("UserId", businessUser?.Id.ToString() ?? "");
-            HttpContext.Session.SetString("Role", role);
-
-            _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", model.Email, role, barangayId);
-
-            await LogAuditAsync("Login", "Authentication", businessUser?.Id, "User", user.Email, $"User logged in: {user.Email}");
-
-            // Redirect based on role
-            switch (role)
+            if (RequiresEmailTwoFactorForRole(role))
             {
-                case "super_admin":
-                    return RedirectToAction("System", "Dashboard");
+                var twoFactorStarted = await BeginEmailTwoFactorFlowAsync(user, role);
+                if (!twoFactorStarted)
+                {
+                    model.ErrorMessage = "Unable to send verification code right now. Please try again.";
+                    model.CaptchaRequired = captchaRequired;
+                    SetRecaptchaSiteKey();
+                    return View(model);
+                }
 
-                case "barangay_admin":
-                    // If a plan was selected before login, check if they actually need to subscribe
-                    if (TempData["SelectedPlanId"] is int selectedPlanId)
-                    {
-                        var hasValidSub = await _context.BarangaySubscriptions
-                            .AnyAsync(s => s.BarangayId == barangayId && s.IsActive && (s.Status == "Active" || s.Status == "Pending") && s.EndDate >= DateTime.Today);
-
-                        if (!hasValidSub)
-                            return RedirectToAction(nameof(SelectPlan), new { planId = selectedPlanId });
-                    }
-                    return RedirectToAction("Barangay", "Dashboard");
-
-                case "user":
-                    return RedirectToAction("Index", "Home");
-
-                default:
-                    return RedirectToAction("Barangay", "Dashboard");
+                _logger.LogInformation("2FA code generated and sent for user {Email}", user.Email);
+                return RedirectToAction(nameof(VerifyOtp));
             }
+
+            await _signInManager.SignInAsync(user, isPersistent: false);
+            return await CompleteLoginAsync(user, businessUser, role);
+        }
+
+        // GET: /Home/VerifyOtp
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult VerifyOtp()
+        {
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                return RedirectToDashboard();
+            }
+
+            var pendingState = GetPendingTwoFactorState();
+            if (pendingState == null || pendingState.ExpiresAtUtc < DateTime.UtcNow)
+            {
+                ClearPendingTwoFactorState();
+                TempData["Error"] = "Verification session expired. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var remainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
+
+            return View(new VerifyOtpViewModel
+            {
+                MaskedEmail = MaskEmail(pendingState.Email),
+                RemainingSeconds = remainingSeconds
+            });
+        }
+
+        // POST: /Home/VerifyOtp
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [EnableRateLimiting("otp")]
+        public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
+        {
+            var pendingState = GetPendingTwoFactorState();
+            if (pendingState == null || pendingState.ExpiresAtUtc < DateTime.UtcNow)
+            {
+                ClearPendingTwoFactorState();
+                TempData["Error"] = "Verification code expired. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            model.Code = (model.Code ?? string.Empty).Trim();
+            model.MaskedEmail = MaskEmail(pendingState.Email);
+            model.RemainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
+
+            if (!ModelState.IsValid)
+            {
+                model.ErrorMessage = "Enter a valid verification code.";
+                return View(model);
+            }
+
+            var user = await _userManager.FindByIdAsync(pendingState.UserId);
+            if (user == null)
+            {
+                ClearPendingTwoFactorState();
+                TempData["Error"] = "User session is invalid. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var isValidOtp = await _userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, model.Code);
+            if (!isValidOtp)
+            {
+                var attempts = pendingState.Attempts + 1;
+                HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, attempts.ToString());
+
+                if (attempts >= 5)
+                {
+                    ClearPendingTwoFactorState();
+                    await _signInManager.SignOutAsync();
+                    TempData["Error"] = "Too many invalid verification attempts. Please log in again.";
+                    return RedirectToAction(nameof(Login));
+                }
+
+                model.ErrorMessage = "Invalid verification code. Please try again.";
+                return View(model);
+            }
+
+            var businessUser = await _context.BusinessUsers
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == (pendingState.Email.ToLower()));
+
+            if (businessUser == null || !businessUser.IsActive)
+            {
+                ClearPendingTwoFactorState();
+                await _signInManager.SignOutAsync();
+                TempData["Error"] = "Unable to complete sign-in for this account.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var role = pendingState.Role;
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                role = roles.FirstOrDefault() ?? string.Empty;
+            }
+
+            ClearPendingTwoFactorState();
+            await _signInManager.SignInAsync(user, isPersistent: false);
+
+            return await CompleteLoginAsync(user, businessUser, role);
         }
 
         /// <summary>

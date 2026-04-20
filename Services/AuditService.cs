@@ -1,5 +1,7 @@
 using JAS_MINE_IT15.Data;
+using JAS_MINE_IT15.Models;
 using JAS_MINE_IT15.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace JAS_MINE_IT15.Services
 {
@@ -57,6 +59,52 @@ namespace JAS_MINE_IT15.Services
             {
                 _logger.LogError(ex, "Failed to write audit log: {Action} {Module}", action, module);
             }
+        }
+
+        public async Task<AuditLogIntegrityReport> VerifyIntegrityAsync(CancellationToken cancellationToken = default)
+        {
+            var logs = await _context.AuditLogs
+                .AsNoTracking()
+                .Where(l => l.Hash != null && l.Hash != "")
+                .OrderBy(l => l.Id)
+                .ToListAsync(cancellationToken);
+
+            if (logs.Count == 0)
+            {
+                return new AuditLogIntegrityReport
+                {
+                    IsValid = true,
+                    CheckedCount = 0,
+                    Error = "No hashed audit logs found yet."
+                };
+            }
+
+            string? expectedPreviousHash = null;
+            for (var i = 0; i < logs.Count; i++)
+            {
+                var log = logs[i];
+                var expectedHash = AuditLogIntegrity.ComputeHash(log, expectedPreviousHash);
+
+                if (!string.Equals(log.PreviousHash, expectedPreviousHash, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(log.Hash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AuditLogIntegrityReport
+                    {
+                        IsValid = false,
+                        CheckedCount = i + 1,
+                        FirstBrokenLogId = log.Id,
+                        Error = "Audit log hash chain mismatch detected."
+                    };
+                }
+
+                expectedPreviousHash = log.Hash;
+            }
+
+            return new AuditLogIntegrityReport
+            {
+                IsValid = true,
+                CheckedCount = logs.Count
+            };
         }
     }
 }

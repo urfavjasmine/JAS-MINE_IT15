@@ -24,12 +24,18 @@ namespace JAS_MINE_IT15.Controllers.Api
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AuditLogsApiController> _logger;
         private readonly ITenantService _tenantService;
+        private readonly IAuditService _auditService;
 
-        public AuditLogsApiController(ApplicationDbContext context, ILogger<AuditLogsApiController> logger, ITenantService tenantService)
+        public AuditLogsApiController(
+            ApplicationDbContext context,
+            ILogger<AuditLogsApiController> logger,
+            ITenantService tenantService,
+            IAuditService auditService)
         {
             _context = context;
             _logger = logger;
             _tenantService = tenantService;
+            _auditService = auditService;
         }
 
         #region DTO Classes
@@ -96,6 +102,14 @@ namespace JAS_MINE_IT15.Controllers.Api
             public Dictionary<string, int> ActionCounts { get; set; } = new();
             public Dictionary<string, int> ModuleCounts { get; set; } = new();
             public List<UserActivitySummary> TopUsers { get; set; } = new();
+        }
+
+        public class AuditIntegrityDto
+        {
+            public bool IsValid { get; set; }
+            public int CheckedCount { get; set; }
+            public long? FirstBrokenLogId { get; set; }
+            public string? Error { get; set; }
         }
 
         public class UserActivitySummary
@@ -353,6 +367,24 @@ namespace JAS_MINE_IT15.Controllers.Api
             };
 
             return Ok(stats);
+        }
+
+        /// <summary>
+        /// GET api/auditlogsapi/integrity - Verify tamper-evident hash chain integrity.
+        /// </summary>
+        [HttpGet("integrity")]
+        [Authorize(Roles = "super_admin")]
+        public async Task<ActionResult<AuditIntegrityDto>> VerifyIntegrity(CancellationToken cancellationToken)
+        {
+            var report = await _auditService.VerifyIntegrityAsync(cancellationToken);
+
+            return Ok(new AuditIntegrityDto
+            {
+                IsValid = report.IsValid,
+                CheckedCount = report.CheckedCount,
+                FirstBrokenLogId = report.FirstBrokenLogId,
+                Error = report.Error
+            });
         }
 
         /// <summary>

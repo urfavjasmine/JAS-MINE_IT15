@@ -1,4 +1,5 @@
 ﻿using JAS_MINE_IT15.Models.Entities;
+using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +32,84 @@ namespace JAS_MINE_IT15.Data
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<DiscussionLike> DiscussionLikes { get; set; } = null!;
         public DbSet<DiscussionComment> DiscussionComments { get; set; } = null!;
+
+            public override int SaveChanges()
+            {
+                  ApplyAuditLogHashChain();
+                  return base.SaveChanges();
+            }
+
+            public override int SaveChanges(bool acceptAllChangesOnSuccess)
+            {
+                  ApplyAuditLogHashChain();
+                  return base.SaveChanges(acceptAllChangesOnSuccess);
+            }
+
+            public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+            {
+                  await ApplyAuditLogHashChainAsync(cancellationToken);
+                  return await base.SaveChangesAsync(cancellationToken);
+            }
+
+            public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+            {
+                  await ApplyAuditLogHashChainAsync(cancellationToken);
+                  return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            }
+
+            private void ApplyAuditLogHashChain()
+            {
+                  var pendingLogs = ChangeTracker.Entries<AuditLog>()
+                        .Where(e => e.State == EntityState.Added)
+                        .Select(e => e.Entity)
+                        .OrderBy(e => e.CreatedAt)
+                        .ThenBy(e => e.Action)
+                        .ToList();
+
+                  if (!pendingLogs.Any())
+                  {
+                        return;
+                  }
+
+                  var previousHash = AuditLogs.AsNoTracking()
+                        .OrderByDescending(l => l.Id)
+                        .Select(l => l.Hash)
+                        .FirstOrDefault();
+
+                  foreach (var pendingLog in pendingLogs)
+                  {
+                        pendingLog.PreviousHash = string.IsNullOrWhiteSpace(previousHash) ? null : previousHash;
+                        pendingLog.Hash = AuditLogIntegrity.ComputeHash(pendingLog, pendingLog.PreviousHash);
+                        previousHash = pendingLog.Hash;
+                  }
+            }
+
+            private async Task ApplyAuditLogHashChainAsync(CancellationToken cancellationToken)
+            {
+                  var pendingLogs = ChangeTracker.Entries<AuditLog>()
+                        .Where(e => e.State == EntityState.Added)
+                        .Select(e => e.Entity)
+                        .OrderBy(e => e.CreatedAt)
+                        .ThenBy(e => e.Action)
+                        .ToList();
+
+                  if (!pendingLogs.Any())
+                  {
+                        return;
+                  }
+
+                  var previousHash = await AuditLogs.AsNoTracking()
+                        .OrderByDescending(l => l.Id)
+                        .Select(l => l.Hash)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                  foreach (var pendingLog in pendingLogs)
+                  {
+                        pendingLog.PreviousHash = string.IsNullOrWhiteSpace(previousHash) ? null : previousHash;
+                        pendingLog.Hash = AuditLogIntegrity.ComputeHash(pendingLog, pendingLog.PreviousHash);
+                        previousHash = pendingLog.Hash;
+                  }
+            }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -169,6 +248,11 @@ namespace JAS_MINE_IT15.Data
             {
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+                        entity.Property(e => e.PreviousHash).HasMaxLength(64);
+                entity.Property(e => e.Hash).HasMaxLength(64);
+                entity.HasIndex(e => e.Hash)
+                      .IsUnique()
+                      .HasFilter("[Hash] IS NOT NULL");
 
                 entity.HasOne(e => e.User)
                       .WithMany()

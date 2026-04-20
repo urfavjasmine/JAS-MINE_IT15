@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Filters;
+using JAS_MINE_IT15.Services;
 
 namespace JAS_MINE_IT15.Filters
 {
@@ -8,10 +9,12 @@ namespace JAS_MINE_IT15.Filters
     public class CrudActionLoggingFilter : IAsyncActionFilter
     {
         private readonly ILogger<CrudActionLoggingFilter> _logger;
+        private readonly IAuditService _auditService;
 
-        public CrudActionLoggingFilter(ILogger<CrudActionLoggingFilter> logger)
+        public CrudActionLoggingFilter(ILogger<CrudActionLoggingFilter> logger, IAuditService auditService)
         {
             _logger = logger;
+            _auditService = auditService;
         }
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -43,6 +46,14 @@ namespace JAS_MINE_IT15.Filters
                     path,
                     user,
                     statusCode);
+
+                await _auditService.LogAsync(
+                    action: method,
+                    module: $"{controller}Controller",
+                    targetId: null,
+                    targetType: "HttpAction",
+                    targetName: $"{controller}/{action}",
+                    description: $"HTTP {method} {path} completed with status {statusCode}");
             }
             else
             {
@@ -54,6 +65,14 @@ namespace JAS_MINE_IT15.Filters
                     action,
                     path,
                     user);
+
+                await _auditService.LogAsync(
+                    action: $"{method}_FAILED",
+                    module: $"{controller}Controller",
+                    targetId: null,
+                    targetType: "HttpAction",
+                    targetName: $"{controller}/{action}",
+                    description: $"HTTP {method} {path} failed: {executed.Exception.Message}");
             }
         }
     }
