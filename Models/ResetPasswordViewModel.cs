@@ -13,7 +13,7 @@ namespace JAS_MINE_IT15.Models
 
         [Required(ErrorMessage = "New password is required.")]
         [DataType(DataType.Password)]
-        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters.")]
+        [StringLength(100, MinimumLength = 12, ErrorMessage = "Password must be at least 12 characters.")]
         [RegularExpression("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z0-9]).+$",
             ErrorMessage = "Password must include uppercase, lowercase, number, and special character.")]
         public string Password { get; set; } = "";

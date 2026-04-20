@@ -1,0 +1,301 @@
+@model JAS_MINE_IT15.Models.SecurityDashboardViewModel
+@{
+    ViewData["Title"] = "Security Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var maxApiDaily = Model.DailyApiUsage.Any() ? Model.DailyApiUsage.Max(x => x.Count) : 1;
+    maxApiDaily = maxApiDaily <= 0 ? 1 : maxApiDaily;
+}
+
+<style>
+    .security-wrap { padding: 12px 6px; }
+    .metric-card {
+        border: 1px solid #e6ebf2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05);
+        padding: 18px;
+    }
+    .metric-label { font-size: 13px; color: #667085; }
+    .metric-value { font-size: 30px; font-weight: 800; line-height: 1.1; margin-top: 8px; }
+
+    .panel-card {
+        border: 1px solid #e6ebf2;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(16,24,40,.05);
+        margin-bottom: 18px;
+    }
+    .panel-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid #edf1f7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .panel-title { margin: 0; font-size: 16px; font-weight: 800; }
+    .panel-body { padding: 16px; }
+
+    .mini-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        height: 160px;
+        margin-top: 8px;
+    }
+    .bar-col {
+        flex: 1;
+        min-width: 44px;
+        text-align: center;
+    }
+    .bar-stack {
+        height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 2px;
+    }
+    .bar-ok { background: #4f46e5; border-radius: 6px 6px 0 0; }
+    .bar-fail { background: #dc2626; border-radius: 6px 6px 0 0; }
+    .bar-label { margin-top: 8px; font-size: 11px; color: #64748b; }
+    .bar-total { font-size: 11px; font-weight: 700; color: #334155; }
+
+    .endpoint-row {
+        display: grid;
+        grid-template-columns: 1fr 80px;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .endpoint-name {
+        font-size: 13px;
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .table-sm td, .table-sm th { font-size: 13px; vertical-align: middle; }
+</style>
+
+<div class="security-wrap">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="mb-1">Security Dashboard</h3>
+            <div class="text-muted small">Monitoring authentication, lockouts, admin actions, and API usage.</div>
+        </div>
+        <span class="badge bg-primary-subtle text-primary border">@((Model.IsSuperAdmin ? "Super Admin Scope" : "Admin Scope"))</span>
+    </div>
+
+    <div class="panel-card mb-3">
+        <div class="panel-body">
+            <form method="get" asp-action="Index" asp-controller="SecurityDashboard" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small">Date Range</label>
+                    <select name="range" class="form-select form-select-sm">
+                        <option value="24h" selected="@(Model.Range == "24h")">Last 24 Hours</option>
+                        <option value="7d" selected="@(Model.Range == "7d")">Last 7 Days</option>
+                        <option value="30d" selected="@(Model.Range == "30d")">Last 30 Days</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Failed Login Alert Threshold</label>
+                    <input type="number" min="1" class="form-control form-control-sm" name="failedLoginThreshold" value="@Model.FailedLoginAlertThreshold" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">API Failure Alert Threshold</label>
+                    <input type="number" min="1" class="form-control form-control-sm" name="apiFailureThreshold" value="@Model.ApiFailureAlertThreshold" />
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-sm btn-primary">Apply</button>
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="@Url.Action("ExportCsv", "SecurityDashboard", new { range = Model.Range, failedLoginThreshold = Model.FailedLoginAlertThreshold, apiFailureThreshold = Model.ApiFailureAlertThreshold })">
+                        Export CSV
+                    </a>
+                    <a class="btn btn-sm btn-outline-dark"
+                       href="@Url.Action("ExportPdf", "SecurityDashboard", new { range = Model.Range, failedLoginThreshold = Model.FailedLoginAlertThreshold, apiFailureThreshold = Model.ApiFailureAlertThreshold })">
+                        Export PDF
+                    </a>
+                </div>
+            </form>
+            <div class="small text-muted mt-2">
+                Showing data for <strong>@Model.RangeLabel</strong> (@Model.RangeStart.ToString("yyyy-MM-dd HH:mm") to @Model.RangeEnd.ToString("yyyy-MM-dd HH:mm")).
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="metric-card h-100">
+                <div class="metric-label">Failed Login Attempts (Current Counters)</div>
+                <div class="metric-value text-danger">@Model.FailedLoginAttemptsTotal</div>
+                <small class="text-muted">@Model.AccountsWithFailedAttempts account(s) affected</small>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card h-100">
+                <div class="metric-label">Failed Login Signals (@Model.RangeLabel)</div>
+                <div class="metric-value text-warning">@Model.FailedLoginEventsInRange</div>
+                <small class="text-muted">threshold: @Model.FailedLoginAlertThreshold</small>
+                @if (Model.IsFailedLoginAlert)
+                {
+                    <div class="mt-2"><span class="badge bg-danger">Alert: Spike detected</span></div>
+                }
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card h-100">
+                <div class="metric-label">Locked Accounts</div>
+                <div class="metric-value text-dark">@Model.LockedAccountsCount</div>
+                <small class="text-muted">Identity lockout active now</small>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="metric-card h-100">
+                <div class="metric-label">API Requests (@Model.RangeLabel)</div>
+                <div class="metric-value text-primary">@Model.ApiRequestsInRange</div>
+                <small class="text-muted">@Model.ApiFailedRequestsInRange failed, @Model.ApiRateLimitedInRange throttled</small>
+                @if (Model.IsApiFailureAlert)
+                {
+                    <div class="mt-2"><span class="badge bg-danger">Alert: API failures exceeded threshold</span></div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-5">
+            <div class="panel-card">
+                <div class="panel-head">
+                    <h5 class="panel-title">Locked Accounts</h5>
+                    <span class="badge bg-danger-subtle text-danger border">@Model.LockedAccountsCount</span>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Failed</th>
+                                    <th>Lockout End</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @if (!Model.LockedAccounts.Any())
+                            {
+                                <tr><td colspan="4" class="text-center text-muted py-3">No locked accounts.</td></tr>
+                            }
+                            @foreach (var item in Model.LockedAccounts)
+                            {
+                                <tr>
+                                    <td>@item.Email</td>
+                                    <td>@item.Name</td>
+                                    <td>@item.AccessFailedCount</td>
+                                    <td>@(item.LockoutEnd?.LocalDateTime.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-head">
+                    <h5 class="panel-title">Top API Endpoints (@Model.RangeLabel)</h5>
+                </div>
+                <div class="panel-body">
+                    @if (!Model.TopApiEndpoints.Any())
+                    {
+                        <div class="text-muted small">No API usage data yet.</div>
+                    }
+                    else
+                    {
+                        @foreach (var item in Model.TopApiEndpoints)
+                        {
+                            <div class="endpoint-row">
+                                <div>
+                                    <div class="endpoint-name" title="@item.Endpoint">@item.Endpoint</div>
+                                    <div class="progress" style="height:8px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
+                                    </div>
+                                    <div class="small text-muted mt-1">Failed: @item.FailedCount (@Math.Round(item.FailureRatePercent, 1)%)</div>
+                                </div>
+                                <div class="text-end fw-bold">@item.Count</div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7">
+            <div class="panel-card">
+                <div class="panel-head">
+                    <h5 class="panel-title">API Activity Trend (@Model.RangeLabel)</h5>
+                </div>
+                <div class="panel-body">
+                    <div class="mini-bars">
+                        @foreach (var day in Model.DailyApiUsage)
+                        {
+                            var okCount = Math.Max(0, day.Count - day.FailedCount);
+                            var okHeight = day.Count > 0 ? (okCount * 100.0 / maxApiDaily) : 0;
+                            var failHeight = day.Count > 0 ? (day.FailedCount * 100.0 / maxApiDaily) : 0;
+                            <div class="bar-col">
+                                <div class="bar-total">@day.Count</div>
+                                <div class="bar-stack">
+                                    <div class="bar-fail" style="height:@Math.Max(0, failHeight)%"></div>
+                                    <div class="bar-ok" style="height:@Math.Max(2, okHeight)%"></div>
+                                </div>
+                                <div class="bar-label">@day.Date</div>
+                            </div>
+                        }
+                    </div>
+                    <div class="d-flex gap-3 mt-2 small text-muted">
+                        <span><span class="badge bg-primary">&nbsp;</span> Success</span>
+                        <span><span class="badge bg-danger">&nbsp;</span> Failed</span>
+                        <span>Failure rate: @Model.ApiFailureRatePercent%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-head">
+                    <h5 class="panel-title">Recent Admin Actions</h5>
+                    <span class="badge bg-secondary-subtle text-secondary border">@Model.RecentAdminActions.Count</span>
+                </div>
+                <div class="panel-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Module</th>
+                                    <th>Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @if (!Model.RecentAdminActions.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted py-3">No admin actions found.</td></tr>
+                            }
+                            @foreach (var item in Model.RecentAdminActions)
+                            {
+                                <tr>
+                                    <td>@item.Timestamp</td>
+                                    <td>@item.User</td>
+                                    <td><span class="badge bg-light text-dark border">@item.Action</span></td>
+                                    <td>@item.Module</td>
+                                    <td title="@item.Description">@item.Target</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

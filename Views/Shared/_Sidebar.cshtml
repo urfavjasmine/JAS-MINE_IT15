@@ -388,6 +388,11 @@
 
             <div class="jm-section">MONITORING</div>
             <div class="jm-group">
+                <a class="jm-item @(IsActive("Index", "SecurityDashboard") ? "active" : "")" href="@Url.Action("Index", "SecurityDashboard")">
+                    <div class="jm-icon"><i class="bi bi-shield-exclamation"></i></div>
+                    <div class="jm-text">Security Dashboard</div>
+                </a>
+
                 <a class="jm-item @(IsActive("SystemMonitoring", "Dashboard") ? "active" : "")" href="@Url.Action("SystemMonitoring", "Dashboard")">
                     <div class="jm-icon"><i class="bi bi-activity"></i></div>
                     <div class="jm-text">System Monitoring</div>
@@ -444,6 +449,11 @@
             @* Limited Administration *@
             <div class="jm-section">ADMINISTRATION</div>
             <div class="jm-group">
+                <a class="jm-item @(IsActive("Index", "SecurityDashboard") ? "active" : "")" href="@Url.Action("Index", "SecurityDashboard")">
+                    <div class="jm-icon"><i class="bi bi-shield-exclamation"></i></div>
+                    <div class="jm-text">Security Dashboard</div>
+                </a>
+
                 <a class="jm-item @(IsActive("UserManagement") ? "active" : "")" href="@Url.Action("UserManagement", "Home")">
                     <div class="jm-icon"><i class="bi bi-people"></i></div>
                     <div class="jm-text">User Management</div>

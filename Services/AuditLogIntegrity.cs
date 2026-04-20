@@ -6,10 +6,21 @@ namespace JAS_MINE_IT15.Services
 {
     public static class AuditLogIntegrity
     {
-        public static string ComputeHash(AuditLog log, string? previousHash)
+        public const string LegacySha256Algorithm = "SHA256_LEGACY";
+        public const string HmacSha256V1Algorithm = "HMACSHA256_V1";
+
+        public static string ComputeLegacySha256Hash(AuditLog log, string? previousHash)
         {
             var canonical = BuildCanonicalPayload(log, previousHash);
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+            return Convert.ToHexString(bytes);
+        }
+
+        public static string ComputeHmacSha256Hash(AuditLog log, string? previousHash, byte[] key)
+        {
+            var canonical = BuildCanonicalPayload(log, previousHash);
+            using var hmac = new HMACSHA256(key);
+            var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(canonical));
             return Convert.ToHexString(bytes);
         }
 

@@ -175,11 +175,19 @@ namespace JAS_MINE_IT15.Controllers
 
         private async Task<bool> BeginEmailTwoFactorFlowAsync(IdentityUser user, string role)
         {
+            if (string.IsNullOrWhiteSpace(user.Email))
+            {
+                _logger.LogWarning("Cannot start 2FA flow for user {UserId}: email address is missing.", user.Id);
+                return false;
+            }
+
+            var userEmail = user.Email;
+
             var expiresAtUtc = DateTime.UtcNow.Add(TwoFactorOtpLifetime);
             var token = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
 
             HttpContext.Session.SetString(PendingTwoFactorUserIdKey, user.Id);
-            HttpContext.Session.SetString(PendingTwoFactorEmailKey, user.Email ?? string.Empty);
+            HttpContext.Session.SetString(PendingTwoFactorEmailKey, userEmail);
             HttpContext.Session.SetString(PendingTwoFactorRoleKey, role);
             HttpContext.Session.SetString(PendingTwoFactorExpiresAtKey, expiresAtUtc.Ticks.ToString());
             HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, "0");
@@ -192,7 +200,7 @@ namespace JAS_MINE_IT15.Controllers
 
             try
             {
-                await _emailSender.SendEmailAsync(user.Email!, "JAS-MINE Login Verification Code", body);
+                await _emailSender.SendEmailAsync(userEmail, "JAS-MINE Login Verification Code", body);
                 return true;
             }
             catch (Exception ex)
@@ -1369,7 +1377,7 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Login));
             }
 
-            model.Code = (model.Code ?? string.Empty).Trim();
+            model.Code = new string((model.Code ?? string.Empty).Where(char.IsDigit).ToArray());
             model.MaskedEmail = MaskEmail(pendingState.Email);
             model.RemainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
 
@@ -3573,9 +3581,9 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(UserManagement));
             }
 
-            if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
             {
-                TempData["Error"] = "Password must be at least 6 characters.";
+                TempData["Error"] = "Password must be at least 12 characters.";
                 return RedirectToAction(nameof(UserManagement));
             }
 
@@ -4409,9 +4417,9 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Settings), new { tab = "security" });
             }
 
-            if (newPassword.Length < 6)
+            if (newPassword.Length < 12)
             {
-                TempData["Error"] = "New password must be at least 6 characters.";
+                TempData["Error"] = "New password must be at least 12 characters.";
                 return RedirectToAction(nameof(Settings), new { tab = "security" });
             }
 

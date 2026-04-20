@@ -101,7 +101,7 @@
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Verification Code</label>
-                    <input asp-for="Code" class="form-control otp-input" maxlength="8" placeholder="Enter code" />
+                    <input asp-for="Code" class="form-control otp-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="Enter 6-digit code" />
                     <span asp-validation-for="Code" class="text-danger small"></span>
                 </div>
 

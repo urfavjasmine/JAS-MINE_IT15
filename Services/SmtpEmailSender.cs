@@ -24,8 +24,8 @@ namespace JAS_MINE_IT15.Services
                 || string.IsNullOrWhiteSpace(_settings.UserName)
                 || string.IsNullOrWhiteSpace(_settings.Password))
             {
-                _logger.LogWarning("SMTP settings are incomplete. Email to {Email} was not sent.", email);
-                return;
+                _logger.LogError("SMTP settings are incomplete. Unable to send email to {Email}.", email);
+                throw new InvalidOperationException("SMTP settings are incomplete. Configure Host, FromEmail, UserName, and Password.");
             }
 
             using var message = new MailMessage
@@ -44,7 +44,7 @@ namespace JAS_MINE_IT15.Services
             };
 
             await client.SendMailAsync(message);
-            _logger.LogInformation("Password reset email sent to {Email}", email);
+            _logger.LogInformation("Email sent to {Email} with subject {Subject}", email, subject);
         }
     }
 }

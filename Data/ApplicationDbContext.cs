@@ -7,9 +7,12 @@ namespace JAS_MINE_IT15.Data
 {
     public class ApplicationDbContext : IdentityDbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
+            private readonly IAuditLogHashService _auditLogHashService;
+
+            public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IAuditLogHashService auditLogHashService)
+                  : base(options)
+            {
+                  _auditLogHashService = auditLogHashService;
         }
 
         // =============================================
@@ -79,7 +82,8 @@ namespace JAS_MINE_IT15.Data
                   foreach (var pendingLog in pendingLogs)
                   {
                         pendingLog.PreviousHash = string.IsNullOrWhiteSpace(previousHash) ? null : previousHash;
-                        pendingLog.Hash = AuditLogIntegrity.ComputeHash(pendingLog, pendingLog.PreviousHash);
+                        pendingLog.HashAlgorithm = _auditLogHashService.WriteAlgorithmId;
+                        pendingLog.Hash = _auditLogHashService.ComputeHash(pendingLog, pendingLog.PreviousHash, pendingLog.HashAlgorithm);
                         previousHash = pendingLog.Hash;
                   }
             }
@@ -106,7 +110,8 @@ namespace JAS_MINE_IT15.Data
                   foreach (var pendingLog in pendingLogs)
                   {
                         pendingLog.PreviousHash = string.IsNullOrWhiteSpace(previousHash) ? null : previousHash;
-                        pendingLog.Hash = AuditLogIntegrity.ComputeHash(pendingLog, pendingLog.PreviousHash);
+                        pendingLog.HashAlgorithm = _auditLogHashService.WriteAlgorithmId;
+                        pendingLog.Hash = _auditLogHashService.ComputeHash(pendingLog, pendingLog.PreviousHash, pendingLog.HashAlgorithm);
                         previousHash = pendingLog.Hash;
                   }
             }
@@ -250,6 +255,7 @@ namespace JAS_MINE_IT15.Data
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
                         entity.Property(e => e.PreviousHash).HasMaxLength(64);
                 entity.Property(e => e.Hash).HasMaxLength(64);
+                entity.Property(e => e.HashAlgorithm).HasMaxLength(32);
                 entity.HasIndex(e => e.Hash)
                       .IsUnique()
                       .HasFilter("[Hash] IS NOT NULL");

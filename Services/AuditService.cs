@@ -11,17 +11,20 @@ namespace JAS_MINE_IT15.Services
         private readonly ITenantService _tenantService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuditService> _logger;
+        private readonly IAuditLogHashService _auditLogHashService;
 
         public AuditService(
             ApplicationDbContext context,
             ITenantService tenantService,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<AuditService> logger)
+            ILogger<AuditService> logger,
+            IAuditLogHashService auditLogHashService)
         {
             _context = context;
             _tenantService = tenantService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
+            _auditLogHashService = auditLogHashService;
         }
 
         public async Task LogAsync(string action, string module, int? targetId, string? targetType,
@@ -83,7 +86,10 @@ namespace JAS_MINE_IT15.Services
             for (var i = 0; i < logs.Count; i++)
             {
                 var log = logs[i];
-                var expectedHash = AuditLogIntegrity.ComputeHash(log, expectedPreviousHash);
+                var algorithm = string.IsNullOrWhiteSpace(log.HashAlgorithm)
+                    ? AuditLogIntegrity.LegacySha256Algorithm
+                    : log.HashAlgorithm;
+                var expectedHash = _auditLogHashService.ComputeHash(log, expectedPreviousHash, algorithm);
 
                 if (!string.Equals(log.PreviousHash, expectedPreviousHash, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(log.Hash, expectedHash, StringComparison.OrdinalIgnoreCase))

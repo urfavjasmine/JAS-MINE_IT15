@@ -65,6 +65,9 @@ namespace JAS_MINE_IT15.Models.Entities
         [MaxLength(64)]
         public string? Hash { get; set; }
 
+        [MaxLength(32)]
+        public string? HashAlgorithm { get; set; }
+
         /// <summary>
         /// Multi-tenant support: Tracks which barangay this action belongs to.
         /// NULL for super_admin actions (system-level).

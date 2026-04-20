@@ -54,6 +54,9 @@ builder.Services.Configure<JAS_MINE_IT15.Models.RetentionSettings>(
     builder.Configuration.GetSection("Retention"));
 builder.Services.Configure<JAS_MINE_IT15.Models.SmtpSettings>(
     builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<JAS_MINE_IT15.Models.AuditIntegritySettings>(
+    builder.Configuration.GetSection(JAS_MINE_IT15.Models.AuditIntegritySettings.SectionName));
+builder.Services.AddSingleton<IAuditLogHashService, AuditLogHashService>();
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 builder.Services.AddHttpClient<IRecaptchaService, RecaptchaService>();
 
@@ -77,18 +80,24 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
+
+    // Strong password baseline (enforced by ASP.NET Core Identity)
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = true;
-    options.Password.RequiredLength = 8;
-    options.Password.RequiredUniqueChars = 1;
+    options.Password.RequiredLength = 12;
+    options.Password.RequiredUniqueChars = 4;
+
+    // Lock account on repeated failed login attempts
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(20);
+
     options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultProvider;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
+.AddPasswordValidator<StrongPasswordValidator>()
 .AddDefaultTokenProviders();
 
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
