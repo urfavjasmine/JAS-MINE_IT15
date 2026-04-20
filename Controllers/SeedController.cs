@@ -19,7 +19,9 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> Run()
         {
             await IdentitySeeder.SeedRoles(_services);
-            return Content("Seeding done (roles only). No default user credentials were created.");
+            
+            await IdentitySeeder.SeedSuperAdmin(_services);
+            return Content("Seeding done (roles + configured super admins).");
         }
     }
 }

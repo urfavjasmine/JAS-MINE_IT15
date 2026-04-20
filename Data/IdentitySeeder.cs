@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using JAS_MINE_IT15.Models.Entities;
+using Microsoft.Extensions.Configuration;
 
 namespace JAS_MINE_IT15.Data
 {
@@ -13,6 +14,7 @@ namespace JAS_MINE_IT15.Data
             string[] roles =
             {
                 "super_admin",
+                "admin",
                 "barangay_admin",
                 "user",
                 "barangay_secretary",
@@ -29,7 +31,94 @@ namespace JAS_MINE_IT15.Data
 
         public static async Task SeedSuperAdmin(IServiceProvider services)
         {
-            await Task.CompletedTask;
+            var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            var config = services.GetRequiredService<IConfiguration>();
+            var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("IdentitySeeder");
+
+            var superAdminSeeds = config.GetSection("IdentitySeed:SuperAdmins").Get<List<SuperAdminSeed>>()
+                                  ?? new List<SuperAdminSeed>();
+
+            foreach (var seed in superAdminSeeds)
+            {
+                var email = (seed.Email ?? string.Empty).Trim().ToLower();
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    continue;
+                }
+
+                var identityUser = await userManager.FindByEmailAsync(email);
+                if (identityUser == null)
+                {
+                    if (string.IsNullOrWhiteSpace(seed.Password))
+                    {
+                        logger.LogWarning("Skipping super_admin seed for {Email}: user does not exist and no password was provided.", email);
+                        continue;
+                    }
+
+                    identityUser = new IdentityUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        EmailConfirmed = true
+                    };
+
+                    var createResult = await userManager.CreateAsync(identityUser, seed.Password);
+                    if (!createResult.Succeeded)
+                    {
+                        logger.LogWarning("Failed creating seeded super_admin {Email}: {Errors}", email,
+                            string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                        continue;
+                    }
+
+                    logger.LogInformation("Created Identity user for seeded super_admin {Email}.", email);
+                }
+
+                if (!await userManager.IsInRoleAsync(identityUser, "super_admin"))
+                {
+                    var roleResult = await userManager.AddToRoleAsync(identityUser, "super_admin");
+                    if (!roleResult.Succeeded)
+                    {
+                        logger.LogWarning("Failed assigning super_admin role to {Email}: {Errors}", email,
+                            string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+                        continue;
+                    }
+                }
+
+                var businessUser = await context.BusinessUsers.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+                if (businessUser == null)
+                {
+                    context.BusinessUsers.Add(new User
+                    {
+                        Email = email,
+                        PasswordHash = "IDENTITY_MANAGED",
+                        FullName = string.IsNullOrWhiteSpace(seed.FullName) ? email : seed.FullName.Trim(),
+                        Role = "super_admin",
+                        IsActive = true,
+                        CreatedAt = DateTime.Now
+                    });
+                }
+                else
+                {
+                    businessUser.Role = "super_admin";
+                    businessUser.IsActive = true;
+                    if (!string.IsNullOrWhiteSpace(seed.FullName))
+                    {
+                        businessUser.FullName = seed.FullName.Trim();
+                    }
+                    businessUser.UpdatedAt = DateTime.Now;
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        private sealed class SuperAdminSeed
+        {
+            public string? Email { get; set; }
+            public string? Password { get; set; }
+            public string? FullName { get; set; }
         }
         public static async Task SeedDefaultUsers(IServiceProvider services)
         {

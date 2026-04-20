@@ -4,12 +4,14 @@ using JAS_MINE_IT15.Models;
 using JAS_MINE_IT15.Models.Entities;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace JAS_MINE_IT15.Controllers
 {
     [ApiController]
+    [EnableRateLimiting("api")]
     [Route("api/[controller]")]
     public class PayMongoController : ControllerBase
     {

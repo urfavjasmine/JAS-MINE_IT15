@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
@@ -34,7 +35,10 @@ namespace JAS_MINE_IT15.Controllers
         private readonly IEmailSender _emailSender;
         private readonly IRecaptchaService _recaptchaService;
         private readonly RecaptchaSettings _recaptchaSettings;
+        private readonly RetentionSettings _retentionSettings;
         private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
+        private const string PendingRegistrationKey = "PendingRegistration";
+        private const string PendingRegistrationCreatedAtKey = "PendingRegistrationCreatedAtTicks";
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
@@ -45,7 +49,8 @@ namespace JAS_MINE_IT15.Controllers
             IPayMongoService payMongoService,
             IEmailSender emailSender,
             IRecaptchaService recaptchaService,
-            IOptions<RecaptchaSettings> recaptchaOptions)
+            IOptions<RecaptchaSettings> recaptchaOptions,
+            IOptions<RetentionSettings> retentionOptions)
             : base(context)
         {
             _signInManager = signInManager;
@@ -57,6 +62,7 @@ namespace JAS_MINE_IT15.Controllers
             _emailSender = emailSender;
             _recaptchaService = recaptchaService;
             _recaptchaSettings = recaptchaOptions.Value;
+            _retentionSettings = retentionOptions.Value;
         }
 
         // Helper methods inherited from BaseAppController
@@ -90,9 +96,48 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.Remove(LoginFailedAttemptsKey);
         }
 
+        private int GetPendingRegistrationRetentionDays()
+        {
+            return Math.Max(1, _retentionSettings.PendingRegistrationRetentionDays);
+        }
+
+        private string? GetValidPendingRegistrationJson()
+        {
+            var pendingJson = HttpContext.Session.GetString(PendingRegistrationKey);
+            if (string.IsNullOrWhiteSpace(pendingJson))
+            {
+                return null;
+            }
+
+            var createdTicksRaw = HttpContext.Session.GetString(PendingRegistrationCreatedAtKey);
+            if (!long.TryParse(createdTicksRaw, out var createdTicks))
+            {
+                HttpContext.Session.Remove(PendingRegistrationKey);
+                HttpContext.Session.Remove(PendingRegistrationCreatedAtKey);
+                return null;
+            }
+
+            var createdAtUtc = new DateTime(createdTicks, DateTimeKind.Utc);
+            if (DateTime.UtcNow - createdAtUtc > TimeSpan.FromDays(GetPendingRegistrationRetentionDays()))
+            {
+                HttpContext.Session.Remove(PendingRegistrationKey);
+                HttpContext.Session.Remove(PendingRegistrationCreatedAtKey);
+                _logger.LogInformation("Expired pending registration removed from session.");
+                return null;
+            }
+
+            return pendingJson;
+        }
+
         private void SetRecaptchaSiteKey()
         {
             ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
+        }
+
+        private static string HashResetToken(string encodedToken)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(encodedToken));
+            return Convert.ToHexString(bytes);
         }
 
         /// <summary>
@@ -970,7 +1015,8 @@ namespace JAS_MINE_IT15.Controllers
                 model.Address,
                 CreatedAt = DateTime.Now
             };
-            HttpContext.Session.SetString("PendingRegistration", System.Text.Json.JsonSerializer.Serialize(pendingReg));
+            HttpContext.Session.SetString(PendingRegistrationKey, System.Text.Json.JsonSerializer.Serialize(pendingReg));
+            HttpContext.Session.SetString(PendingRegistrationCreatedAtKey, DateTime.UtcNow.Ticks.ToString());
 
             _logger.LogInformation("Pending registration stored for: {Email}, Barangay: {Barangay}", model.Email, model.BarangayName);
 
@@ -1064,6 +1110,10 @@ namespace JAS_MINE_IT15.Controllers
 
             _logger.LogDebug("User found: {Email}, attempting password sign-in", user.Email);
 
+            HttpContext.Session.Clear();
+            Response.Cookies.Delete(".AspNetCore.Session");
+            await _signInManager.SignOutAsync();
+
             // Attempt password sign-in
             var result = await _signInManager.PasswordSignInAsync(
                 user.UserName!,
@@ -1114,6 +1164,7 @@ namespace JAS_MINE_IT15.Controllers
 
             // ── Session fixation prevention: clear old session before setting new values ──
             HttpContext.Session.Clear();
+            Response.Cookies.Delete(".AspNetCore.Session");
             ResetLoginFailedAttempts();
 
             // Keep session minimal for security.
@@ -4163,36 +4214,44 @@ namespace JAS_MINE_IT15.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ToggleTwoFa(bool twoFaEnabled)
+        [Authorize(Roles = "super_admin")]
+        public async Task<IActionResult> ToggleTwoFa(bool twoFaEnabled)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            if (!IsSuperAdmin()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_TwoFa", twoFaEnabled ? "true" : "false");
+            await LogAuditAsync("Update", "SecuritySettings", null, "System", "TwoFA", twoFaEnabled ? "Enabled 2FA in settings." : "Disabled 2FA in settings.");
             TempData["Success"] = twoFaEnabled ? "2FA Enabled." : "2FA Disabled.";
             return RedirectToAction(nameof(Settings), new { tab = "security" });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult SaveSystem(SettingsViewModel model)
+        [Authorize(Roles = "super_admin")]
+        public async Task<IActionResult> SaveSystem(SettingsViewModel model)
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            if (!IsSuperAdmin()) return RedirectToDashboard();
 
             HttpContext.Session.SetString("Settings_Maintenance", model.MaintenanceMode ? "true" : "false");
             HttpContext.Session.SetString("Settings_SessionTimeout", model.SessionTimeout ?? "30");
             HttpContext.Session.SetString("Settings_DocFormat", model.DocFormat ?? "pdf");
 
+            await LogAuditAsync("Update", "SystemSettings", null, "System", "GlobalSettings",
+                $"Updated system settings: Maintenance={model.MaintenanceMode}, SessionTimeout={model.SessionTimeout}, DocFormat={model.DocFormat}");
             TempData["Success"] = "System settings saved. System preferences have been updated.";
             return RedirectToAction(nameof(Settings), new { tab = "system" });
         }
 
         [HttpGet]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> PasswordRequests(string statusFilter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            if (!IsSuperAdmin()) return RedirectToDashboard();
+
+            await LogAuditAsync("View", "PasswordRequests", null, "PasswordReset", "Requests", "Viewed password reset requests queue.");
 
             statusFilter = (statusFilter ?? "all").Trim();
 
@@ -4231,10 +4290,11 @@ namespace JAS_MINE_IT15.Controllers
         // POST: Process password reset request (approve = reset password)
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "super_admin")]
         public async Task<IActionResult> ProcessPasswordRequest(int id, string action, string newPassword = "")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
+            if (!IsSuperAdmin()) return RedirectToDashboard();
 
             var request = await _context.PasswordResetRequests
                 .Include(r => r.User)
@@ -4310,6 +4370,7 @@ namespace JAS_MINE_IT15.Controllers
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [EnableRateLimiting("forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
         {
             if (!ModelState.IsValid)
@@ -4327,7 +4388,7 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            var email = (model.Email ?? "").Trim();
+            var email = (model.Email ?? "").Trim().ToLower();
 
             // Always return the same success response to prevent user enumeration.
             var identityUser = await _userManager.FindByEmailAsync(email);
@@ -4335,6 +4396,40 @@ namespace JAS_MINE_IT15.Controllers
             {
                 var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
                 var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var tokenHash = HashResetToken(encodedToken);
+                var expiresAtUtc = DateTime.UtcNow.AddHours(1);
+
+                var pendingRequests = await _context.PasswordResetRequests
+                    .Where(r => r.IsActive && r.Email.ToLower() == email && r.Status == "Pending")
+                    .ToListAsync();
+
+                foreach (var pending in pendingRequests)
+                {
+                    pending.Status = "Expired";
+                    pending.IsActive = false;
+                    pending.ProcessedAt = DateTime.UtcNow;
+                    pending.Notes = "Superseded by a newer password reset request.";
+                }
+
+                var businessUser = await _context.BusinessUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IsActive && u.Email.ToLower() == email);
+
+                var resetRequest = new PasswordResetRequest
+                {
+                    UserId = businessUser?.Id,
+                    Email = email,
+                    Token = tokenHash,
+                    Status = "Pending",
+                    ExpiresAt = expiresAtUtc,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    Notes = "Self-service forgot-password request."
+                };
+
+                _context.PasswordResetRequests.Add(resetRequest);
+                await _context.SaveChangesAsync();
+
                 var callbackUrl = Url.Action(
                     nameof(ResetPassword),
                     "Home",
@@ -4347,6 +4442,7 @@ namespace JAS_MINE_IT15.Controllers
                     try
                     {
                         await _emailSender.SendEmailAsync(identityUser.Email!, "Reset your JAS-MINE password", body);
+                        await LogAuditAsync("Create", "PasswordRequests", resetRequest.Id, "PasswordReset", identityUser.Email, "Self-service password reset link issued.");
                     }
                     catch (Exception ex)
                     {
@@ -4374,6 +4470,37 @@ namespace JAS_MINE_IT15.Controllers
                 });
             }
 
+            var emailValue = email.Trim().ToLower();
+            var tokenHash = HashResetToken(token);
+
+            var resetRequest = _context.PasswordResetRequests
+                .FirstOrDefault(r => r.IsActive
+                    && r.Status == "Pending"
+                    && r.Email.ToLower() == emailValue
+                    && r.Token == tokenHash);
+
+            if (resetRequest == null)
+            {
+                return View(new ResetPasswordViewModel
+                {
+                    ErrorMessage = "This reset link is invalid, expired, or has already been used."
+                });
+            }
+
+            if (resetRequest.ExpiresAt.HasValue && resetRequest.ExpiresAt.Value <= DateTime.UtcNow)
+            {
+                resetRequest.Status = "Expired";
+                resetRequest.IsActive = false;
+                resetRequest.ProcessedAt = DateTime.UtcNow;
+                resetRequest.Notes = "Reset link expired before use.";
+                _context.SaveChanges();
+
+                return View(new ResetPasswordViewModel
+                {
+                    ErrorMessage = "This reset link has expired. Please request a new one."
+                });
+            }
+
             return View(new ResetPasswordViewModel
             {
                 Email = email,
@@ -4392,11 +4519,43 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            var user = await _userManager.FindByEmailAsync((model.Email ?? "").Trim());
+            var emailValue = (model.Email ?? "").Trim().ToLower();
+            var tokenHash = HashResetToken(model.Token ?? string.Empty);
+
+            var resetRequest = await _context.PasswordResetRequests
+                .FirstOrDefaultAsync(r => r.IsActive
+                    && r.Status == "Pending"
+                    && r.Email.ToLower() == emailValue
+                    && r.Token == tokenHash);
+
+            if (resetRequest == null)
+            {
+                model.ErrorMessage = "This reset link is invalid, expired, or has already been used.";
+                return View(model);
+            }
+
+            if (resetRequest.ExpiresAt.HasValue && resetRequest.ExpiresAt.Value <= DateTime.UtcNow)
+            {
+                resetRequest.Status = "Expired";
+                resetRequest.IsActive = false;
+                resetRequest.ProcessedAt = DateTime.UtcNow;
+                resetRequest.Notes = "Reset link expired before submission.";
+                await _context.SaveChangesAsync();
+
+                model.ErrorMessage = "This reset link has expired. Please request a new one.";
+                return View(model);
+            }
+
+            var user = await _userManager.FindByEmailAsync(emailValue);
             if (user == null)
             {
-                model.Submitted = true;
-                model.SuccessMessage = "Your password has been reset successfully. You may now log in.";
+                resetRequest.Status = "Expired";
+                resetRequest.IsActive = false;
+                resetRequest.ProcessedAt = DateTime.UtcNow;
+                resetRequest.Notes = "Identity user not found while processing reset.";
+                await _context.SaveChangesAsync();
+
+                model.ErrorMessage = "This reset link is invalid, expired, or has already been used.";
                 return View(model);
             }
 
@@ -4414,9 +4573,26 @@ namespace JAS_MINE_IT15.Controllers
             var result = await _userManager.ResetPasswordAsync(user, decodedToken, model.Password);
             if (result.Succeeded)
             {
+                resetRequest.Status = "Completed";
+                resetRequest.IsActive = false;
+                resetRequest.ProcessedAt = DateTime.UtcNow;
+                resetRequest.Notes = "Password reset completed by account owner.";
+                await _context.SaveChangesAsync();
+
                 model.Submitted = true;
                 model.SuccessMessage = "Your password has been reset successfully. You may now log in.";
+                await LogAuditAsync("Complete", "PasswordRequests", resetRequest.Id, "PasswordReset", user.Email, "Password reset completed via secure link.");
                 return View(model);
+            }
+
+            var invalidToken = result.Errors.Any(e => e.Code.Contains("InvalidToken", StringComparison.OrdinalIgnoreCase));
+            if (invalidToken)
+            {
+                resetRequest.Status = "Expired";
+                resetRequest.IsActive = false;
+                resetRequest.ProcessedAt = DateTime.UtcNow;
+                resetRequest.Notes = "Identity rejected reset token as invalid/used.";
+                await _context.SaveChangesAsync();
             }
 
             foreach (var error in result.Errors)
@@ -4756,7 +4932,7 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> SelectPlan(int? planId = null)
         {
             // Check for pending registration (user not created yet)
-            var hasPendingReg = HttpContext.Session.GetString("PendingRegistration") != null;
+            var hasPendingReg = !string.IsNullOrWhiteSpace(GetValidPendingRegistrationJson());
             
             // If not logged in AND no pending registration, redirect to login
             if (!IsLoggedIn() && !hasPendingReg)
@@ -4828,7 +5004,7 @@ namespace JAS_MINE_IT15.Controllers
             int? barangayId = null;
             
             // Check for pending registration (new user flow)
-            var pendingRegJson = HttpContext.Session.GetString("PendingRegistration");
+            var pendingRegJson = GetValidPendingRegistrationJson();
             if (!string.IsNullOrEmpty(pendingRegJson))
             {
                 // Parse pending registration data
@@ -4854,7 +5030,8 @@ namespace JAS_MINE_IT15.Controllers
                 var existingUser = await _userManager.FindByEmailAsync(email);
                 if (existingUser != null)
                 {
-                    HttpContext.Session.Remove("PendingRegistration");
+                    HttpContext.Session.Remove(PendingRegistrationKey);
+                    HttpContext.Session.Remove(PendingRegistrationCreatedAtKey);
                     TempData["Error"] = "An account with this email already exists. Please login.";
                     return RedirectToAction(nameof(Login));
                 }
@@ -4924,7 +5101,8 @@ namespace JAS_MINE_IT15.Controllers
                 HttpContext.Session.SetString("Barangay", barangay.Name);
 
                 // Clear pending registration
-                HttpContext.Session.Remove("PendingRegistration");
+                HttpContext.Session.Remove(PendingRegistrationKey);
+                HttpContext.Session.Remove(PendingRegistrationCreatedAtKey);
 
                 barangayId = barangay.Id;
 
