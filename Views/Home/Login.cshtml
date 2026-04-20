@@ -15,7 +15,7 @@
     <title>@ViewData["Title"] - JAS-MINE</title>
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap-icons-1.11.3/font/bootstrap-icons.css" />
     <link rel="stylesheet" href="~/css/site.css" />
 
     <style>
@@ -269,168 +269,238 @@
 
     </div>
 
+    <!-- ==================== SCRIPTS ==================== -->
+    <!-- Load Bootstrap first (no jQuery dependency in v5) -->
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
-    {
-        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    }
-    <script>
-        // ════════════════════════════════════════════════════════════════════════
-        // Google reCAPTCHA v2 Integration - Login Form (Visible Checkbox)
-        // ════════════════════════════════════════════════════════════════════════
 
-        // Debug logging utility
-        const RecaptchaDebug = {
-            enabled: @((Model?.CaptchaRequired ?? false) ? "true" : "false"),
-            log: function(message, data) {
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    console.log(`[reCAPTCHA v2] ${message}`, data || '');
-                }
-            },
-            error: function(message, data) {
-                console.error(`[reCAPTCHA v2 ERROR] ${message}`, data || '');
-            }
-        };
-
-        // Initialize reCAPTCHA callback handlers
-        window.RecaptchaCallbacks = {
-            onLoad: function() {
-                RecaptchaDebug.log('reCAPTCHA v2 widget loaded successfully');
-            },
-            onExpire: function() {
-                RecaptchaDebug.log('reCAPTCHA token expired, user needs to re-verify');
-                const errorDiv = document.getElementById('recaptcha-error');
-                if (errorDiv) {
-                    errorDiv.textContent = 'Your CAPTCHA verification has expired. Please complete it again.';
-                    errorDiv.style.display = 'block';
-                }
-            },
-            onError: function() {
-                RecaptchaDebug.error('reCAPTCHA encountered an error');
-                const errorDiv = document.getElementById('recaptcha-error');
-                if (errorDiv) {
-                    errorDiv.textContent = 'CAPTCHA verification failed. Please try again.';
-                    errorDiv.style.display = 'block';
-                }
-            }
-        };
-
-        // ────────────────────────────────────────────────────────────────
-        // Password visibility toggle
-        // ────────────────────────────────────────────────────────────────
-        document.getElementById('togglePassword')?.addEventListener('click', function (e) {
-            e.preventDefault();
-            const passwordInput = document.getElementById('passwordInput');
-            const toggleIcon = document.getElementById('toggleIcon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.classList.remove('bi-eye');
-                toggleIcon.classList.add('bi-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('bi-eye-slash');
-                toggleIcon.classList.add('bi-eye');
-            }
-        });
-
-        // ────────────────────────────────────────────────────────────────
-        // Form submission with reCAPTCHA v2 validation
-        // ────────────────────────────────────────────────────────────────
-        document.getElementById('loginForm')?.addEventListener('submit', function (e) {
-            const captchaRequired = @((Model?.CaptchaRequired ?? false).ToString().ToLower());
-
-            RecaptchaDebug.log('Form submit triggered. CAPTCHA required: ' + captchaRequired);
-
-            // If CAPTCHA is not required, allow form submission
-            if (!captchaRequired) {
-                RecaptchaDebug.log('CAPTCHA not required, proceeding with login');
-                return true;
-            }
-
-            // Validate reCAPTCHA is available
-            if (typeof grecaptcha === 'undefined') {
-                RecaptchaDebug.error('grecaptcha API not available');
-                e.preventDefault();
-                alert('reCAPTCHA API is not loaded. Please refresh the page and try again.');
-                return false;
-            }
-
-            // Get the reCAPTCHA v2 response token
-            const token = grecaptcha.getResponse();
-            RecaptchaDebug.log('reCAPTCHA response obtained. Token length: ' + (token ? token.length : 0));
-
-            // Validate token is present
-            if (!token || token.trim() === '') {
-                RecaptchaDebug.error('reCAPTCHA token is empty');
-                e.preventDefault();
-                
-                // Show error message to user
-                const errorDiv = document.getElementById('recaptcha-error');
-                if (errorDiv) {
-                    errorDiv.textContent = 'Please complete the CAPTCHA verification below.';
-                    errorDiv.style.display = 'block';
-                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    alert('Please complete the CAPTCHA verification.');
-                }
-                return false;
-            }
-
-            // Set the token in the hidden input field
-            const tokenInput = document.getElementById('recaptcha-token');
-            tokenInput.value = token;
-            RecaptchaDebug.log('Token set in hidden input field');
-
-            // Show loading state
-            const submitButton = this.querySelector('button[type="submit"]');
-            if (submitButton) {
-                const originalText = submitButton.innerHTML;
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
-                
-                // Reset on form error (in case server returns error)
-                this.addEventListener('reset', function() {
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = originalText;
-                });
-            }
-
-            RecaptchaDebug.log('Form validation passed, submitting...');
-            return true;
-        });
-
-        // ────────────────────────────────────────────────────────────────
-        // Handle reCAPTCHA API ready state
-        // ────────────────────────────────────────────────────────────────
-        if (typeof grecaptcha !== 'undefined') {
-            grecaptcha.ready(function() {
-                RecaptchaDebug.log('grecaptcha.ready() callback executed');
-            });
-        } else if (@((Model?.CaptchaRequired ?? false).ToString().ToLower())) {
-            // If CAPTCHA is required but API is not loaded, warn the user
-            RecaptchaDebug.error('CAPTCHA is required but grecaptcha API is not loaded');
-            const errorDiv = document.getElementById('recaptcha-error');
-            if (errorDiv) {
-                errorDiv.textContent = 'Security verification is loading. Please wait...';
-                errorDiv.style.display = 'block';
-            }
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        // Clear error messages when user interacts with form
-        // ────────────────────────────────────────────────────────────────
-        document.getElementById('loginForm')?.addEventListener('input', function() {
-            const errorDiv = document.getElementById('recaptcha-error');
-            if (errorDiv && errorDiv.textContent.includes('CAPTCHA')) {
-                errorDiv.style.display = 'none';
-            }
-        });
-    </script>
-
-    @* REQUIRED for client-side validation *@
+    <!-- Load jQuery and validation before custom scripts -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <!-- Load reCAPTCHA API with callback safety -->
+    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
+    {
+        <script src="https://www.google.com/recaptcha/api.js?onload=RecaptchaInit&render=explicit" async defer></script>
+    }
+
+    <!-- Main Login Script with proper error handling -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ════════════════════════════════════════════════════════════════════════
+            // DEBUG LOGGING UTILITY - Console logs in development only
+            // ════════════════════════════════════════════════════════════════════════
+            const RecaptchaDebug = {
+                enabled: @((Model?.CaptchaRequired ?? false) ? "true" : "false"),
+                log: function(message, data) {
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        console.log(`[Login Debug] ${message}`, data || '');
+                    }
+                },
+                error: function(message, data) {
+                    console.error(`[Login ERROR] ${message}`, data || '');
+                }
+            };
+
+            // ════════════════════════════════════════════════════════════════════════
+            // RECAPTCHA INITIALIZATION - Safeguard for async loading
+            // ════════════════════════════════════════════════════════════════════════
+            window.RecaptchaInit = function() {
+                RecaptchaDebug.log('reCAPTCHA API initialized and ready');
+                if (window.RecaptchaReady && typeof window.RecaptchaReady === 'function') {
+                    window.RecaptchaReady();
+                }
+            };
+
+            // Define callbacks BEFORE reCAPTCHA script loads
+            window.RecaptchaCallbacks = {
+                onLoad: function() {
+                    RecaptchaDebug.log('reCAPTCHA v2 widget loaded successfully');
+                },
+                onExpire: function() {
+                    RecaptchaDebug.log('reCAPTCHA token expired');
+                    const errorDiv = document.getElementById('recaptcha-error');
+                    if (errorDiv) {
+                        errorDiv.textContent = 'Your verification has expired. Please complete CAPTCHA again.';
+                        errorDiv.style.display = 'block';
+                    }
+                },
+                onError: function() {
+                    RecaptchaDebug.error('reCAPTCHA API error occurred');
+                    const errorDiv = document.getElementById('recaptcha-error');
+                    if (errorDiv) {
+                        errorDiv.textContent = 'CAPTCHA verification failed. Please try again.';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            };
+
+            // ════════════════════════════════════════════════════════════════════════
+            // PASSWORD VISIBILITY TOGGLE
+            // ════════════════════════════════════════════════════════════════════════
+            function initPasswordToggle() {
+                try {
+                    const toggleBtn = document.getElementById('togglePassword');
+                    if (!toggleBtn) return;
+
+                    toggleBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const passwordInput = document.getElementById('passwordInput');
+                        const toggleIcon = document.getElementById('toggleIcon');
+
+                        if (!passwordInput || !toggleIcon) {
+                            RecaptchaDebug.error('Password toggle elements not found');
+                            return;
+                        }
+
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            toggleIcon.classList.remove('bi-eye');
+                            toggleIcon.classList.add('bi-eye-slash');
+                        } else {
+                            passwordInput.type = 'password';
+                            toggleIcon.classList.remove('bi-eye-slash');
+                            toggleIcon.classList.add('bi-eye');
+                        }
+                    });
+                } catch (error) {
+                    RecaptchaDebug.error('Password toggle initialization failed', error);
+                }
+            }
+
+            // ════════════════════════════════════════════════════════════════════════
+            // FORM SUBMISSION HANDLER
+            // ════════════════════════════════════════════════════════════════════════
+            function initFormSubmit() {
+                try {
+                    const loginForm = document.getElementById('loginForm');
+                    if (!loginForm) return;
+
+                    loginForm.addEventListener('submit', function(e) {
+                        const captchaRequired = @((Model?.CaptchaRequired ?? false).ToString().ToLower());
+                        RecaptchaDebug.log('Form submit - CAPTCHA required: ' + captchaRequired);
+
+                        // If CAPTCHA not required, allow submission
+                        if (!captchaRequired) {
+                            RecaptchaDebug.log('CAPTCHA not required, proceeding');
+                            return true;
+                        }
+
+                        // Validate reCAPTCHA is available
+                        if (typeof grecaptcha === 'undefined') {
+                            RecaptchaDebug.error('grecaptcha API unavailable');
+                            e.preventDefault();
+                            alert('Security verification not loaded. Please refresh and try again.');
+                            return false;
+                        }
+
+                        // Get reCAPTCHA response token
+                        try {
+                            const token = grecaptcha.getResponse();
+                            RecaptchaDebug.log('reCAPTCHA token retrieved: ' + (token ? 'present' : 'empty'));
+
+                            // Validate token exists
+                            if (!token || token.trim() === '') {
+                                RecaptchaDebug.error('reCAPTCHA token empty');
+                                e.preventDefault();
+
+                                const errorDiv = document.getElementById('recaptcha-error');
+                                if (errorDiv) {
+                                    errorDiv.textContent = 'Please complete the CAPTCHA verification.';
+                                    errorDiv.style.display = 'block';
+                                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                } else {
+                                    alert('Please complete the CAPTCHA verification.');
+                                }
+                                return false;
+                            }
+
+                            // Set token in hidden input
+                            const tokenInput = document.getElementById('recaptcha-token');
+                            if (tokenInput) {
+                                tokenInput.value = token;
+                                RecaptchaDebug.log('Token set successfully');
+                            } else {
+                                RecaptchaDebug.error('Token input field not found');
+                                return false;
+                            }
+
+                            // Show loading state
+                            const submitBtn = loginForm.querySelector('button[type="submit"]');
+                            if (submitBtn) {
+                                const originalText = submitBtn.textContent;
+                                submitBtn.disabled = true;
+                                submitBtn.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
+
+                                // Store for potential error recovery
+                                submitBtn.dataset.originalText = originalText;
+                            }
+
+                            RecaptchaDebug.log('Form validation complete, submitting');
+                            return true;
+
+                        } catch (error) {
+                            RecaptchaDebug.error('reCAPTCHA token retrieval error', error);
+                            e.preventDefault();
+                            alert('An error occurred during verification. Please try again.');
+                            return false;
+                        }
+                    });
+
+                    // Clear errors on form input
+                    loginForm.addEventListener('input', function() {
+                        const errorDiv = document.getElementById('recaptcha-error');
+                        if (errorDiv && errorDiv.textContent.includes('CAPTCHA')) {
+                            errorDiv.style.display = 'none';
+                        }
+                    });
+
+                } catch (error) {
+                    RecaptchaDebug.error('Form submission initialization failed', error);
+                }
+            }
+
+            // ════════════════════════════════════════════════════════════════════════
+            // INITIALIZATION ON DOM READY
+            // ════════════════════════════════════════════════════════════════════════
+            function initializeLogin() {
+                RecaptchaDebug.log('Initializing login page');
+                
+                // Initialize components
+                initPasswordToggle();
+                initFormSubmit();
+
+                // Handle reCAPTCHA API readiness
+                if (typeof grecaptcha !== 'undefined') {
+                    try {
+                        grecaptcha.ready(function() {
+                            RecaptchaDebug.log('grecaptcha.ready() executed successfully');
+                        });
+                    } catch (error) {
+                        RecaptchaDebug.error('grecaptcha.ready() error', error);
+                    }
+                } else if (@((Model?.CaptchaRequired ?? false).ToString().ToLower())) {
+                    RecaptchaDebug.error('CAPTCHA required but API not available');
+                    const errorDiv = document.getElementById('recaptcha-error');
+                    if (errorDiv) {
+                        errorDiv.textContent = 'Security verification is loading. Please wait...';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+
+                RecaptchaDebug.log('Login initialization complete');
+            }
+
+            // Wait for DOM to be fully ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeLogin);
+            } else {
+                initializeLogin();
+            }
+
+        })();
+    </script>
 </body>
 </html>
