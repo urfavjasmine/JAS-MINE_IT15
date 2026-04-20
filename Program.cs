@@ -59,14 +59,15 @@ builder.Services.AddHttpClient<IRecaptchaService, RecaptchaService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Fallback for local/dev run if config is missing
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("Connection string 'DefaultConnection' is missing. Configure it in appsettings, environment variables, or user secrets.");
+    connectionString = "Server=JASMINE\\SQLEXPRESS;Database=JAS_MINE_DB_New;Integrated Security=True;MultipleActiveResultSets=True;Encrypt=False;TrustServerCertificate=True";
 }
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
-
 // Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
