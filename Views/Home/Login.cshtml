@@ -163,6 +163,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+    </style>
 </head>
 
 <body>
@@ -270,25 +271,17 @@
     </div>
 
     <!-- ==================== SCRIPTS ==================== -->
-    <!-- Load Bootstrap first (no jQuery dependency in v5) -->
+    <!-- Load scripts in correct order -->
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Load jQuery and validation before custom scripts -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
 
-    <!-- Load reCAPTCHA API with callback safety -->
+    <!-- Load reCAPTCHA API -->
     @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
     {
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }
-
-    <!-- Jquery and Bootstrap Scripts -->
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
-    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         // Simple debug logging
@@ -297,6 +290,8 @@
                 console.log('[Login] ' + msg);
             }
         }
+
+        debugLog('Page ready');
 
         // Define reCAPTCHA callbacks EARLY
         window.RecaptchaCallbacks = {
@@ -323,7 +318,7 @@
 
         // Wait for DOM
         document.addEventListener('DOMContentLoaded', function() {
-            debugLog('Page loaded, initializing');
+            debugLog('DOM loaded, initializing');
 
             // Password toggle
             var toggleBtn = document.getElementById('togglePassword');
@@ -352,10 +347,12 @@
                     debugLog('Form submit, captcha required: ' + captchaRequired);
 
                     if (!captchaRequired) {
+                        debugLog('No captcha required, submitting');
                         return true;
                     }
 
                     if (typeof grecaptcha === 'undefined') {
+                        debugLog('grecaptcha not available');
                         e.preventDefault();
                         alert('Security verification not loaded. Please refresh and try again.');
                         return false;
