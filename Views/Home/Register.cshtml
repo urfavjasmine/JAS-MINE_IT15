@@ -3,6 +3,9 @@
     ViewData["Title"] = "Barangay Registration - JAS-MINE";
     Layout = null;
     var recaptchaSiteKey = ViewData["RecaptchaSiteKey"]?.ToString() ?? "";
+    var isRecaptchaConfigured = !string.IsNullOrWhiteSpace(recaptchaSiteKey)
+        && recaptchaSiteKey != "YOUR_RECAPTCHA_V3_SITE_KEY"
+        && recaptchaSiteKey != "YOUR_SITE_KEY_HERE";
 }
 
 <!doctype html>
@@ -595,7 +598,7 @@
 
                     <div class="mt-3 mb-2">
                         <label class="form-label">Security Verification</label>
-                        @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
+                        @if (!isRecaptchaConfigured)
                         {
                             <div class="alert alert-warning small mb-0">
                                 Security verification is unavailable. Please contact the administrator.
@@ -611,7 +614,7 @@
                         <button type="button" class="btn-back" onclick="prevStep()">
                             <i class="bi bi-arrow-left"></i> Back
                         </button>
-                        <button type="submit" class="btn-next" style="background: #1e4d7a;">
+                        <button type="submit" class="btn-next" style="background: #1e4d7a;" @(!isRecaptchaConfigured ? "disabled title=\"Security verification is unavailable.\"" : "")>
                             Complete Registration
                         </button>
                     </div>
@@ -627,7 +630,7 @@
 
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
+    @if (isRecaptchaConfigured)
     {
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     }

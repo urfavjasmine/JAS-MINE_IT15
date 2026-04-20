@@ -102,6 +102,8 @@ namespace JAS_MINE_IT15.Controllers
         private bool IsCaptchaConfigured()
         {
             return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
+                && _recaptchaSettings.SiteKey != "YOUR_RECAPTCHA_V3_SITE_KEY"
+                && _recaptchaSettings.SiteKey != "YOUR_SITE_KEY_HERE"
                 && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey)
                 && _recaptchaSettings.SecretKey != "REPLACE_WITH_YOUR_REAL_SECRET_KEY"
                 && _recaptchaSettings.SecretKey != "YOUR_SECRET_KEY_HERE";
