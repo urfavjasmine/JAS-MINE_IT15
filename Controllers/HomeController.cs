@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
@@ -5358,6 +5359,18 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult AccessDenied()
         {
             return View();
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public IActionResult Error()
+        {
+            var vm = new ErrorViewModel
+            {
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            };
+
+            return View("~/Views/Error.cshtml", vm);
         }
 
         [AllowAnonymous]

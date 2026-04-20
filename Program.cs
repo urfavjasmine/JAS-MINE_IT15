@@ -208,44 +208,48 @@ app.Use(async (context, next) =>
     var originalBody = context.Response.Body;
     await using var responseBuffer = new MemoryStream();
     context.Response.Body = responseBuffer;
-
-    await next();
-
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
-    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-
-    responseBuffer.Position = 0;
-    var isHtmlResponse = (context.Response.ContentType ?? string.Empty)
-        .Contains("text/html", StringComparison.OrdinalIgnoreCase);
-
-    if (isHtmlResponse)
+    try
     {
-        using var reader = new StreamReader(responseBuffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-        var html = await reader.ReadToEndAsync();
+        await next();
 
-        html = CspUtilities.AddNonceToInlineTags(html, nonce);
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+        context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+        context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
 
-        var scriptAttributeHashes = CspUtilities.ExtractAttributeHashes(html, "on[a-zA-Z]+");
-        var styleAttributeHashes = CspUtilities.ExtractAttributeHashes(html, "style");
+        responseBuffer.Position = 0;
+        var isHtmlResponse = (context.Response.ContentType ?? string.Empty)
+            .Contains("text/html", StringComparison.OrdinalIgnoreCase);
+
+        if (isHtmlResponse)
+        {
+            using var reader = new StreamReader(responseBuffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            var html = await reader.ReadToEndAsync();
+
+            html = CspUtilities.AddNonceToInlineTags(html, nonce);
+
+            var scriptAttributeHashes = CspUtilities.ExtractAttributeHashes(html, "on[a-zA-Z]+");
+            var styleAttributeHashes = CspUtilities.ExtractAttributeHashes(html, "style");
+
+            context.Response.Headers["Content-Security-Policy"] =
+                CspUtilities.BuildPolicy(nonce, scriptAttributeHashes, styleAttributeHashes);
+
+            context.Response.ContentLength = Encoding.UTF8.GetByteCount(html);
+            await originalBody.WriteAsync(Encoding.UTF8.GetBytes(html));
+            return;
+        }
 
         context.Response.Headers["Content-Security-Policy"] =
-            CspUtilities.BuildPolicy(nonce, scriptAttributeHashes, styleAttributeHashes);
+            CspUtilities.BuildPolicy(nonce, Array.Empty<string>(), Array.Empty<string>());
 
-        context.Response.Body = originalBody;
-        context.Response.ContentLength = Encoding.UTF8.GetByteCount(html);
-        await context.Response.WriteAsync(html);
-        return;
+        responseBuffer.Position = 0;
+        await responseBuffer.CopyToAsync(originalBody);
     }
-
-    context.Response.Headers["Content-Security-Policy"] =
-        CspUtilities.BuildPolicy(nonce, Array.Empty<string>(), Array.Empty<string>());
-
-    responseBuffer.Position = 0;
-    context.Response.Body = originalBody;
-    await responseBuffer.CopyToAsync(originalBody);
+    finally
+    {
+        context.Response.Body = originalBody;
+    }
 });
 
 app.UseRouting();
