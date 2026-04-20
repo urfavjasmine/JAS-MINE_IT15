@@ -7,7 +7,7 @@ namespace JAS_MINE_IT15.Services
     public class AuditLogHashService : IAuditLogHashService
     {
         private readonly ILogger<AuditLogHashService> _logger;
-        private readonly byte[]? _hmacKey;
+        private readonly byte[]? _hmacKey; 
 
         public string WriteAlgorithmId { get; }
 

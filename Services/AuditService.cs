@@ -12,19 +12,22 @@ namespace JAS_MINE_IT15.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuditService> _logger;
         private readonly IAuditLogHashService _auditLogHashService;
+        private readonly ISecurityAlertService _securityAlertService;
 
         public AuditService(
             ApplicationDbContext context,
             ITenantService tenantService,
             IHttpContextAccessor httpContextAccessor,
             ILogger<AuditService> logger,
-            IAuditLogHashService auditLogHashService)
+            IAuditLogHashService auditLogHashService,
+            ISecurityAlertService securityAlertService)
         {
             _context = context;
             _tenantService = tenantService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
             _auditLogHashService = auditLogHashService;
+            _securityAlertService = securityAlertService;
         }
 
         public async Task LogAsync(string action, string module, int? targetId, string? targetType,
@@ -94,6 +97,11 @@ namespace JAS_MINE_IT15.Services
                 if (!string.Equals(log.PreviousHash, expectedPreviousHash, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(log.Hash, expectedHash, StringComparison.OrdinalIgnoreCase))
                 {
+                    await _securityAlertService.RecordAuditIntegrityFailureAsync(
+                        log.Id,
+                        "Audit log hash chain mismatch detected.",
+                        cancellationToken);
+
                     return new AuditLogIntegrityReport
                     {
                         IsValid = false,

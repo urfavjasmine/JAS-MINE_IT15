@@ -1,0 +1,32 @@
+name: Security CI
+
+on:
+  push:
+    branches: ["master", "main"]
+  pull_request:
+    branches: ["master", "main"]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Vulnerability scan (NuGet)
+        run: dotnet list JAS-MINE_IT15.csproj package --vulnerable --include-transitive
+
+      - name: Outdated dependency report
+        run: dotnet list JAS-MINE_IT15.csproj package --outdated --include-transitive

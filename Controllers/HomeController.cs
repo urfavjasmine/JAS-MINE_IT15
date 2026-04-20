@@ -4,6 +4,7 @@ using JAS_MINE_IT15.Models;
 using JAS_MINE_IT15.Models.Entities;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
 
 namespace JAS_MINE_IT15.Controllers
 {
@@ -35,6 +37,10 @@ namespace JAS_MINE_IT15.Controllers
         private readonly IPayMongoService _payMongoService;
         private readonly IEmailSender _emailSender;
         private readonly IRecaptchaService _recaptchaService;
+        private readonly IAuthThrottleService _authThrottleService;
+        private readonly ISecurityAlertService _securityAlertService;
+        private readonly IPasswordHistoryService _passwordHistoryService;
+        private readonly IDataProtector _trustedDeviceProtector;
         private readonly RecaptchaSettings _recaptchaSettings;
         private readonly RetentionSettings _retentionSettings;
         private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
@@ -45,7 +51,13 @@ namespace JAS_MINE_IT15.Controllers
         private const string PendingTwoFactorRoleKey = "PendingTwoFactorRole";
         private const string PendingTwoFactorExpiresAtKey = "PendingTwoFactorExpiresAtTicks";
         private const string PendingTwoFactorAttemptsKey = "PendingTwoFactorAttempts";
+        private const string PendingTwoFactorResendCountKey = "PendingTwoFactorResendCount";
+        private const string PendingTwoFactorNextResendAtKey = "PendingTwoFactorNextResendAtTicks";
+        private const string TrustedDeviceCookieName = "JasMineTrustedDevice";
         private static readonly TimeSpan TwoFactorOtpLifetime = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan TwoFactorResendCooldown = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan TrustedDeviceLifetime = TimeSpan.FromDays(30);
+        private const int MaxTwoFactorResends = 3;
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
@@ -56,6 +68,10 @@ namespace JAS_MINE_IT15.Controllers
             IPayMongoService payMongoService,
             IEmailSender emailSender,
             IRecaptchaService recaptchaService,
+            IAuthThrottleService authThrottleService,
+            ISecurityAlertService securityAlertService,
+            IPasswordHistoryService passwordHistoryService,
+            IDataProtectionProvider dataProtectionProvider,
             IOptions<RecaptchaSettings> recaptchaOptions,
             IOptions<RetentionSettings> retentionOptions)
             : base(context)
@@ -68,6 +84,10 @@ namespace JAS_MINE_IT15.Controllers
             _payMongoService = payMongoService;
             _emailSender = emailSender;
             _recaptchaService = recaptchaService;
+            _authThrottleService = authThrottleService;
+            _securityAlertService = securityAlertService;
+            _passwordHistoryService = passwordHistoryService;
+            _trustedDeviceProtector = dataProtectionProvider.CreateProtector("JAS_MINE_IT15.TrustedDevice.v1");
             _recaptchaSettings = recaptchaOptions.Value;
             _retentionSettings = retentionOptions.Value;
         }
@@ -110,6 +130,8 @@ namespace JAS_MINE_IT15.Controllers
             public string Role { get; set; } = string.Empty;
             public DateTime ExpiresAtUtc { get; set; }
             public int Attempts { get; set; }
+            public int ResendCount { get; set; }
+            public DateTime NextResendAtUtc { get; set; }
         }
 
         private static bool RequiresEmailTwoFactorForRole(string role)
@@ -137,6 +159,9 @@ namespace JAS_MINE_IT15.Controllers
             return $"{local[..1]}***{local[^1]}@{domain}";
         }
 
+        private string GetClientIpAddress()
+            => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
         private PendingTwoFactorState? GetPendingTwoFactorState()
         {
             var userId = HttpContext.Session.GetString(PendingTwoFactorUserIdKey);
@@ -144,6 +169,8 @@ namespace JAS_MINE_IT15.Controllers
             var role = HttpContext.Session.GetString(PendingTwoFactorRoleKey) ?? string.Empty;
             var expiresRaw = HttpContext.Session.GetString(PendingTwoFactorExpiresAtKey);
             var attemptsRaw = HttpContext.Session.GetString(PendingTwoFactorAttemptsKey);
+            var resendCountRaw = HttpContext.Session.GetString(PendingTwoFactorResendCountKey);
+            var nextResendRaw = HttpContext.Session.GetString(PendingTwoFactorNextResendAtKey);
 
             if (string.IsNullOrWhiteSpace(userId)
                 || string.IsNullOrWhiteSpace(email)
@@ -153,6 +180,11 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             var attempts = int.TryParse(attemptsRaw, out var parsedAttempts) ? parsedAttempts : 0;
+            var resendCount = int.TryParse(resendCountRaw, out var parsedResendCount) ? parsedResendCount : 0;
+            var hasNextResend = long.TryParse(nextResendRaw, out var nextResendTicks);
+            var nextResendAtUtc = hasNextResend
+                ? new DateTime(nextResendTicks, DateTimeKind.Utc)
+                : DateTime.UtcNow;
 
             return new PendingTwoFactorState
             {
@@ -160,7 +192,9 @@ namespace JAS_MINE_IT15.Controllers
                 Email = email,
                 Role = role,
                 ExpiresAtUtc = new DateTime(expiresTicks, DateTimeKind.Utc),
-                Attempts = attempts
+                Attempts = attempts,
+                ResendCount = resendCount,
+                NextResendAtUtc = nextResendAtUtc
             };
         }
 
@@ -171,9 +205,88 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.Remove(PendingTwoFactorRoleKey);
             HttpContext.Session.Remove(PendingTwoFactorExpiresAtKey);
             HttpContext.Session.Remove(PendingTwoFactorAttemptsKey);
+            HttpContext.Session.Remove(PendingTwoFactorResendCountKey);
+            HttpContext.Session.Remove(PendingTwoFactorNextResendAtKey);
         }
 
-        private async Task<bool> BeginEmailTwoFactorFlowAsync(IdentityUser user, string role)
+        private static int ComputeResendAvailableInSeconds(DateTime nextResendAtUtc)
+        {
+            return Math.Max(0, (int)Math.Ceiling((nextResendAtUtc - DateTime.UtcNow).TotalSeconds));
+        }
+
+        private void PopulateOtpViewModel(VerifyOtpViewModel model, PendingTwoFactorState pendingState)
+        {
+            model.MaskedEmail = MaskEmail(pendingState.Email);
+            model.RemainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
+            model.ResendAvailableInSeconds = ComputeResendAvailableInSeconds(pendingState.NextResendAtUtc);
+            model.RemainingResends = Math.Max(0, MaxTwoFactorResends - pendingState.ResendCount);
+            model.CanResend = model.RemainingResends > 0 && model.ResendAvailableInSeconds == 0;
+        }
+
+        private async Task<bool> IsTrustedDeviceAsync(IdentityUser user)
+        {
+            if (!Request.Cookies.TryGetValue(TrustedDeviceCookieName, out var cookieValue)
+                || string.IsNullOrWhiteSpace(cookieValue))
+            {
+                return false;
+            }
+
+            try
+            {
+                var unprotected = _trustedDeviceProtector.Unprotect(cookieValue);
+                var parts = unprotected.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 3)
+                {
+                    return false;
+                }
+
+                var cookieUserId = parts[0];
+                var cookieSecurityStamp = parts[1];
+                if (!long.TryParse(parts[2], out var expiresTicks))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(cookieUserId, user.Id, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var expiresAtUtc = new DateTime(expiresTicks, DateTimeKind.Utc);
+                if (expiresAtUtc <= DateTime.UtcNow)
+                {
+                    return false;
+                }
+
+                var currentSecurityStamp = await _userManager.GetSecurityStampAsync(user);
+                return string.Equals(cookieSecurityStamp, currentSecurityStamp, StringComparison.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Invalid trusted device cookie detected for user {UserId}", user.Id);
+                return false;
+            }
+        }
+
+        private async Task RememberTrustedDeviceAsync(IdentityUser user)
+        {
+            var securityStamp = await _userManager.GetSecurityStampAsync(user);
+            var expiresAtUtc = DateTime.UtcNow.Add(TrustedDeviceLifetime);
+            var payload = $"{user.Id}|{securityStamp}|{expiresAtUtc.Ticks}";
+            var protectedPayload = _trustedDeviceProtector.Protect(payload);
+
+            Response.Cookies.Append(TrustedDeviceCookieName, protectedPayload, new CookieOptions
+            {
+                HttpOnly = true,
+                IsEssential = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = expiresAtUtc,
+                MaxAge = TrustedDeviceLifetime
+            });
+        }
+
+        private async Task<bool> BeginEmailTwoFactorFlowAsync(IdentityUser user, string role, int attempts, int resendCount)
         {
             if (string.IsNullOrWhiteSpace(user.Email))
             {
@@ -190,7 +303,9 @@ namespace JAS_MINE_IT15.Controllers
             HttpContext.Session.SetString(PendingTwoFactorEmailKey, userEmail);
             HttpContext.Session.SetString(PendingTwoFactorRoleKey, role);
             HttpContext.Session.SetString(PendingTwoFactorExpiresAtKey, expiresAtUtc.Ticks.ToString());
-            HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, "0");
+            HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, attempts.ToString());
+            HttpContext.Session.SetString(PendingTwoFactorResendCountKey, resendCount.ToString());
+            HttpContext.Session.SetString(PendingTwoFactorNextResendAtKey, DateTime.UtcNow.Add(TwoFactorResendCooldown).Ticks.ToString());
 
             var body = $@"
 <p>Your JAS-MINE verification code is:</p>
@@ -214,6 +329,39 @@ namespace JAS_MINE_IT15.Controllers
         private async Task<IActionResult> CompleteLoginAsync(IdentityUser identityUser, User businessUser, string role)
         {
             var barangayId = businessUser.BarangayId;
+
+            var previousLogin = await _context.AuditLogs
+                .AsNoTracking()
+                .Where(a => a.IsActive
+                    && a.Action == "Login"
+                    && a.UserEmail != null
+                    && identityUser.Email != null
+                    && a.UserEmail.ToLower() == identityUser.Email.ToLower())
+                .OrderByDescending(a => a.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            var currentIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var currentUserAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+
+            if (previousLogin != null)
+            {
+                var previousIp = previousLogin.IpAddress ?? "unknown";
+                var previousUserAgent = previousLogin.UserAgent ?? string.Empty;
+
+                var ipChanged = !string.Equals(previousIp, currentIp, StringComparison.OrdinalIgnoreCase);
+                var userAgentChanged = !string.IsNullOrWhiteSpace(previousUserAgent)
+                    && !string.Equals(previousUserAgent, currentUserAgent, StringComparison.Ordinal);
+
+                if (ipChanged || userAgentChanged)
+                {
+                    await _securityAlertService.RecordRiskySignInAsync(
+                        identityUser.Email ?? businessUser.Email,
+                        currentIp,
+                        currentUserAgent,
+                        previousIp,
+                        previousUserAgent);
+                }
+            }
 
             businessUser.LastLoginAt = DateTime.Now;
             await _context.SaveChangesAsync();
@@ -1261,6 +1409,17 @@ namespace JAS_MINE_IT15.Controllers
             // Prepare email and password
             model.Email = (model.Email ?? "").Trim();
             model.Password = (model.Password ?? "").Trim();
+            var normalizedEmail = model.Email.ToLowerInvariant();
+            var ipAddress = GetClientIpAddress();
+
+            var loginDelaySeconds = _authThrottleService.GetDelaySeconds("login", normalizedEmail, ipAddress);
+            if (loginDelaySeconds > 0)
+            {
+                model.ErrorMessage = $"Too many attempts. Please wait {loginDelaySeconds} second(s) before trying again.";
+                model.CaptchaRequired = true;
+                SetRecaptchaSiteKey();
+                return View(model);
+            }
 
             _logger.LogInformation("Login attempt for email: {Email}", model.Email);
 
@@ -1270,6 +1429,9 @@ namespace JAS_MINE_IT15.Controllers
             {
                 _logger.LogWarning("Failed login - user not found: {Email}", model.Email);
                 failedAttempts = IncrementLoginFailedAttempts();
+                _authThrottleService.RecordFailure("login", normalizedEmail, ipAddress);
+                await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, isLockedOut: false);
+                await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
                 model.CaptchaRequired = failedAttempts >= 3;
                 SetRecaptchaSiteKey();
@@ -1291,11 +1453,16 @@ namespace JAS_MINE_IT15.Controllers
                     "Email: {Email}, IsLockedOut: {IsLockedOut}", model.Email, result.IsLockedOut);
                 
                 failedAttempts = IncrementLoginFailedAttempts();
+                _authThrottleService.RecordFailure("login", normalizedEmail, ipAddress);
+                await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, result.IsLockedOut);
+                await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, result.IsLockedOut ? "Account locked out." : "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
                 model.CaptchaRequired = failedAttempts >= 3;
                 SetRecaptchaSiteKey();
                 return View(model);
             }
+
+            _authThrottleService.RecordSuccess("login", normalizedEmail, ipAddress);
 
             // Password check succeeded - continue with role and business user processing
             var roles = await _userManager.GetRolesAsync(user);
@@ -1310,6 +1477,9 @@ namespace JAS_MINE_IT15.Controllers
                 _logger.LogWarning("Login denied for {Email}: no active business profile found", model.Email);
                 await _signInManager.SignOutAsync();
                 failedAttempts = IncrementLoginFailedAttempts();
+                _authThrottleService.RecordFailure("login", normalizedEmail, ipAddress);
+                await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, isLockedOut: false);
+                await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, "No active business profile found.");
                 model.ErrorMessage = "Invalid email or password.";
                 model.CaptchaRequired = failedAttempts >= 3;
                 SetRecaptchaSiteKey();
@@ -1318,7 +1488,14 @@ namespace JAS_MINE_IT15.Controllers
 
             if (RequiresEmailTwoFactorForRole(role))
             {
-                var twoFactorStarted = await BeginEmailTwoFactorFlowAsync(user, role);
+                if (await IsTrustedDeviceAsync(user))
+                {
+                    _logger.LogInformation("Trusted device recognized. Skipping OTP for user {Email}", user.Email);
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    return await CompleteLoginAsync(user, businessUser, role);
+                }
+
+                var twoFactorStarted = await BeginEmailTwoFactorFlowAsync(user, role, attempts: 0, resendCount: 0);
                 if (!twoFactorStarted)
                 {
                     model.ErrorMessage = "Unable to send verification code right now. Please try again.";
@@ -1353,13 +1530,68 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Login));
             }
 
-            var remainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
-
-            return View(new VerifyOtpViewModel
+            var vm = new VerifyOtpViewModel
             {
-                MaskedEmail = MaskEmail(pendingState.Email),
-                RemainingSeconds = remainingSeconds
-            });
+                SuccessMessage = TempData["Success"] as string ?? string.Empty,
+                ErrorMessage = TempData["Error"] as string ?? string.Empty
+            };
+
+            PopulateOtpViewModel(vm, pendingState);
+            return View(vm);
+        }
+
+        // POST: /Home/ResendOtp
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [EnableRateLimiting("otp-resend")]
+        public async Task<IActionResult> ResendOtp()
+        {
+            var pendingState = GetPendingTwoFactorState();
+            if (pendingState == null || pendingState.ExpiresAtUtc < DateTime.UtcNow)
+            {
+                ClearPendingTwoFactorState();
+                TempData["Error"] = "Verification session expired. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            if (pendingState.ResendCount >= MaxTwoFactorResends)
+            {
+                ClearPendingTwoFactorState();
+                await _signInManager.SignOutAsync();
+                TempData["Error"] = "Maximum OTP resend attempts reached. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var resendAvailableIn = ComputeResendAvailableInSeconds(pendingState.NextResendAtUtc);
+            if (resendAvailableIn > 0)
+            {
+                TempData["Error"] = $"Please wait {resendAvailableIn} second(s) before requesting another code.";
+                return RedirectToAction(nameof(VerifyOtp));
+            }
+
+            var user = await _userManager.FindByIdAsync(pendingState.UserId);
+            if (user == null)
+            {
+                ClearPendingTwoFactorState();
+                TempData["Error"] = "User session is invalid. Please log in again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            var success = await BeginEmailTwoFactorFlowAsync(
+                user,
+                pendingState.Role,
+                attempts: pendingState.Attempts,
+                resendCount: pendingState.ResendCount + 1);
+
+            if (!success)
+            {
+                TempData["Error"] = "Unable to resend verification code right now. Please try again.";
+                return RedirectToAction(nameof(VerifyOtp));
+            }
+
+            TempData["Success"] = "A new verification code has been sent to your email.";
+            return RedirectToAction(nameof(VerifyOtp));
         }
 
         // POST: /Home/VerifyOtp
@@ -1377,13 +1609,20 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Login));
             }
 
-            model.Code = new string((model.Code ?? string.Empty).Where(char.IsDigit).ToArray());
-            model.MaskedEmail = MaskEmail(pendingState.Email);
-            model.RemainingSeconds = Math.Max(1, (int)Math.Ceiling((pendingState.ExpiresAtUtc - DateTime.UtcNow).TotalSeconds));
+            model.Code = (model.Code ?? string.Empty).Trim();
+            PopulateOtpViewModel(model, pendingState);
+
+            var ipAddress = GetClientIpAddress();
+            var otpDelaySeconds = _authThrottleService.GetDelaySeconds("otp", pendingState.Email, ipAddress);
+            if (otpDelaySeconds > 0)
+            {
+                model.ErrorMessage = $"Too many OTP attempts. Please wait {otpDelaySeconds} second(s) before trying again.";
+                return View(model);
+            }
 
             if (!ModelState.IsValid)
             {
-                model.ErrorMessage = "Enter a valid verification code.";
+                model.ErrorMessage = "Enter a valid 6-digit OTP or recovery code.";
                 return View(model);
             }
 
@@ -1395,11 +1634,29 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Login));
             }
 
-            var isValidOtp = await _userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, model.Code);
+            var submittedCode = model.Code.Trim();
+            var isOtpCode = Regex.IsMatch(submittedCode, "^\\d{6}$");
+
+            bool isValidOtp;
+            if (isOtpCode)
+            {
+                isValidOtp = await _userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, submittedCode);
+            }
+            else
+            {
+                var normalizedRecoveryCode = submittedCode.Replace("-", string.Empty, StringComparison.Ordinal)
+                    .Replace(" ", string.Empty, StringComparison.Ordinal);
+                var recoveryResult = await _userManager.RedeemTwoFactorRecoveryCodeAsync(user, normalizedRecoveryCode);
+                isValidOtp = recoveryResult.Succeeded;
+            }
+
             if (!isValidOtp)
             {
                 var attempts = pendingState.Attempts + 1;
                 HttpContext.Session.SetString(PendingTwoFactorAttemptsKey, attempts.ToString());
+                _authThrottleService.RecordFailure("otp", pendingState.Email, ipAddress);
+                await _securityAlertService.RecordOtpFailureAsync(pendingState.Email, ipAddress, attempts);
+                await LogAuditAsync("OtpFailed", "Authentication", null, "User", pendingState.Email, $"Invalid OTP or recovery code. Attempt {attempts}.");
 
                 if (attempts >= 5)
                 {
@@ -1409,7 +1666,7 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Login));
                 }
 
-                model.ErrorMessage = "Invalid verification code. Please try again.";
+                model.ErrorMessage = "Invalid verification or recovery code. Please try again.";
                 return View(model);
             }
 
@@ -1431,10 +1688,93 @@ namespace JAS_MINE_IT15.Controllers
                 role = roles.FirstOrDefault() ?? string.Empty;
             }
 
+            _authThrottleService.RecordSuccess("otp", pendingState.Email, ipAddress);
+
             ClearPendingTwoFactorState();
+            if (model.RememberDevice)
+            {
+                await RememberTrustedDeviceAsync(user);
+            }
+
             await _signInManager.SignInAsync(user, isPersistent: false);
 
             return await CompleteLoginAsync(user, businessUser, role);
+        }
+
+        // GET: /Home/MfaRecoveryCodes
+        [Authorize(Roles = "super_admin,barangay_admin,admin")]
+        [HttpGet]
+        public async Task<IActionResult> MfaRecoveryCodes()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var email = User?.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "Unable to load your account.";
+                return RedirectToDashboard();
+            }
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                TempData["Error"] = "Unable to load your account.";
+                return RedirectToDashboard();
+            }
+
+            var vm = new MfaRecoveryCodesViewModel
+            {
+                RemainingCodes = await _userManager.CountRecoveryCodesAsync(user),
+                SuccessMessage = TempData["Success"] as string ?? string.Empty,
+                ErrorMessage = TempData["Error"] as string ?? string.Empty
+            };
+
+            return View(vm);
+        }
+
+        // POST: /Home/RegenerateMfaRecoveryCodes
+        [Authorize(Roles = "super_admin,barangay_admin,admin")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RegenerateMfaRecoveryCodes()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var email = User?.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "Unable to load your account.";
+                return RedirectToAction(nameof(MfaRecoveryCodes));
+            }
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                TempData["Error"] = "Unable to load your account.";
+                return RedirectToAction(nameof(MfaRecoveryCodes));
+            }
+
+            if (!user.TwoFactorEnabled)
+            {
+                var twoFactorEnableResult = await _userManager.SetTwoFactorEnabledAsync(user, true);
+                if (!twoFactorEnableResult.Succeeded)
+                {
+                    TempData["Error"] = "Unable to enable MFA recovery codes for this account.";
+                    return RedirectToAction(nameof(MfaRecoveryCodes));
+                }
+            }
+
+            var generatedCodes = await _userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+            var newCodes = (generatedCodes ?? Enumerable.Empty<string>()).ToList();
+
+            var vm = new MfaRecoveryCodesViewModel
+            {
+                NewlyGeneratedCodes = newCodes,
+                RemainingCodes = await _userManager.CountRecoveryCodesAsync(user),
+                SuccessMessage = "New recovery codes generated. Store them in a safe place."
+            };
+
+            return View("MfaRecoveryCodes", vm);
         }
 
         /// <summary>
@@ -3612,6 +3952,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(UserManagement));
             }
 
+            await _passwordHistoryService.RecordPasswordAsync(identityUser);
+
             // 2. Assign role in Identity
             await _userManager.AddToRoleAsync(identityUser, role);
 
@@ -4441,6 +4783,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToAction(nameof(Settings), new { tab = "security" });
             }
 
+            await _passwordHistoryService.RecordPasswordAsync(identityUser);
+
             await LogAuditAsync("PasswordChange", "Settings", GetCurrentUserId(), "User", email, "Changed password");
             _logger.LogInformation("Password changed for user: {Email}", email);
 
@@ -4560,6 +4904,8 @@ namespace JAS_MINE_IT15.Controllers
 
                     if (resetResult.Succeeded)
                     {
+                        await _passwordHistoryService.RecordPasswordAsync(identityUser);
+
                         request.Status = "Approved";
                         request.ProcessedAt = DateTime.Now;
                         request.ProcessedById = GetCurrentUserId();
@@ -4809,6 +5155,8 @@ namespace JAS_MINE_IT15.Controllers
             var result = await _userManager.ResetPasswordAsync(user, decodedToken, model.Password);
             if (result.Succeeded)
             {
+                await _passwordHistoryService.RecordPasswordAsync(user);
+
                 resetRequest.Status = "Completed";
                 resetRequest.IsActive = false;
                 resetRequest.ProcessedAt = DateTime.UtcNow;
@@ -5302,6 +5650,8 @@ namespace JAS_MINE_IT15.Controllers
                     TempData["Error"] = $"Failed to create account: {errors}";
                     return RedirectToAction(nameof(Register));
                 }
+
+                await _passwordHistoryService.RecordPasswordAsync(user);
 
                 // Assign role 'barangay_admin'
                 await _userManager.AddToRoleAsync(user, "barangay_admin");
@@ -5921,6 +6271,8 @@ namespace JAS_MINE_IT15.Controllers
                     ModelState.AddModelError("", $"Failed to create user: {errors}");
                     return View(model);
                 }
+
+                await _passwordHistoryService.RecordPasswordAsync(identityUser);
 
                 // 2. Assign barangay_admin role
                 await _userManager.AddToRoleAsync(identityUser, "barangay_admin");

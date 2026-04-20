@@ -15,6 +15,8 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+SecurityConfigurationValidator.ValidateOrThrow(builder.Configuration, builder.Environment);
+
 // ── Serilog structured logging ──
 builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration)
@@ -36,8 +38,12 @@ builder.Services.AddAuthorization();
 
 // Tenant Service for multi-tenant filtering
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<IAuthThrottleService, AuthThrottleService>();
+builder.Services.AddScoped<ISecurityAlertService, SecurityAlertService>();
+builder.Services.AddScoped<IPasswordHistoryService, PasswordHistoryService>();
 
 // Domain services
 builder.Services.AddScoped<IDocumentService, DocumentService>();
@@ -56,7 +62,10 @@ builder.Services.Configure<JAS_MINE_IT15.Models.SmtpSettings>(
     builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<JAS_MINE_IT15.Models.AuditIntegritySettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.AuditIntegritySettings.SectionName));
+builder.Services.Configure<JAS_MINE_IT15.Models.FieldEncryptionSettings>(
+    builder.Configuration.GetSection(JAS_MINE_IT15.Models.FieldEncryptionSettings.SectionName));
 builder.Services.AddSingleton<IAuditLogHashService, AuditLogHashService>();
+builder.Services.AddSingleton<IFieldEncryptionService, AesFieldEncryptionService>();
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 builder.Services.AddHttpClient<IRecaptchaService, RecaptchaService>();
 
@@ -98,6 +107,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddPasswordValidator<StrongPasswordValidator>()
+.AddPasswordValidator<PasswordHistoryValidator>()
 .AddDefaultTokenProviders();
 
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
@@ -186,6 +196,16 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("otp-resend", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
                 Window = TimeSpan.FromMinutes(5),
                 QueueLimit = 0
             }));

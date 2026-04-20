@@ -96,12 +96,17 @@
                 <div class="alert alert-danger">@Model.ErrorMessage</div>
             }
 
+            @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+            {
+                <div class="alert alert-success">@Model.SuccessMessage</div>
+            }
+
             <form method="post" asp-action="VerifyOtp" asp-controller="Home" autocomplete="off">
                 @Html.AntiForgeryToken()
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Verification Code</label>
-                    <input asp-for="Code" class="form-control otp-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="Enter 6-digit code" />
+                    <label class="form-label fw-semibold">Verification or Recovery Code</label>
+                    <input asp-for="Code" class="form-control otp-input" maxlength="32" autocomplete="one-time-code" placeholder="Enter 6-digit OTP or backup code" />
                     <span asp-validation-for="Code" class="text-danger small"></span>
                 </div>
 
@@ -109,15 +114,64 @@
                     This code expires in about @(Math.Max(1, (int)Math.Ceiling(Model.RemainingSeconds / 60.0))) minute(s).
                 </div>
 
+                <div class="form-check mb-3">
+                    <input asp-for="RememberDevice" class="form-check-input" />
+                    <label asp-for="RememberDevice" class="form-check-label">Trust this device for 30 days</label>
+                </div>
+
                 <button type="submit" class="btn btn-primary btn-verify w-100 mb-3">Verify and Sign In</button>
 
                 <a asp-action="Login" asp-controller="Home" class="btn btn-outline-secondary w-100">Back to Login</a>
             </form>
+
+            <form method="post" asp-action="ResendOtp" asp-controller="Home" class="mb-3">
+                @Html.AntiForgeryToken()
+                <button id="resend-btn" type="submit" class="btn btn-outline-primary w-100" @(Model.CanResend ? "" : "disabled")>
+                    Resend Code
+                </button>
+            </form>
+
+            <div class="expiry-note text-center mb-3">
+                Remaining resends: <strong>@Model.RemainingResends</strong>
+                <span id="resend-countdown" data-seconds="@Model.ResendAvailableInSeconds">
+                    @if (!Model.CanResend)
+                    {
+                        @: | Resend available in @Model.ResendAvailableInSeconds second(s)
+                    }
+                </span>
+            </div>
         </div>
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+    <script>
+        (function () {
+            var countdownEl = document.getElementById('resend-countdown');
+            var resendBtn = document.getElementById('resend-btn');
+            if (!countdownEl || !resendBtn) return;
+
+            var remaining = parseInt(countdownEl.getAttribute('data-seconds') || '0', 10);
+            if (isNaN(remaining) || remaining <= 0) {
+                resendBtn.disabled = false;
+                countdownEl.textContent = '';
+                return;
+            }
+
+            resendBtn.disabled = true;
+            var timer = setInterval(function () {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    resendBtn.disabled = false;
+                    countdownEl.textContent = ' | You can request a new code now.';
+                    return;
+                }
+
+                countdownEl.textContent = ' | Resend available in ' + remaining + ' second(s)';
+            }, 1000);
+        })();
+    </script>
 </body>
 </html>

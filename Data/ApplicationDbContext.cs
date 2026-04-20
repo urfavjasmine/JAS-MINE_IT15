@@ -1,4 +1,5 @@
 ﻿using JAS_MINE_IT15.Models.Entities;
+using JAS_MINE_IT15.Data.Converters;
 using JAS_MINE_IT15.Services;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -8,11 +9,16 @@ namespace JAS_MINE_IT15.Data
     public class ApplicationDbContext : IdentityDbContext
     {
             private readonly IAuditLogHashService _auditLogHashService;
+            private readonly IFieldEncryptionService _fieldEncryptionService;
 
-            public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IAuditLogHashService auditLogHashService)
+            public ApplicationDbContext(
+                  DbContextOptions<ApplicationDbContext> options,
+                  IAuditLogHashService auditLogHashService,
+                  IFieldEncryptionService fieldEncryptionService)
                   : base(options)
             {
                   _auditLogHashService = auditLogHashService;
+                  _fieldEncryptionService = fieldEncryptionService;
         }
 
         // =============================================
@@ -35,6 +41,7 @@ namespace JAS_MINE_IT15.Data
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<DiscussionLike> DiscussionLikes { get; set; } = null!;
         public DbSet<DiscussionComment> DiscussionComments { get; set; } = null!;
+      public DbSet<PasswordHistory> PasswordHistories { get; set; } = null!;
 
             public override int SaveChanges()
             {
@@ -128,6 +135,12 @@ namespace JAS_MINE_IT15.Data
                 entity.HasIndex(e => e.Email).IsUnique();
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                        if (_fieldEncryptionService.IsEnabled)
+                        {
+                              var encryptedString = new EncryptedStringConverter(_fieldEncryptionService);
+                              entity.Property(e => e.PhoneNumber).HasConversion(encryptedString);
+                        }
             });
 
             // =============================================
@@ -138,6 +151,12 @@ namespace JAS_MINE_IT15.Data
                 entity.HasIndex(e => e.Name).IsUnique();
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                        if (_fieldEncryptionService.IsEnabled)
+                        {
+                              var encryptedString = new EncryptedStringConverter(_fieldEncryptionService);
+                              entity.Property(e => e.ContactPhone).HasConversion(encryptedString);
+                        }
             });
 
             // =============================================
@@ -451,6 +470,12 @@ namespace JAS_MINE_IT15.Data
 
                 entity.HasIndex(e => e.DiscussionId);
             });
+
+                  builder.Entity<PasswordHistory>(entity =>
+                  {
+                        entity.Property(e => e.CreatedAtUtc).HasDefaultValueSql("GETUTCDATE()");
+                        entity.HasIndex(e => new { e.IdentityUserId, e.CreatedAtUtc });
+                  });
         }
     }
 }
