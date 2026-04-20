@@ -930,14 +930,6 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
-            if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
-            {
-                model.ErrorMessage = "Security verification failed. Please complete CAPTCHA and try again.";
-                model.CurrentStep = 3;
-                SetRecaptchaSiteKey();
-                return View(model);
-            }
-
             model.Email = (model.Email ?? "").Trim().ToLower();
             model.BarangayName = (model.BarangayName ?? "").Trim();
 

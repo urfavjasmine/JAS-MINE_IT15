@@ -2,10 +2,6 @@
 @{
     ViewData["Title"] = "Barangay Registration - JAS-MINE";
     Layout = null;
-    var recaptchaSiteKey = ViewData["RecaptchaSiteKey"]?.ToString() ?? "";
-    var isRecaptchaConfigured = !string.IsNullOrWhiteSpace(recaptchaSiteKey)
-        && recaptchaSiteKey != "YOUR_RECAPTCHA_V3_SITE_KEY"
-        && recaptchaSiteKey != "YOUR_SITE_KEY_HERE";
 }
 
 <!doctype html>
@@ -374,7 +370,6 @@
             <form asp-action="Register" method="post" id="regForm" novalidate>
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="CurrentStep" id="current-step-input" />
-                <input type="hidden" asp-for="RecaptchaToken" id="recaptcha-register-token" />
 
                 <!-- --- STEP 1: Personal Details --- -->
                 <div class="reg-step active" id="step-1">
@@ -596,25 +591,11 @@
                         <div>After registration, you'll be redirected to select a subscription plan and pay to activate your account.</div>
                     </div>
 
-                    <div class="mt-3 mb-2">
-                        <label class="form-label">Security Verification</label>
-                        @if (!isRecaptchaConfigured)
-                        {
-                            <div class="alert alert-warning small mb-0">
-                                Security verification is unavailable. Please contact the administrator.
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="g-recaptcha" data-sitekey="@recaptchaSiteKey"></div>
-                        }
-                    </div>
-
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn-back" onclick="prevStep()">
                             <i class="bi bi-arrow-left"></i> Back
                         </button>
-                        <button type="submit" class="btn-next" style="background: #1e4d7a;" @(!isRecaptchaConfigured ? "disabled title=\"Security verification is unavailable.\"" : "")>
+                        <button type="submit" class="btn-next" style="background: #1e4d7a;">
                             Complete Registration
                         </button>
                     </div>
@@ -630,10 +611,6 @@
 
     <script src="/lib/jquery/dist/jquery.min.js"></script>
     <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    @if (isRecaptchaConfigured)
-    {
-        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    }
 
     <script>
         // Initialize from model's CurrentStep (preserves step on validation errors)
@@ -797,16 +774,6 @@
                 alert('Please fix the following errors:\n\n' + errors.join('\n'));
                 return false;
             }
-
-            const hasCaptchaApi = typeof grecaptcha !== 'undefined';
-            const recaptchaToken = hasCaptchaApi ? grecaptcha.getResponse() : '';
-            if (!recaptchaToken) {
-                e.preventDefault();
-                alert('Please complete the CAPTCHA verification.');
-                return false;
-            }
-
-            document.getElementById('recaptcha-register-token').value = recaptchaToken;
 
             // Show loading state
             const submitBtn = this.querySelector('button[type="submit"]');
