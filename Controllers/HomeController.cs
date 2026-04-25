@@ -156,8 +156,26 @@ namespace JAS_MINE_IT15.Controllers
             Response.Cookies.Delete(".AspNetCore.Session");
             ResetLoginFailedAttempts();
 
+            var displayName = string.IsNullOrWhiteSpace(businessUser.FullName)
+                ? (identityUser.Email ?? "User")
+                : businessUser.FullName;
+
             HttpContext.Session.SetString("UserId", businessUser.Id.ToString());
+            HttpContext.Session.SetString("UserName", displayName);
+            HttpContext.Session.SetString("FullName", displayName);
             HttpContext.Session.SetString("Role", role);
+            HttpContext.Session.SetString("RoleLabel", GetRoleLabel(role));
+
+            if (barangayId.HasValue)
+            {
+                HttpContext.Session.SetString("BarangayId", barangayId.Value.ToString());
+                HttpContext.Session.SetString("Barangay", businessUser.BarangayName ?? string.Empty);
+            }
+            else
+            {
+                HttpContext.Session.Remove("BarangayId");
+                HttpContext.Session.Remove("Barangay");
+            }
 
             _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", identityUser.Email, role, barangayId);
 
