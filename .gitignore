@@ -361,13 +361,15 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-appsettings.Production.json
 
-# Sensitive configuration (may contain secrets)
-appsettings.json
-appsettings.Development.json
+# Sensitive runtime configuration (keep real values out of git)
+appsettings*.json
+!appsettings.Example.json
 appsettings.*.local.json
 secrets.json
+secrets.*.json
+.env
+.env.*
 
 # Logs and temporary runtime files
 *.tmp
@@ -376,6 +378,7 @@ secrets.json
 *.swp
 *.swo
 *.log
+
 logs/
 
 # OS-generated files
