@@ -1247,7 +1247,7 @@ namespace JAS_MINE_IT15.Controllers
             SetRecaptchaSiteKey();
             return View(new LoginViewModel
             {
-                CaptchaRequired = GetLoginFailedAttempts() >= 3
+                CaptchaRequired = true
             });
         }
 
@@ -1259,38 +1259,34 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             var failedAttempts = GetLoginFailedAttempts();
-            var captchaRequired = failedAttempts >= 3;
+            var captchaRequired = true;
 
             // Validate model state
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Login attempt failed - invalid model state for email: {Email}", model.Email ?? "unknown");
                 model.ErrorMessage = "Please fill up all required fields.";
-                model.CaptchaRequired = captchaRequired;
+                model.CaptchaRequired = true;
                 SetRecaptchaSiteKey();
                 return View(model);
             }
 
-            // 🔒 Validate reCAPTCHA if required (after 3 failed attempts)
-            if (captchaRequired)
+            // 🔒 Validate reCAPTCHA on every login attempt
+            _logger.LogInformation("reCAPTCHA validation required for login. Email: {Email}", model.Email ?? "unknown");
+
+            if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
             {
-                _logger.LogInformation("reCAPTCHA validation required - {FailedAttempts} failed attempts. Email: {Email}",
-                    failedAttempts, model.Email ?? "unknown");
+                failedAttempts = IncrementLoginFailedAttempts();
+                _logger.LogWarning("Login blocked due to invalid CAPTCHA. " +
+                    "Failed attempts: {FailedAttempts}, Email: {Email}", failedAttempts, model.Email ?? "unknown");
 
-                if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
-                {
-                    failedAttempts = IncrementLoginFailedAttempts();
-                    _logger.LogWarning("Login blocked due to invalid CAPTCHA. " +
-                        "Failed attempts: {FailedAttempts}, Email: {Email}", failedAttempts, model.Email ?? "unknown");
-                    
-                    model.ErrorMessage = "CAPTCHA verification failed. Please complete the security check and try again.";
-                    model.CaptchaRequired = true;
-                    SetRecaptchaSiteKey();
-                    return View(model);
-                }
-
-                _logger.LogInformation("reCAPTCHA validation succeeded for email: {Email}", model.Email ?? "unknown");
+                model.ErrorMessage = "CAPTCHA verification failed. Please complete the security check and try again.";
+                model.CaptchaRequired = true;
+                SetRecaptchaSiteKey();
+                return View(model);
             }
+
+            _logger.LogInformation("reCAPTCHA validation succeeded for email: {Email}", model.Email ?? "unknown");
 
             // Prepare email and password
             model.Email = (model.Email ?? "").Trim();
@@ -1319,7 +1315,7 @@ namespace JAS_MINE_IT15.Controllers
                 await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, isLockedOut: false);
                 await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
-                model.CaptchaRequired = failedAttempts >= 3;
+                model.CaptchaRequired = true;
                 SetRecaptchaSiteKey();
                 return View(model);
             }
@@ -1343,7 +1339,7 @@ namespace JAS_MINE_IT15.Controllers
                 await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, result.IsLockedOut);
                 await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, result.IsLockedOut ? "Account locked out." : "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
-                model.CaptchaRequired = failedAttempts >= 3;
+                model.CaptchaRequired = true;
                 SetRecaptchaSiteKey();
                 return View(model);
             }
