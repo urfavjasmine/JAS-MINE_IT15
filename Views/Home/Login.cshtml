@@ -220,29 +220,32 @@
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Security Verification</label>
-                        <div id="recaptcha-error" class="recaptcha-error" style="display: none;"></div>
-                        @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
-                        {
-                            <div class="alert alert-danger small mb-0">
-                                <i class="bi bi-exclamation-circle"></i>
-                                Security verification is not configured. Please contact the administrator.
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="g-recaptcha" 
-                                 data-sitekey="@recaptchaSiteKey"
-                                 data-callback="RecaptchaCallbacks.onLoad"
-                                 data-expired-callback="RecaptchaCallbacks.onExpire"
-                                 data-error-callback="RecaptchaCallbacks.onError"></div>
-                            <small class="text-muted">This site is protected by reCAPTCHA and the Google
-                                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
-                                <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
-                            </small>
-                        }
-                    </div>
+                    @if (Model?.CaptchaRequired ?? false)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Security Verification</label>
+                            <div id="recaptcha-error" class="recaptcha-error" style="display: none;"></div>
+                            @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
+                            {
+                                <div class="alert alert-danger small mb-0">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    Security verification is not configured. Please contact the administrator.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="g-recaptcha" 
+                                     data-sitekey="@recaptchaSiteKey"
+                                     data-callback="RecaptchaCallbacks.onLoad"
+                                     data-expired-callback="RecaptchaCallbacks.onExpire"
+                                     data-error-callback="RecaptchaCallbacks.onError"></div>
+                                <small class="text-muted">This site is protected by reCAPTCHA and the Google
+                                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
+                                    <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
+                                </small>
+                            }
+                        </div>
+                    }
 
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
@@ -340,7 +343,13 @@
             var form = document.getElementById('loginForm');
             if (form) {
                 form.addEventListener('submit', function(e) {
-                    debugLog('Form submit, captcha required: true');
+                    var captchaRequired = @((Model?.CaptchaRequired ?? false).ToString().ToLower());
+                    debugLog('Form submit, captcha required: ' + captchaRequired);
+
+                    if (!captchaRequired) {
+                        debugLog('No captcha required, submitting');
+                        return true;
+                    }
 
                     if (typeof grecaptcha === 'undefined') {
                         debugLog('grecaptcha not available');
