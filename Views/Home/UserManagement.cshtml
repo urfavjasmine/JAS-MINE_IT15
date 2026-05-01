@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "User Management";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    var vm = Model ?? new JAS_MINE_IT15.Models.UserManagementViewModel();
 
     string RoleBadgeClass(string roleKey)
     {
@@ -106,7 +107,7 @@
             <h3 class="mb-0">User Management</h3>
             <div class="muted">Manage barangay admin accounts and their access status.</div>
         </div>
-        @if (Model.CurrentUserRole != "super_admin")
+        @if ((vm.CurrentUserRole ?? string.Empty) != "super_admin")
         {
             <button class="btn px-4" 
                     data-bs-toggle="modal" data-bs-target="#createEditModal"
@@ -122,7 +123,7 @@
         <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-primary">@Model.TotalUsers</div>
+                    <div class="fs-2 fw-bold text-primary">@vm.TotalUsers</div>
                     <div class="small muted">Total Users</div>
                 </div>
             </div>
@@ -131,7 +132,7 @@
         <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-success">@Model.ActiveUsers</div>
+                    <div class="fs-2 fw-bold text-success">@vm.ActiveUsers</div>
                     <div class="small muted">Active</div>
                 </div>
             </div>
@@ -140,7 +141,7 @@
         <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center py-4">
-                    <div class="fs-2 fw-bold text-warning">@Model.InactiveUsers</div>
+                    <div class="fs-2 fw-bold text-warning">@vm.InactiveUsers</div>
                     <div class="small muted">Inactive</div>
                 </div>
             </div>
@@ -169,7 +170,7 @@
 
                     <option value="all">All Roles</option>
 
-                    @foreach (var role in Model.RoleLabels)
+                    @foreach (var role in vm.RoleLabels)
                     {
                         <option value="@role.Key">@role.Value</option>
                     }
@@ -198,7 +199,7 @@
                             var avatarColors = new[] { "#163a5f", "#2f7d32", "#c62828", "#6a1b9a", "#ef6c00", "#00838f", "#4527a0", "#ad1457" };
                             var userIndex = 0;
                         }
-                        @foreach (var u in Model.Users)
+                        @foreach (var u in vm.Users)
                         {
                             var avatarColor = avatarColors[userIndex % avatarColors.Length];
                             userIndex++;
@@ -223,7 +224,7 @@
 
                                 <td>
                                     <span class="@RoleBadgeClass(roleKey)">
-                                        @Model.RoleLabels[roleKey]
+                                        @vm.RoleLabels[roleKey]
                                     </span>
                                 </td>
 
@@ -247,7 +248,7 @@
 
                                         <ul class="dropdown-menu dropdown-menu-end">
 
-                                            @if (Model.CurrentUserRole == "super_admin")
+                                            @if (vm.CurrentUserRole == "super_admin")
                                             {
                                                 <li>
                                                     <button class="dropdown-item"
@@ -456,7 +457,7 @@
     function openView(id, name, email, role, status, barangay) {
         document.getElementById('vName').textContent = name;
         document.getElementById('vEmail').textContent = email;
-        document.getElementById('vRole').textContent = '@Model.RoleLabels'.includes(role) ? role : role;
+        document.getElementById('vRole').textContent = '@vm.RoleLabels'.includes(role) ? role : role;
         document.getElementById('vStatus').textContent = status;
     }
     

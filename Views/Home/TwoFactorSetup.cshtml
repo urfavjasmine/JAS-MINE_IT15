@@ -1,0 +1,184 @@
+@model JAS_MINE_IT15.Models.TwoFactorSetupViewModel
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Set Up Authenticator";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - JAS-MINE</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons-1.11.3/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+        body {
+            background: #f3f5f7;
+        }
+
+        .login-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            padding: 24px;
+        }
+
+        .branding {
+            text-align: center;
+        }
+
+        .brand-logo {
+            width: 120px;
+            height: auto;
+        }
+
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: .6px;
+            color: #0f2747;
+            margin-top: 14px;
+            margin-bottom: 6px;
+        }
+
+        .brand-subtitle {
+            color: #6c7a89;
+            margin: 0;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 560px;
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.10);
+        }
+
+        .login-card .card-body {
+            padding: 30px;
+        }
+
+        .welcome-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .welcome-sub {
+            color: #6c7a89;
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #1f2d3d;
+        }
+
+        .input-group-text {
+            background: #f8f9fa;
+            border-right: 0;
+        }
+
+        .form-control {
+            height: 46px;
+            border-left: 0;
+        }
+
+        .form-control:focus {
+            box-shadow: none;
+        }
+
+        .btn-primary-custom {
+            background: #163a5f;
+            border-color: #163a5f;
+            color: #ffffff;
+            height: 46px;
+            font-weight: 600;
+        }
+
+        .btn-primary-custom:hover {
+            background: #102d49;
+            border-color: #102d49;
+            color: #ffffff;
+        }
+
+        .qr-card {
+            border: 1px solid #e6ebf0;
+            border-radius: 12px;
+            padding: 16px;
+            background: #ffffff;
+            text-align: center;
+        }
+
+        .shared-key {
+            font-family: "Courier New", monospace;
+            letter-spacing: 1px;
+            font-size: 0.95rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-shell">
+        <div class="branding">
+            <img src="~/images/jasmine-logo.png" class="brand-logo" alt="JAS-MINE" />
+            <h2 class="brand-title">JAS-MINE</h2>
+            <p class="brand-subtitle">Integrated ERP-Based Knowledge Management System</p>
+        </div>
+
+        <div class="card login-card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3 class="welcome-title">Set Up Google Authenticator</h3>
+                    <div class="welcome-sub">Scan the QR code or enter the setup key below.</div>
+                </div>
+
+                <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+                @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+
+                <div class="qr-card mb-3">
+                    <img src="@(Model?.QrCodeImageUrl ?? string.Empty)" alt="Authenticator QR Code" style="width: 200px; height: 200px;" />
+                    <div class="small text-muted mt-2">Scan using Google Authenticator</div>
+                </div>
+
+                <div class="text-center mb-3">
+                    <div class="small text-muted mb-1">Setup key</div>
+                    <div class="shared-key">@(Model?.SharedKey ?? string.Empty)</div>
+                </div>
+
+                <form asp-action="TwoFactorSetup" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label">Verification Code</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-shield-lock"></i>
+                            </span>
+                            <input asp-for="Code" class="form-control" placeholder="Enter 6-digit code" autocomplete="one-time-code" />
+                        </div>
+                        <span asp-validation-for="Code" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-custom w-100">Verify and Continue</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

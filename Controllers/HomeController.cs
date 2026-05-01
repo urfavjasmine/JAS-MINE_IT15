@@ -20,6 +20,9 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using QRCoder;
 
 namespace JAS_MINE_IT15.Controllers
 {
@@ -38,11 +41,15 @@ namespace JAS_MINE_IT15.Controllers
         private readonly IAuthThrottleService _authThrottleService;
         private readonly ISecurityAlertService _securityAlertService;
         private readonly IPasswordHistoryService _passwordHistoryService;
+        private readonly TwoFactorSettings _twoFactorSettings;
         private readonly RecaptchaSettings _recaptchaSettings;
         private readonly RetentionSettings _retentionSettings;
         private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
         private const string PendingRegistrationKey = "PendingRegistration";
         private const string PendingRegistrationCreatedAtKey = "PendingRegistrationCreatedAtTicks";
+        private const string PendingTwoFactorUserIdKey = "PendingTwoFactorUserId";
+        private const string PendingTwoFactorVerifiedKey = "PendingTwoFactorVerified";
+        private const string PendingTwoFactorRecoveryCodesKey = "PendingTwoFactorRecoveryCodes";
 
         public HomeController(
             SignInManager<IdentityUser> signInManager,
@@ -57,7 +64,8 @@ namespace JAS_MINE_IT15.Controllers
             ISecurityAlertService securityAlertService,
             IPasswordHistoryService passwordHistoryService,
             IOptions<RecaptchaSettings> recaptchaOptions,
-            IOptions<RetentionSettings> retentionOptions)
+            IOptions<RetentionSettings> retentionOptions,
+            IOptions<TwoFactorSettings> twoFactorOptions)
             : base(context)
         {
             _signInManager = signInManager;
@@ -73,6 +81,7 @@ namespace JAS_MINE_IT15.Controllers
             _passwordHistoryService = passwordHistoryService;
             _recaptchaSettings = recaptchaOptions.Value;
             _retentionSettings = retentionOptions.Value;
+            _twoFactorSettings = twoFactorOptions.Value;
         }
 
         // Helper methods inherited from BaseAppController
@@ -249,6 +258,80 @@ namespace JAS_MINE_IT15.Controllers
         private void SetRecaptchaSiteKey()
         {
             ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
+        }
+
+        private void SetPendingTwoFactorUser(string userId)
+        {
+            HttpContext.Session.SetString(PendingTwoFactorUserIdKey, userId);
+        }
+
+        private void ClearPendingTwoFactor()
+        {
+            HttpContext.Session.Remove(PendingTwoFactorUserIdKey);
+            HttpContext.Session.Remove(PendingTwoFactorVerifiedKey);
+            HttpContext.Session.Remove(PendingTwoFactorRecoveryCodesKey);
+        }
+
+        private async Task<IdentityUser?> GetPendingTwoFactorUserAsync()
+        {
+            var userId = HttpContext.Session.GetString(PendingTwoFactorUserIdKey);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return null;
+            }
+
+            return await _userManager.FindByIdAsync(userId);
+        }
+
+        private static string FormatKey(string unformattedKey)
+        {
+            if (string.IsNullOrWhiteSpace(unformattedKey))
+            {
+                return string.Empty;
+            }
+
+            var groups = Enumerable.Range(0, unformattedKey.Length / 4)
+                .Select(i => unformattedKey.Substring(i * 4, 4));
+
+            return string.Join(" ", groups).ToLowerInvariant();
+        }
+
+        private string BuildQrCodeUri(string email, string unformattedKey)
+        {
+            var issuer = string.IsNullOrWhiteSpace(_twoFactorSettings.Issuer)
+                ? "JAS-MINE"
+                : _twoFactorSettings.Issuer;
+
+            var encodedIssuer = UrlEncoder.Default.Encode(issuer);
+            var encodedEmail = UrlEncoder.Default.Encode(email);
+
+            return $"otpauth://totp/{encodedIssuer}:{encodedEmail}?secret={unformattedKey}&issuer={encodedIssuer}&digits=6";
+        }
+
+        private static string GenerateQrCodeImageDataUrl(string qrCodeUri)
+        {
+            var qrGenerator = new QRCodeGenerator();
+            var qrCodeData = qrGenerator.CreateQrCode(qrCodeUri, QRCodeGenerator.ECCLevel.Q);
+            var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeBytes = qrCode.GetGraphic(6);
+            return "data:image/png;base64," + Convert.ToBase64String(qrCodeBytes);
+        }
+
+        private static string MaskEmail(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            {
+                return "your account";
+            }
+
+            var parts = email.Split('@', 2);
+            var name = parts[0];
+            var domain = parts[1];
+            var maskedName = name.Length <= 2
+                ? name[0] + "*"
+                : name.Substring(0, 2) + new string('*', Math.Max(1, name.Length - 2));
+
+            return $"{maskedName}@{domain}";
         }
 
         private static string HashResetToken(string encodedToken)
@@ -1155,6 +1238,8 @@ namespace JAS_MINE_IT15.Controllers
                 return RedirectToDashboard();
             }
 
+            ClearPendingTwoFactor();
+
             // Store selected plan ID so it survives login round-trip
             if (planId.HasValue)
                 TempData["SelectedPlanId"] = planId.Value;
@@ -1287,8 +1372,261 @@ namespace JAS_MINE_IT15.Controllers
                 return View(model);
             }
 
+            SetPendingTwoFactorUser(user.Id);
+            TempData.Keep("SelectedPlanId");
+
+            var isTwoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user);
+            var authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
+            if (!isTwoFactorEnabled || string.IsNullOrWhiteSpace(authenticatorKey))
+            {
+                return RedirectToAction(nameof(TwoFactorSetup));
+            }
+
+            return RedirectToAction(nameof(TwoFactorChallenge));
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public async Task<IActionResult> TwoFactorSetup()
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            var model = await BuildTwoFactorSetupViewModelAsync(user);
+            return View(model);
+        }
+
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TwoFactorSetup(TwoFactorSetupViewModel model)
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            var normalizedCode = (model.Code ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty);
+            if (!ModelState.IsValid || string.IsNullOrWhiteSpace(normalizedCode))
+            {
+                var setupModel = await BuildTwoFactorSetupViewModelAsync(user);
+                setupModel.ErrorMessage = "Enter the verification code from your authenticator app.";
+                return View(setupModel);
+            }
+
+            var isValid = await _userManager.VerifyTwoFactorTokenAsync(
+                user,
+                _userManager.Options.Tokens.AuthenticatorTokenProvider,
+                normalizedCode);
+
+            if (!isValid)
+            {
+                var setupModel = await BuildTwoFactorSetupViewModelAsync(user);
+                setupModel.ErrorMessage = "Invalid verification code. Please try again.";
+                return View(setupModel);
+            }
+
+            await _userManager.SetTwoFactorEnabledAsync(user, true);
+
+            var recoveryCodes = await _userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+            HttpContext.Session.SetString(PendingTwoFactorRecoveryCodesKey, JsonSerializer.Serialize(recoveryCodes));
+            HttpContext.Session.SetString(PendingTwoFactorVerifiedKey, "true");
+            TempData.Keep("SelectedPlanId");
+
+            return RedirectToAction(nameof(TwoFactorRecoveryCodes));
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public async Task<IActionResult> TwoFactorChallenge()
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            if (!await _userManager.GetTwoFactorEnabledAsync(user))
+            {
+                return RedirectToAction(nameof(TwoFactorSetup));
+            }
+
+            var authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
+            if (string.IsNullOrWhiteSpace(authenticatorKey))
+            {
+                return RedirectToAction(nameof(TwoFactorSetup));
+            }
+
+            var model = new TwoFactorChallengeViewModel
+            {
+                MaskedEmail = MaskEmail(user.Email ?? user.UserName)
+            };
+
+            return View(model);
+        }
+
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TwoFactorChallenge(TwoFactorChallengeViewModel model)
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            if (!await _userManager.GetTwoFactorEnabledAsync(user))
+            {
+                return RedirectToAction(nameof(TwoFactorSetup));
+            }
+
+            var authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
+            if (string.IsNullOrWhiteSpace(authenticatorKey))
+            {
+                return RedirectToAction(nameof(TwoFactorSetup));
+            }
+
+            var normalizedCode = (model.Code ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty);
+            if (!ModelState.IsValid || string.IsNullOrWhiteSpace(normalizedCode))
+            {
+                model.ErrorMessage = "Enter the verification code from your authenticator app.";
+                model.MaskedEmail = MaskEmail(user.Email ?? user.UserName);
+                return View(model);
+            }
+
+            var isValid = await _userManager.VerifyTwoFactorTokenAsync(
+                user,
+                _userManager.Options.Tokens.AuthenticatorTokenProvider,
+                normalizedCode);
+
+            if (!isValid)
+            {
+                await _userManager.AccessFailedAsync(user);
+                var lockedOut = await _userManager.IsLockedOutAsync(user);
+                model.ErrorMessage = lockedOut
+                    ? "Your account is locked. Please try again later."
+                    : "Invalid verification code. Please try again.";
+                model.MaskedEmail = MaskEmail(user.Email ?? user.UserName);
+                return View(model);
+            }
+
+            var businessUser = await _context.BusinessUsers
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == (user.Email ?? "").ToLower());
+
+            if (businessUser == null || !businessUser.IsActive)
+            {
+                await _signInManager.SignOutAsync();
+                ClearPendingTwoFactor();
+                model.ErrorMessage = "Your account is inactive. Please contact the administrator.";
+                model.MaskedEmail = MaskEmail(user.Email ?? user.UserName);
+                return View(model);
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "";
+
             await _signInManager.SignInAsync(user, isPersistent: false);
+            ClearPendingTwoFactor();
             return await CompleteLoginAsync(user, businessUser, role);
+        }
+
+        [AllowAnonymous]
+        [HttpGet]
+        public async Task<IActionResult> TwoFactorRecoveryCodes()
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            if (HttpContext.Session.GetString(PendingTwoFactorVerifiedKey) != "true")
+            {
+                return RedirectToAction(nameof(TwoFactorChallenge));
+            }
+
+            var rawCodes = HttpContext.Session.GetString(PendingTwoFactorRecoveryCodesKey);
+            var codes = string.IsNullOrWhiteSpace(rawCodes)
+                ? Array.Empty<string>()
+                : (JsonSerializer.Deserialize<string[]>(rawCodes) ?? Array.Empty<string>());
+
+            var model = new TwoFactorRecoveryCodesViewModel
+            {
+                Codes = codes
+            };
+
+            return View(model);
+        }
+
+        [AllowAnonymous]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> TwoFactorRecoveryCodesContinue()
+        {
+            var user = await GetPendingTwoFactorUserAsync();
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            TempData.Keep("SelectedPlanId");
+
+            if (HttpContext.Session.GetString(PendingTwoFactorVerifiedKey) != "true")
+            {
+                return RedirectToAction(nameof(TwoFactorChallenge));
+            }
+
+            var businessUser = await _context.BusinessUsers
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == (user.Email ?? "").ToLower());
+
+            if (businessUser == null || !businessUser.IsActive)
+            {
+                await _signInManager.SignOutAsync();
+                ClearPendingTwoFactor();
+                return RedirectToAction(nameof(Login));
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "";
+
+            await _signInManager.SignInAsync(user, isPersistent: false);
+            ClearPendingTwoFactor();
+            return await CompleteLoginAsync(user, businessUser, role);
+        }
+
+        private async Task<TwoFactorSetupViewModel> BuildTwoFactorSetupViewModelAsync(IdentityUser user)
+        {
+            var authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
+            if (string.IsNullOrWhiteSpace(authenticatorKey))
+            {
+                await _userManager.ResetAuthenticatorKeyAsync(user);
+                authenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user);
+            }
+
+            var email = user.Email ?? user.UserName ?? "user";
+            var qrCodeUri = BuildQrCodeUri(email, authenticatorKey ?? string.Empty);
+            var qrCodeImageUrl = GenerateQrCodeImageDataUrl(qrCodeUri);
+
+            return new TwoFactorSetupViewModel
+            {
+                SharedKey = FormatKey(authenticatorKey ?? string.Empty),
+                QrCodeImageUrl = qrCodeImageUrl
+            };
         }
 
         /// <summary>

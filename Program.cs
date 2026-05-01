@@ -64,6 +64,8 @@ builder.Services.Configure<JAS_MINE_IT15.Models.AuditIntegritySettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.AuditIntegritySettings.SectionName));
 builder.Services.Configure<JAS_MINE_IT15.Models.FieldEncryptionSettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.FieldEncryptionSettings.SectionName));
+builder.Services.Configure<JAS_MINE_IT15.Models.TwoFactorSettings>(
+    builder.Configuration.GetSection(JAS_MINE_IT15.Models.TwoFactorSettings.SectionName));
 builder.Services.AddSingleton<IAuditLogHashService, AuditLogHashService>();
 builder.Services.AddSingleton<IFieldEncryptionService, AesFieldEncryptionService>();
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();

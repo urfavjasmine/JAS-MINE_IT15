@@ -1,0 +1,139 @@
+@model JAS_MINE_IT15.Models.TwoFactorRecoveryCodesViewModel
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Recovery Codes";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - JAS-MINE</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons-1.11.3/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+        body {
+            background: #f3f5f7;
+        }
+
+        .login-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            padding: 24px;
+        }
+
+        .branding {
+            text-align: center;
+        }
+
+        .brand-logo {
+            width: 120px;
+            height: auto;
+        }
+
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: .6px;
+            color: #0f2747;
+            margin-top: 14px;
+            margin-bottom: 6px;
+        }
+
+        .brand-subtitle {
+            color: #6c7a89;
+            margin: 0;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 560px;
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.10);
+        }
+
+        .login-card .card-body {
+            padding: 30px;
+        }
+
+        .welcome-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .welcome-sub {
+            color: #6c7a89;
+            margin-bottom: 18px;
+        }
+
+        .code-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .code-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: "Courier New", monospace;
+            text-align: center;
+        }
+
+        .btn-primary-custom {
+            background: #163a5f;
+            border-color: #163a5f;
+            color: #ffffff;
+            height: 46px;
+            font-weight: 600;
+        }
+
+        .btn-primary-custom:hover {
+            background: #102d49;
+            border-color: #102d49;
+            color: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-shell">
+        <div class="branding">
+            <img src="~/images/jasmine-logo.png" class="brand-logo" alt="JAS-MINE" />
+            <h2 class="brand-title">JAS-MINE</h2>
+            <p class="brand-subtitle">Integrated ERP-Based Knowledge Management System</p>
+        </div>
+
+        <div class="card login-card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3 class="welcome-title">Save Your Recovery Codes</h3>
+                    <div class="welcome-sub">Store these codes in a secure place. Each code can be used once.</div>
+                </div>
+
+                <div class="code-list mb-4">
+                    @foreach (var code in Model.Codes)
+                    {
+                        <div class="code-item">@code</div>
+                    }
+                </div>
+
+                <form asp-action="TwoFactorRecoveryCodesContinue" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary-custom w-100">Continue to Dashboard</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
