@@ -54,8 +54,8 @@ builder.Services.AddScoped<IReportingService, ReportingService>();
 // PayMongo configuration
 builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(
     builder.Configuration.GetSection("PayMongo"));
-builder.Services.Configure<JAS_MINE_IT15.Models.RecaptchaSettings>(
-    builder.Configuration.GetSection("Recaptcha"));
+builder.Services.Configure<JAS_MINE_IT15.Models.TurnstileSettings>(
+    builder.Configuration.GetSection(JAS_MINE_IT15.Models.TurnstileSettings.SectionName));
 builder.Services.Configure<JAS_MINE_IT15.Models.RetentionSettings>(
     builder.Configuration.GetSection("Retention"));
 builder.Services.Configure<JAS_MINE_IT15.Models.SmtpSettings>(
@@ -69,7 +69,7 @@ builder.Services.Configure<JAS_MINE_IT15.Models.TwoFactorSettings>(
 builder.Services.AddSingleton<IAuditLogHashService, AuditLogHashService>();
 builder.Services.AddSingleton<IFieldEncryptionService, AesFieldEncryptionService>();
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
-builder.Services.AddHttpClient<IRecaptchaService, RecaptchaService>();
+builder.Services.AddHttpClient<ITurnstileService, TurnstileService>();
 
 // DB
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -421,14 +421,14 @@ internal static class CspUtilities
             "form-action 'self'; " +
             "frame-ancestors 'none'; " +
             "object-src 'none'; " +
-            "script-src 'self' 'nonce-" + nonce + "' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com 'unsafe-hashes'" + scriptHashes + "; " +
-            "script-src-elem 'self' 'nonce-" + nonce + "' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com; " +
+            "script-src 'self' 'nonce-" + nonce + "' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com 'unsafe-hashes'" + scriptHashes + "; " +
+            "script-src-elem 'self' 'nonce-" + nonce + "' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com; " +
             scriptAttrDirective +
             "style-src 'self' 'nonce-" + nonce + "' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-hashes'" + styleHashes + "; " +
             styleAttrDirective +
             "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
             "img-src 'self' data: blob:; " +
-            "frame-src 'self' https://www.google.com https://recaptcha.google.com; " +
+            "frame-src 'self' https://challenges.cloudflare.com; " +
             "connect-src 'self' ws: wss:;";
     }
 }

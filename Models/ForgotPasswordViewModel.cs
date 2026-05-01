@@ -8,8 +8,6 @@ namespace JAS_MINE_IT15.Models
         [EmailAddress(ErrorMessage = "Enter a valid email address.")]
         public string Email { get; set; } = "";
 
-        public string? RecaptchaToken { get; set; }
-
         public bool Submitted { get; set; } = false;
 
         public string? SuccessMessage { get; set; }

@@ -14,7 +14,7 @@ namespace JAS_MINE_IT15.Models
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 
-        public string? RecaptchaToken { get; set; }
+        public string? TurnstileToken { get; set; }
         public bool CaptchaRequired { get; set; }
         public string ErrorMessage { get; set; } = "";
     }

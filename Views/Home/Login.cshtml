@@ -4,7 +4,7 @@
 @{
     Layout = null;
     ViewData["Title"] = "Login";
-    var recaptchaSiteKey = ViewData["RecaptchaSiteKey"]?.ToString() ?? "";
+    var turnstileSiteKey = ViewData["TurnstileSiteKey"]?.ToString() ?? "";
 }
 
 <!DOCTYPE html>
@@ -125,14 +125,14 @@
             margin-top: 6px;
         }
 
-        /* reCAPTCHA Widget Styling */
-        .g-recaptcha {
+        /* Turnstile Widget Styling */
+        .cf-turnstile {
             display: flex;
             justify-content: center;
             margin: 8px 0;
         }
 
-        .recaptcha-error {
+        .turnstile-error {
             border: 1px solid #dc3545;
             border-radius: 4px;
             padding: 8px 12px;
@@ -142,12 +142,12 @@
             margin-top: 8px;
         }
 
-        .recaptcha-loading {
+        .turnstile-loading {
             opacity: 0.6;
             pointer-events: none;
         }
 
-        .recaptcha-spinner {
+        .turnstile-spinner {
             display: inline-block;
             width: 12px;
             height: 12px;
@@ -193,7 +193,7 @@
 
                 <form asp-action="Login" method="post" id="loginForm">
                     @Html.AntiForgeryToken()
-                    <input asp-for="RecaptchaToken" type="hidden" id="recaptcha-token" />
+                    <input asp-for="TurnstileToken" type="hidden" id="turnstile-token" />
 
                     <div class="mb-3">
                         <label class="form-label">Email Address</label>
@@ -220,32 +220,26 @@
                         <span asp-validation-for="Password" class="text-danger small"></span>
                     </div>
 
-                    @if (Model?.CaptchaRequired ?? false)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Security Verification</label>
-                            <div id="recaptcha-error" class="recaptcha-error" style="display: none;"></div>
-                            @if (string.IsNullOrWhiteSpace(recaptchaSiteKey))
-                            {
-                                <div class="alert alert-danger small mb-0">
-                                    <i class="bi bi-exclamation-circle"></i>
-                                    Security verification is not configured. Please contact the administrator.
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="g-recaptcha" 
-                                     data-sitekey="@recaptchaSiteKey"
-                                     data-callback="RecaptchaCallbacks.onLoad"
-                                     data-expired-callback="RecaptchaCallbacks.onExpire"
-                                     data-error-callback="RecaptchaCallbacks.onError"></div>
-                                <small class="text-muted">This site is protected by reCAPTCHA and the Google
-                                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and
-                                    <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.
-                                </small>
-                            }
-                        </div>
-                    }
+                    <div class="mb-3">
+                        <label class="form-label">Security Verification</label>
+                        <div id="turnstile-error" class="turnstile-error" style="display: none;"></div>
+                        @if (string.IsNullOrWhiteSpace(turnstileSiteKey))
+                        {
+                            <div class="alert alert-danger small mb-0">
+                                <i class="bi bi-exclamation-circle"></i>
+                                Security verification is not configured. Please contact the administrator.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="cf-turnstile"
+                                 data-sitekey="@turnstileSiteKey"
+                                 data-callback="TurnstileCallbacks.onSuccess"
+                                 data-expired-callback="TurnstileCallbacks.onExpire"
+                                 data-error-callback="TurnstileCallbacks.onError"></div>
+                            <small class="text-muted">This site is protected by Cloudflare Turnstile.</small>
+                        }
+                    </div>
 
                     <button type="submit" class="btn btn-primary-custom w-100">
                         Sign In
@@ -277,10 +271,10 @@
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
 
-    <!-- Load reCAPTCHA API -->
-    @if (!string.IsNullOrWhiteSpace(recaptchaSiteKey))
+    <!-- Load Turnstile API -->
+    @if (!string.IsNullOrWhiteSpace(turnstileSiteKey))
     {
-        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     }
 
     <script>
@@ -293,24 +287,32 @@
 
         debugLog('Page ready');
 
-        // Define reCAPTCHA callbacks EARLY
-        window.RecaptchaCallbacks = {
-            onLoad: function() {
-                debugLog('reCAPTCHA widget loaded');
+        // Define Turnstile callbacks EARLY
+        window.TurnstileCallbacks = {
+            onSuccess: function(token) {
+                debugLog('Turnstile token received');
+                var tokenInput = document.getElementById('turnstile-token');
+                if (tokenInput) {
+                    tokenInput.value = token || '';
+                }
             },
             onExpire: function() {
-                debugLog('reCAPTCHA token expired');
-                var errorDiv = document.getElementById('recaptcha-error');
+                debugLog('Turnstile token expired');
+                var errorDiv = document.getElementById('turnstile-error');
                 if (errorDiv) {
-                    errorDiv.textContent = 'Your verification has expired. Please complete CAPTCHA again.';
+                    errorDiv.textContent = 'Your verification has expired. Please complete it again.';
                     errorDiv.style.display = 'block';
+                }
+                var tokenInput = document.getElementById('turnstile-token');
+                if (tokenInput) {
+                    tokenInput.value = '';
                 }
             },
             onError: function() {
-                debugLog('reCAPTCHA error');
-                var errorDiv = document.getElementById('recaptcha-error');
+                debugLog('Turnstile error');
+                var errorDiv = document.getElementById('turnstile-error');
                 if (errorDiv) {
-                    errorDiv.textContent = 'CAPTCHA verification failed. Please try again.';
+                    errorDiv.textContent = 'Verification failed. Please try again.';
                     errorDiv.style.display = 'block';
                 }
             }
@@ -343,44 +345,40 @@
             var form = document.getElementById('loginForm');
             if (form) {
                 form.addEventListener('submit', function(e) {
-                    var captchaRequired = @((Model?.CaptchaRequired ?? false).ToString().ToLower());
-                    debugLog('Form submit, captcha required: ' + captchaRequired);
-
-                    if (!captchaRequired) {
-                        debugLog('No captcha required, submitting');
-                        return true;
-                    }
-
-                    if (typeof grecaptcha === 'undefined') {
-                        debugLog('grecaptcha not available');
+                    if (typeof turnstile === 'undefined') {
+                        debugLog('turnstile not available');
                         e.preventDefault();
                         alert('Security verification not loaded. Please refresh and try again.');
                         return false;
                     }
 
-                    var token = grecaptcha.getResponse();
+                    var tokenInput = document.getElementById('turnstile-token');
+                    var token = tokenInput ? tokenInput.value : '';
+                    if (!token) {
+                        var responseInput = document.querySelector('input[name="cf-turnstile-response"]');
+                        token = responseInput ? responseInput.value : '';
+                    }
+
                     debugLog('Token: ' + (token ? 'present' : 'empty'));
 
                     if (!token || token.trim() === '') {
                         e.preventDefault();
-                        var errorDiv = document.getElementById('recaptcha-error');
+                        var errorDiv = document.getElementById('turnstile-error');
                         if (errorDiv) {
-                            errorDiv.textContent = 'Please complete the CAPTCHA verification.';
+                            errorDiv.textContent = 'Please complete the security verification.';
                             errorDiv.style.display = 'block';
                         }
                         return false;
                     }
 
-                    var tokenInput = document.getElementById('recaptcha-token');
                     if (tokenInput) {
                         tokenInput.value = token;
-                        debugLog('Token set');
                     }
 
                     var btn = form.querySelector('button[type="submit"]');
                     if (btn) {
                         btn.disabled = true;
-                        btn.innerHTML = '<span class="recaptcha-spinner"></span>Signing in...';
+                        btn.innerHTML = '<span class="turnstile-spinner"></span>Signing in...';
                     }
 
                     return true;
@@ -388,7 +386,7 @@
 
                 // Clear error on input
                 form.addEventListener('input', function() {
-                    var errorDiv = document.getElementById('recaptcha-error');
+                    var errorDiv = document.getElementById('turnstile-error');
                     if (errorDiv && errorDiv.style.display !== 'none') {
                         errorDiv.style.display = 'none';
                     }

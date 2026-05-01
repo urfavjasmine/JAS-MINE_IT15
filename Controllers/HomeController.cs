@@ -37,12 +37,12 @@ namespace JAS_MINE_IT15.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IPayMongoService _payMongoService;
         private readonly IEmailSender _emailSender;
-        private readonly IRecaptchaService _recaptchaService;
+        private readonly ITurnstileService _turnstileService;
         private readonly IAuthThrottleService _authThrottleService;
         private readonly ISecurityAlertService _securityAlertService;
         private readonly IPasswordHistoryService _passwordHistoryService;
         private readonly TwoFactorSettings _twoFactorSettings;
-        private readonly RecaptchaSettings _recaptchaSettings;
+        private readonly TurnstileSettings _turnstileSettings;
         private readonly RetentionSettings _retentionSettings;
         private const string LoginFailedAttemptsKey = "LoginFailedAttempts";
         private const string PendingRegistrationKey = "PendingRegistration";
@@ -59,13 +59,13 @@ namespace JAS_MINE_IT15.Controllers
             ILogger<HomeController> logger,
             IPayMongoService payMongoService,
             IEmailSender emailSender,
-            IRecaptchaService recaptchaService,
+            ITurnstileService turnstileService,
             IAuthThrottleService authThrottleService,
             ISecurityAlertService securityAlertService,
             IPasswordHistoryService passwordHistoryService,
-            IOptions<RecaptchaSettings> recaptchaOptions,
             IOptions<RetentionSettings> retentionOptions,
-            IOptions<TwoFactorSettings> twoFactorOptions)
+            IOptions<TwoFactorSettings> twoFactorOptions,
+            IOptions<TurnstileSettings> turnstileOptions)
             : base(context)
         {
             _signInManager = signInManager;
@@ -75,13 +75,13 @@ namespace JAS_MINE_IT15.Controllers
             _logger = logger;
             _payMongoService = payMongoService;
             _emailSender = emailSender;
-            _recaptchaService = recaptchaService;
+            _turnstileService = turnstileService;
             _authThrottleService = authThrottleService;
             _securityAlertService = securityAlertService;
             _passwordHistoryService = passwordHistoryService;
-            _recaptchaSettings = recaptchaOptions.Value;
             _retentionSettings = retentionOptions.Value;
             _twoFactorSettings = twoFactorOptions.Value;
+            _turnstileSettings = turnstileOptions.Value;
         }
 
         // Helper methods inherited from BaseAppController
@@ -255,9 +255,9 @@ namespace JAS_MINE_IT15.Controllers
             return pendingJson;
         }
 
-        private void SetRecaptchaSiteKey()
+        private void SetTurnstileSiteKey()
         {
-            ViewData["RecaptchaSiteKey"] = _recaptchaSettings.SiteKey;
+            ViewData["TurnstileSiteKey"] = _turnstileSettings.SiteKey;
         }
 
         private void SetPendingTwoFactorUser(string userId)
@@ -340,28 +340,17 @@ namespace JAS_MINE_IT15.Controllers
             return Convert.ToHexString(bytes);
         }
 
-        /// <summary>
-        /// Validates if reCAPTCHA is properly configured with both keys.
-        /// Checks for placeholder values to ensure real keys are configured.
-        /// </summary>
-        private bool IsCaptchaConfigured()
+        private bool IsTurnstileConfigured()
         {
-            return !string.IsNullOrWhiteSpace(_recaptchaSettings.SiteKey)
-                && _recaptchaSettings.SiteKey != "YOUR_RECAPTCHA_V3_SITE_KEY"
-                && _recaptchaSettings.SiteKey != "YOUR_SITE_KEY_HERE"
-                && !string.IsNullOrWhiteSpace(_recaptchaSettings.SecretKey)
-                && _recaptchaSettings.SecretKey != "REPLACE_WITH_YOUR_REAL_SECRET_KEY"
-                && _recaptchaSettings.SecretKey != "YOUR_SECRET_KEY_HERE";
+            return !string.IsNullOrWhiteSpace(_turnstileSettings.SiteKey)
+                && !string.IsNullOrWhiteSpace(_turnstileSettings.SecretKey);
         }
 
-        /// <summary>
-        /// Verifies a reCAPTCHA v2 token.
-        /// </summary>
-        private async Task<bool> IsRecaptchaValidAsync(string? token)
+        private async Task<bool> IsTurnstileValidAsync(string? token)
         {
-            if (!IsCaptchaConfigured())
+            if (!IsTurnstileConfigured())
             {
-                _logger.LogError("reCAPTCHA is not properly configured. " +
+                _logger.LogError("Turnstile is not properly configured. " +
                     "Please ensure both SiteKey and SecretKey are set in appsettings.json. " +
                     "Security verification has been blocked.");
                 return false;
@@ -369,23 +358,20 @@ namespace JAS_MINE_IT15.Controllers
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                _logger.LogWarning("reCAPTCHA token is empty or null. Verification failed.");
+                _logger.LogWarning("Turnstile token is empty or null. Verification failed.");
                 return false;
             }
 
             var remoteIp = HttpContext?.Connection?.RemoteIpAddress?.ToString();
-
-            _logger.LogDebug("Attempting reCAPTCHA v2 verification. RemoteIP: {RemoteIp}", remoteIp ?? "unknown");
-
-            var isValid = await _recaptchaService.VerifyTokenAsync(token, remoteIp);
+            var isValid = await _turnstileService.VerifyTokenAsync(token, remoteIp);
 
             if (!isValid)
             {
-                _logger.LogWarning("reCAPTCHA v2 verification failed. IP: {RemoteIp}", remoteIp ?? "unknown");
+                _logger.LogWarning("Turnstile verification failed. IP: {RemoteIp}", remoteIp ?? "unknown");
             }
             else
             {
-                _logger.LogDebug("reCAPTCHA v2 verification succeeded. IP: {RemoteIp}", remoteIp ?? "unknown");
+                _logger.LogDebug("Turnstile verification succeeded. IP: {RemoteIp}", remoteIp ?? "unknown");
             }
 
             return isValid;
@@ -1151,7 +1137,6 @@ namespace JAS_MINE_IT15.Controllers
         public IActionResult Register()
         {
             if (IsLoggedIn()) return RedirectToDashboard();
-            SetRecaptchaSiteKey();
             return View(new RegisterViewModel());
         }
 
@@ -1171,7 +1156,6 @@ namespace JAS_MINE_IT15.Controllers
                 
                 // Keep user on review step when there are validation errors
                 model.CurrentStep = 3;
-                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -1184,7 +1168,6 @@ namespace JAS_MINE_IT15.Controllers
             {
                 model.ErrorMessage = "A user with this email already exists.";
                 model.CurrentStep = 3;
-                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -1195,7 +1178,6 @@ namespace JAS_MINE_IT15.Controllers
             {
                 model.ErrorMessage = "A barangay with this name already exists.";
                 model.CurrentStep = 3;
-                SetRecaptchaSiteKey();
                 return View(model);
             }
 
@@ -1244,14 +1226,14 @@ namespace JAS_MINE_IT15.Controllers
             if (planId.HasValue)
                 TempData["SelectedPlanId"] = planId.Value;
 
-            SetRecaptchaSiteKey();
+            SetTurnstileSiteKey();
             return View(new LoginViewModel
             {
-                CaptchaRequired = GetLoginFailedAttempts() >= 3
+                CaptchaRequired = true
             });
         }
 
-        // ✅ POST /Home/Login (Identity DB login with reCAPTCHA validation)
+        // ✅ POST /Home/Login (Identity DB login with Turnstile validation)
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -1259,37 +1241,29 @@ namespace JAS_MINE_IT15.Controllers
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             var failedAttempts = GetLoginFailedAttempts();
-            var captchaRequired = failedAttempts >= 3;
 
             // Validate model state
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Login attempt failed - invalid model state for email: {Email}", model.Email ?? "unknown");
                 model.ErrorMessage = "Please fill up all required fields.";
-                model.CaptchaRequired = captchaRequired;
-                SetRecaptchaSiteKey();
+                model.CaptchaRequired = true;
+                SetTurnstileSiteKey();
                 return View(model);
             }
 
-            // 🔒 Validate reCAPTCHA if required (after 3 failed attempts)
-            if (captchaRequired)
+            _logger.LogInformation("Turnstile validation required for login. Email: {Email}", model.Email ?? "unknown");
+
+            if (!await IsTurnstileValidAsync(model.TurnstileToken))
             {
-                _logger.LogInformation("reCAPTCHA validation required - {FailedAttempts} failed attempts. Email: {Email}",
-                    failedAttempts, model.Email ?? "unknown");
+                failedAttempts = IncrementLoginFailedAttempts();
+                _logger.LogWarning("Login blocked due to invalid CAPTCHA. " +
+                    "Failed attempts: {FailedAttempts}, Email: {Email}", failedAttempts, model.Email ?? "unknown");
 
-                if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
-                {
-                    failedAttempts = IncrementLoginFailedAttempts();
-                    _logger.LogWarning("Login blocked due to invalid CAPTCHA. " +
-                        "Failed attempts: {FailedAttempts}, Email: {Email}", failedAttempts, model.Email ?? "unknown");
-
-                    model.ErrorMessage = "CAPTCHA verification failed. Please complete the security check and try again.";
-                    model.CaptchaRequired = true;
-                    SetRecaptchaSiteKey();
-                    return View(model);
-                }
-
-                _logger.LogInformation("reCAPTCHA validation succeeded for email: {Email}", model.Email ?? "unknown");
+                model.ErrorMessage = "CAPTCHA verification failed. Please complete the security check and try again.";
+                model.CaptchaRequired = true;
+                SetTurnstileSiteKey();
+                return View(model);
             }
 
             // Prepare email and password
@@ -1303,7 +1277,7 @@ namespace JAS_MINE_IT15.Controllers
             {
                 model.ErrorMessage = $"Too many attempts. Please wait {loginDelaySeconds} second(s) before trying again.";
                 model.CaptchaRequired = true;
-                SetRecaptchaSiteKey();
+                SetTurnstileSiteKey();
                 return View(model);
             }
 
@@ -1319,8 +1293,8 @@ namespace JAS_MINE_IT15.Controllers
                 await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, isLockedOut: false);
                 await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
-                model.CaptchaRequired = failedAttempts >= 3;
-                SetRecaptchaSiteKey();
+                model.CaptchaRequired = true;
+                SetTurnstileSiteKey();
                 return View(model);
             }
 
@@ -1343,8 +1317,8 @@ namespace JAS_MINE_IT15.Controllers
                 await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, result.IsLockedOut);
                 await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, result.IsLockedOut ? "Account locked out." : "Invalid email or password.");
                 model.ErrorMessage = "Invalid email or password.";
-                model.CaptchaRequired = failedAttempts >= 3;
-                SetRecaptchaSiteKey();
+                model.CaptchaRequired = true;
+                SetTurnstileSiteKey();
                 return View(model);
             }
 
@@ -1367,8 +1341,8 @@ namespace JAS_MINE_IT15.Controllers
                 await _securityAlertService.RecordLoginFailureAsync(normalizedEmail, ipAddress, isLockedOut: false);
                 await LogAuditAsync("LoginFailed", "Authentication", null, "User", model.Email, "No active business profile found.");
                 model.ErrorMessage = "Invalid email or password.";
-                model.CaptchaRequired = failedAttempts >= 3;
-                SetRecaptchaSiteKey();
+                model.CaptchaRequired = true;
+                SetTurnstileSiteKey();
                 return View(model);
             }
 
@@ -4796,7 +4770,6 @@ namespace JAS_MINE_IT15.Controllers
         [HttpGet]
         public IActionResult ForgotPassword()
         {
-            SetRecaptchaSiteKey();
             return View(new ForgotPasswordViewModel());
         }
 
@@ -4810,15 +4783,6 @@ namespace JAS_MINE_IT15.Controllers
             if (!ModelState.IsValid)
             {
                 model.Submitted = false;
-                SetRecaptchaSiteKey();
-                return View(model);
-            }
-
-            if (!await IsRecaptchaValidAsync(model.RecaptchaToken))
-            {
-                model.Submitted = false;
-                model.ErrorMessage = "Security verification failed. Please complete CAPTCHA and try again.";
-                SetRecaptchaSiteKey();
                 return View(model);
             }
 

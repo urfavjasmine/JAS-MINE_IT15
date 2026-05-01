@@ -4,14 +4,6 @@ namespace JAS_MINE_IT15.Services
 {
     public static class SecurityConfigurationValidator
     {
-        private static readonly string[] PlaceholderValues =
-        {
-            "YOUR_RECAPTCHA_V3_SITE_KEY",
-            "YOUR_SITE_KEY_HERE",
-            "REPLACE_WITH_YOUR_REAL_SECRET_KEY",
-            "YOUR_SECRET_KEY_HERE"
-        };
-
         public static void ValidateOrThrow(IConfiguration configuration, IHostEnvironment environment)
         {
             if (environment.IsDevelopment())
@@ -19,8 +11,6 @@ namespace JAS_MINE_IT15.Services
                 return;
             }
 
-            var recaptchaSiteKey = configuration["Recaptcha:SiteKey"] ?? string.Empty;
-            var recaptchaSecret = configuration["Recaptcha:SecretKey"] ?? string.Empty;
             var smtpHost = configuration["Smtp:Host"] ?? string.Empty;
             var smtpUser = configuration["Smtp:UserName"] ?? string.Empty;
             var smtpPassword = configuration["Smtp:Password"] ?? string.Empty;
@@ -30,16 +20,6 @@ namespace JAS_MINE_IT15.Services
             var encryptionKey = configuration[$"{FieldEncryptionSettings.SectionName}:Key"] ?? string.Empty;
 
             var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(recaptchaSiteKey) || IsPlaceholder(recaptchaSiteKey))
-            {
-                errors.Add("Recaptcha:SiteKey must be configured in non-development environments.");
-            }
-
-            if (string.IsNullOrWhiteSpace(recaptchaSecret) || IsPlaceholder(recaptchaSecret))
-            {
-                errors.Add("Recaptcha:SecretKey must be configured in non-development environments.");
-            }
 
             if (string.IsNullOrWhiteSpace(smtpHost)
                 || string.IsNullOrWhiteSpace(smtpUser)
@@ -64,8 +44,5 @@ namespace JAS_MINE_IT15.Services
                 throw new InvalidOperationException("Security configuration validation failed: " + string.Join(" ", errors));
             }
         }
-
-        private static bool IsPlaceholder(string value)
-            => PlaceholderValues.Any(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase));
     }
 }

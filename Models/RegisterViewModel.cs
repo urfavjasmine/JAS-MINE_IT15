@@ -58,7 +58,6 @@ namespace JAS_MINE_IT15.Models
 
         // --- Helpers ---
         public string? ErrorMessage { get; set; }
-        public string? RecaptchaToken { get; set; }
         
         // Form persistence
         public int CurrentStep { get; set; } = 1;
