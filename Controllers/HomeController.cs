@@ -186,6 +186,8 @@ namespace JAS_MINE_IT15.Controllers
                 HttpContext.Session.Remove("Barangay");
             }
 
+            await HttpContext.Session.CommitAsync();
+
             _logger.LogInformation("Login successful for {Email}, Role={Role}, BarangayId={BarangayId}", identityUser.Email, role, barangayId);
 
             await LogAuditAsync("Login", "Authentication", businessUser.Id, "User", identityUser.Email, $"User logged in: {identityUser.Email}");

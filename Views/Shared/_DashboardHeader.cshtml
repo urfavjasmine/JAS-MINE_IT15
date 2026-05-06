@@ -1,8 +1,13 @@
 ﻿@using Microsoft.AspNetCore.Http
 @using System.Linq
+@using System.Security.Claims
 @{
     // ===== SESSION USER (replacement for useAuth) =====
-    var userName = Context.Session.GetString("UserName") ?? "User";
+    var sessionUserName = Context.Session.GetString("UserName");
+    var claimEmail = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+    var userName = string.IsNullOrWhiteSpace(sessionUserName)
+        ? (User.Identity?.Name ?? claimEmail ?? "User")
+        : sessionUserName;
     var barangay = Context.Session.GetString("Barangay") ?? "Purok Office";
 
     var firstName = userName.Split(' ')[0];

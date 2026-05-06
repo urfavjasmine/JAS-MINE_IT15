@@ -1,8 +1,31 @@
 ﻿@using Microsoft.AspNetCore.Http
+@using System.Security.Claims
 @{
-    var userName = Context.Session.GetString("UserName") ?? "User";
-    var roleLabel = Context.Session.GetString("RoleLabel") ?? "Guest";
-    var role = Context.Session.GetString("Role") ?? "";
+    string GetRoleLabel(string? roleValue)
+    {
+        return roleValue switch
+        {
+            "super_admin" => "Super Admin",
+            "barangay_admin" => "Barangay Admin",
+            "barangay_secretary" => "Barangay Secretary",
+            "barangay_staff" => "Barangay Staff",
+            "council_member" => "Council Member",
+            _ => "Guest"
+        };
+    }
+
+    var sessionUserName = Context.Session.GetString("UserName");
+    var sessionRoleLabel = Context.Session.GetString("RoleLabel");
+    var sessionRole = Context.Session.GetString("Role");
+
+    var claimEmail = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+    var claimRole = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
+
+    var userName = string.IsNullOrWhiteSpace(sessionUserName)
+        ? (User.Identity?.Name ?? claimEmail ?? "User")
+        : sessionUserName;
+    var role = string.IsNullOrWhiteSpace(sessionRole) ? (claimRole ?? "") : sessionRole;
+    var roleLabel = string.IsNullOrWhiteSpace(sessionRoleLabel) ? GetRoleLabel(role) : sessionRoleLabel;
 
     // current path for active link highlight
     var path = (Context.Request.Path.Value ?? "").ToLowerInvariant();
