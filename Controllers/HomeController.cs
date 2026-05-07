@@ -4291,21 +4291,33 @@ namespace JAS_MINE_IT15.Controllers
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
 
+            // DEBUG: Log to verify role detection
+            System.Diagnostics.Debug.WriteLine($"AuditLogs - Role: {role}, BarangayId: {barangayId}");
+
             // Build query based on role
             IQueryable<AuditLog> logQuery = _context.AuditLogs.Where(l => l.IsActive);
 
-            // Super admin sees ALL logs, barangay roles see only their barangay
-            if (role != "super_admin" && barangayId.HasValue)
+            // Role-based filtering
+            if (role == "super_admin")
             {
+                // Super admin sees ALL logs - no BarangayId filter
+                // logQuery stays as is (all active logs)
+            }
+            else if (role == "barangay_admin" && barangayId.HasValue)
+            {
+                // Barangay admin sees only their barangay logs
                 logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
             }
-            else if (role != "super_admin" && !barangayId.HasValue)
+            else
             {
+                // Other roles: no access
                 logQuery = logQuery.Where(l => false);
             }
 
-            // Get logs and convert to LogItem
+            // Get logs
             var rawLogs = await logQuery.OrderByDescending(l => l.CreatedAt).ToListAsync();
+
+            System.Diagnostics.Debug.WriteLine($"AuditLogs - Total logs retrieved: {rawLogs.Count}");
 
             var list = rawLogs.Select(l => new LogItem
             {
@@ -4345,7 +4357,8 @@ namespace JAS_MINE_IT15.Controllers
                 SearchQuery = q,
                 ModuleFilter = module,
                 ActionFilter = action,
-                Logs = list
+                Logs = list,
+                TotalCount = rawLogs.Count // Track total before filtering
             };
 
             return View(vm);

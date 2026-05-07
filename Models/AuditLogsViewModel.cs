@@ -15,7 +15,7 @@ namespace JAS_MINE_IT15.Models
         public string Target { get; set; } = "";
         public string Ip { get; set; } = "";
     }
-
+s
     public class AuditLogsViewModel
     {
         public List<LogItem> Logs { get; set; } = new();
@@ -23,6 +23,9 @@ namespace JAS_MINE_IT15.Models
         public string SearchQuery { get; set; } = "";
         public string ModuleFilter { get; set; } = "all";
         public string ActionFilter { get; set; } = "all";
+
+        // Total count before filtering (all logs retrieved from DB)
+        public int TotalCount { get; set; } = 0;
 
         public List<string> Modules => Logs.Select(l => l.Module).Distinct().OrderBy(x => x).ToList();
 
