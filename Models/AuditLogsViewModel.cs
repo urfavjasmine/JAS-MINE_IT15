@@ -15,7 +15,7 @@ namespace JAS_MINE_IT15.Models
         public string Target { get; set; } = "";
         public string Ip { get; set; } = "";
     }
-s
+
     public class AuditLogsViewModel
     {
         public List<LogItem> Logs { get; set; } = new();
