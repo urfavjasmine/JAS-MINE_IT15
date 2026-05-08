@@ -321,19 +321,7 @@ namespace JAS_MINE_IT15.Controllers
 
         private static string MaskEmail(string? email)
         {
-            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
-            {
-                return "your account";
-            }
-
-            var parts = email.Split('@', 2);
-            var name = parts[0];
-            var domain = parts[1];
-            var maskedName = name.Length <= 2
-                ? name[0] + "*"
-                : name.Substring(0, 2) + new string('*', Math.Max(1, name.Length - 2));
-
-            return $"{maskedName}@{domain}";
+            return DataMaskingHelper.MaskEmail(email) ?? "your account";
         }
 
         private static string HashResetToken(string encodedToken)

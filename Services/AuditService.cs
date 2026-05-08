@@ -39,18 +39,25 @@ namespace JAS_MINE_IT15.Services
                 var userIdStr = httpContext?.Session.GetString("UserId");
                 int.TryParse(userIdStr, out var userId);
 
+                // Mask sensitive information before storage
+                var userEmail = _tenantService.GetCurrentUserEmail();
+                var maskedEmail = DataMaskingHelper.MaskEmail(userEmail);
+                var maskedDescription = DataMaskingHelper.MaskSensitiveInformation(description);
+                var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
+                var maskedIp = DataMaskingHelper.MaskIpAddress(ipAddress);
+
                 var log = new AuditLog
                 {
                     UserId = userId > 0 ? userId : null,
-                    UserEmail = _tenantService.GetCurrentUserEmail(),
+                    UserEmail = maskedEmail,
                     UserName = httpContext?.Session.GetString("UserName"),
                     Action = action,
                     Module = module,
                     TargetId = targetId,
                     TargetType = targetType,
                     TargetName = targetName,
-                    Description = description,
-                    IpAddress = httpContext?.Connection.RemoteIpAddress?.ToString(),
+                    Description = maskedDescription,
+                    IpAddress = maskedIp,
                     UserAgent = httpContext?.Request.Headers["User-Agent"].FirstOrDefault(),
                     SessionId = httpContext?.Session.Id,
                     BarangayId = barangayId ?? _tenantService.GetCurrentBarangayId(),

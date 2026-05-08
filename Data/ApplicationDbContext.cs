@@ -10,15 +10,18 @@ namespace JAS_MINE_IT15.Data
     {
             private readonly IAuditLogHashService _auditLogHashService;
             private readonly IFieldEncryptionService _fieldEncryptionService;
+            private readonly IDeterministicEncryptionService _deterministicEncryptionService;
 
             public ApplicationDbContext(
                   DbContextOptions<ApplicationDbContext> options,
                   IAuditLogHashService auditLogHashService,
-                  IFieldEncryptionService fieldEncryptionService)
+                  IFieldEncryptionService fieldEncryptionService,
+                  IDeterministicEncryptionService deterministicEncryptionService)
                   : base(options)
             {
                   _auditLogHashService = auditLogHashService;
                   _fieldEncryptionService = fieldEncryptionService;
+                  _deterministicEncryptionService = deterministicEncryptionService;
         }
 
         // =============================================
@@ -45,6 +48,7 @@ namespace JAS_MINE_IT15.Data
 
             public override int SaveChanges()
             {
+                  ApplyEmailHashes();
                   ApplyAuditLogHashChain();
                   return base.SaveChanges();
             }
@@ -57,12 +61,14 @@ namespace JAS_MINE_IT15.Data
 
             public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
             {
+                  ApplyEmailHashes();
                   await ApplyAuditLogHashChainAsync(cancellationToken);
                   return await base.SaveChangesAsync(cancellationToken);
             }
 
             public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
             {
+                  ApplyEmailHashes();
                   await ApplyAuditLogHashChainAsync(cancellationToken);
                   return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
             }
@@ -123,6 +129,37 @@ namespace JAS_MINE_IT15.Data
                   }
             }
 
+            /// <summary>
+            /// Auto-populate EmailHash and ContactEmailHash fields for searchable encryption.
+            /// These hashes enable unique constraints on encrypted email fields.
+            /// </summary>
+            private void ApplyEmailHashes()
+            {
+                  // Populate User.EmailHash
+                  foreach (var entry in ChangeTracker.Entries<User>())
+                  {
+                        if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                        {
+                              if (!string.IsNullOrEmpty(entry.Entity.Email))
+                              {
+                                    entry.Entity.EmailHash = _deterministicEncryptionService.ComputeHash(entry.Entity.Email);
+                              }
+                        }
+                  }
+
+                  // Populate Barangay.ContactEmailHash
+                  foreach (var entry in ChangeTracker.Entries<Barangay>())
+                  {
+                        if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                        {
+                              if (!string.IsNullOrEmpty(entry.Entity.ContactEmail))
+                              {
+                                    entry.Entity.ContactEmailHash = _deterministicEncryptionService.ComputeHash(entry.Entity.ContactEmail);
+                              }
+                        }
+                  }
+            }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -133,6 +170,7 @@ namespace JAS_MINE_IT15.Data
             builder.Entity<User>(entity =>
             {
                 entity.HasIndex(e => e.Email).IsUnique();
+                entity.HasIndex(e => e.EmailHash).IsUnique().HasFilter("[EmailHash] IS NOT NULL");
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
 
@@ -149,12 +187,14 @@ namespace JAS_MINE_IT15.Data
             builder.Entity<Barangay>(entity =>
             {
                 entity.HasIndex(e => e.Name).IsUnique();
+                entity.HasIndex(e => e.ContactEmailHash).IsUnique().HasFilter("[ContactEmailHash] IS NOT NULL");
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
 
                         if (_fieldEncryptionService.IsEnabled)
                         {
                               var encryptedString = new EncryptedStringConverter(_fieldEncryptionService);
+                              entity.Property(e => e.ContactEmail).HasConversion(encryptedString);
                               entity.Property(e => e.ContactPhone).HasConversion(encryptedString);
                         }
             });

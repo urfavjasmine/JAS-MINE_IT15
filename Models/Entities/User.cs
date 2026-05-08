@@ -41,6 +41,12 @@ namespace JAS_MINE_IT15.Models.Entities
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }
 
+        /// <summary>
+        /// SHA256 hash of Email for searchable encrypted field (do not modify directly)
+        /// </summary>
+        [MaxLength(64)]
+        public string? EmailHash { get; set; }
+
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
 

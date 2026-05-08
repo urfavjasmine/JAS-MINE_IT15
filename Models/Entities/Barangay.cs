@@ -33,6 +33,12 @@ namespace JAS_MINE_IT15.Models.Entities
         [MaxLength(255)]
         public string? ContactEmail { get; set; }
 
+        /// <summary>
+        /// SHA256 hash of ContactEmail for searchable encrypted field (do not modify directly)
+        /// </summary>
+        [MaxLength(64)]
+        public string? ContactEmailHash { get; set; }
+
         [MaxLength(20)]
         public string? ContactPhone { get; set; }
 

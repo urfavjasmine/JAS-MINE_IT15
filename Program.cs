@@ -68,6 +68,7 @@ builder.Services.Configure<JAS_MINE_IT15.Models.TwoFactorSettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.TwoFactorSettings.SectionName));
 builder.Services.AddSingleton<IAuditLogHashService, AuditLogHashService>();
 builder.Services.AddSingleton<IFieldEncryptionService, AesFieldEncryptionService>();
+builder.Services.AddSingleton<IDeterministicEncryptionService, DeterministicEncryptionService>();
 builder.Services.AddHttpClient<IPayMongoService, PayMongoService>();
 builder.Services.AddHttpClient<ITurnstileService, TurnstileService>();
 
