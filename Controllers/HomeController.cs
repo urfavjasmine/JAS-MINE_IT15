@@ -3733,115 +3733,124 @@ namespace JAS_MINE_IT15.Controllers
         [Authorize(Roles = "super_admin,barangay_admin")]
         public async Task<IActionResult> CreateUser(string name, string email, string password, string role, string barangay)
         {
-            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
-            if (!IsAdminRole()) return RedirectToDashboard();
-
-            name = (name ?? "").Trim();
-            email = (email ?? "").Trim();
-            password = (password ?? "").Trim();
-            role = (role ?? "barangay_staff").Trim();
-            barangay = (barangay ?? "").Trim();
-
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            try
             {
-                TempData["Error"] = "Name and email are required.";
-                return RedirectToAction(nameof(UserManagement));
-            }
+                if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+                if (!IsAdminRole()) return RedirectToDashboard();
 
-            if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
-            {
-                TempData["Error"] = "Password must be at least 12 characters.";
-                return RedirectToAction(nameof(UserManagement));
-            }
+                name = (name ?? "").Trim();
+                email = (email ?? "").Trim();
+                password = (password ?? "").Trim();
+                role = (role ?? "barangay_staff").Trim();
+                barangay = (barangay ?? "").Trim();
 
-            // Check if email already exists in BusinessUsers or Identity
-            var existsBusiness = await _context.BusinessUsers.AnyAsync(u => u.Email == email);
-            var existsIdentity = await _userManager.FindByEmailAsync(email);
-            if (existsBusiness || existsIdentity != null)
-            {
-                TempData["Error"] = "A user with this email already exists.";
-                return RedirectToAction(nameof(UserManagement));
-            }
-
-            // 1. Create Identity user (so they can log in)
-            var identityUser = new IdentityUser
-            {
-                UserName = email,
-                Email = email,
-                EmailConfirmed = true
-            };
-
-            var identityResult = await _userManager.CreateAsync(identityUser, password);
-            if (!identityResult.Succeeded)
-            {
-                var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
-                TempData["Error"] = $"Failed to create user: {errors}";
-                return RedirectToAction(nameof(UserManagement));
-            }
-
-            await _passwordHistoryService.RecordPasswordAsync(identityUser);
-
-            // 2. Assign role in Identity
-            await _userManager.AddToRoleAsync(identityUser, role);
-
-            // 3. Resolve BarangayId from name
-            int? barangayId = null;
-            if (!string.IsNullOrWhiteSpace(barangay))
-            {
-                var bgy = await _context.Barangays.FirstOrDefaultAsync(b => b.Name == barangay && b.IsActive);
-                if (bgy != null) barangayId = bgy.Id;
-            }
-
-            // If barangay_admin creating a user, auto-assign their barangay
-            if (!barangayId.HasValue && GetCurrentRole() == "barangay_admin")
-            {
-                barangayId = GetCurrentBarangayId();
-                if (string.IsNullOrWhiteSpace(barangay))
-                    barangay = HttpContext.Session.GetString("Barangay") ?? "";
-            }
-
-            // Enforce user limit based on subscription plan
-            if (barangayId.HasValue)
-            {
-                var activeSub = await _context.BarangaySubscriptions
-                    .Include(s => s.Plan)
-                    .Where(s => s.IsActive && s.BarangayId == barangayId && s.Status == "Active" && s.EndDate >= DateTime.Today)
-                    .OrderByDescending(s => s.EndDate)
-                    .FirstOrDefaultAsync();
-
-                if (activeSub?.Plan != null)
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
                 {
-                    var currentCount = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.BarangayId == barangayId);
-                    if (currentCount >= activeSub.Plan.UserLimit)
+                    TempData["Error"] = "Name and email are required.";
+                    return RedirectToAction(nameof(UserManagement));
+                }
+
+                if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
+                {
+                    TempData["Error"] = "Password must be at least 12 characters.";
+                    return RedirectToAction(nameof(UserManagement));
+                }
+
+                // Check if email already exists in BusinessUsers or Identity
+                var existsBusiness = await _context.BusinessUsers.AnyAsync(u => u.Email == email);
+                var existsIdentity = await _userManager.FindByEmailAsync(email);
+                if (existsBusiness || existsIdentity != null)
+                {
+                    TempData["Error"] = "A user with this email already exists.";
+                    return RedirectToAction(nameof(UserManagement));
+                }
+
+                // 1. Create Identity user (so they can log in)
+                var identityUser = new IdentityUser
+                {
+                    UserName = email,
+                    Email = email,
+                    EmailConfirmed = true
+                };
+
+                var identityResult = await _userManager.CreateAsync(identityUser, password);
+                if (!identityResult.Succeeded)
+                {
+                    var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
+                    TempData["Error"] = $"Failed to create user: {errors}";
+                    return RedirectToAction(nameof(UserManagement));
+                }
+
+                await _passwordHistoryService.RecordPasswordAsync(identityUser);
+
+                // 2. Assign role in Identity
+                await _userManager.AddToRoleAsync(identityUser, role);
+
+                // 3. Resolve BarangayId from name
+                int? barangayId = null;
+                if (!string.IsNullOrWhiteSpace(barangay))
+                {
+                    var bgy = await _context.Barangays.FirstOrDefaultAsync(b => b.Name == barangay && b.IsActive);
+                    if (bgy != null) barangayId = bgy.Id;
+                }
+
+                // If barangay_admin creating a user, auto-assign their barangay
+                if (!barangayId.HasValue && GetCurrentRole() == "barangay_admin")
+                {
+                    barangayId = GetCurrentBarangayId();
+                    if (string.IsNullOrWhiteSpace(barangay))
+                        barangay = HttpContext.Session.GetString("Barangay") ?? "";
+                }
+
+                // Enforce user limit based on subscription plan
+                if (barangayId.HasValue)
+                {
+                    var activeSub = await _context.BarangaySubscriptions
+                        .Include(s => s.Plan)
+                        .Where(s => s.IsActive && s.BarangayId == barangayId && s.Status == "Active" && s.EndDate >= DateTime.Today)
+                        .OrderByDescending(s => s.EndDate)
+                        .FirstOrDefaultAsync();
+
+                    if (activeSub?.Plan != null)
                     {
-                        TempData["Error"] = $"User limit reached! Your {activeSub.Plan.Name} plan allows up to {activeSub.Plan.UserLimit} users. Please upgrade your plan to add more users.";
-                        return RedirectToAction(nameof(UserManagement));
+                        var currentCount = await _context.BusinessUsers.CountAsync(u => u.IsActive && u.BarangayId == barangayId);
+                        if (currentCount >= activeSub.Plan.UserLimit)
+                        {
+                            TempData["Error"] = $"User limit reached! Your {activeSub.Plan.Name} plan allows up to {activeSub.Plan.UserLimit} users. Please upgrade your plan to add more users.";
+                            return RedirectToAction(nameof(UserManagement));
+                        }
                     }
                 }
+
+                // 4. Create BusinessUser record
+                var user = new Models.Entities.User
+                {
+                    FullName = name,
+                    Email = email,
+                    PasswordHash = "IDENTITY_MANAGED",
+                    Role = role,
+                    BarangayId = barangayId,
+                    BarangayName = barangay,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now,
+                    CreatedBy = GetCurrentUserId()
+                };
+
+                _context.BusinessUsers.Add(user);
+                await _context.SaveChangesAsync();
+
+                // 5. Log the action
+                await LogAuditAsync("Create", "UserManagement", user.Id, "User", name, $"Created user {email} with role {role}");
+
+                TempData["Success"] = $"User \"{name}\" created successfully.";
+                return RedirectToAction(nameof(UserManagement));
             }
-
-            // 4. Create BusinessUser record
-            var user = new Models.Entities.User
+            catch (Exception ex)
             {
-                FullName = name,
-                Email = email,
-                PasswordHash = "IDENTITY_MANAGED",
-                Role = role,
-                BarangayId = barangayId,
-                BarangayName = barangay,
-                IsActive = true,
-                CreatedAt = DateTime.Now,
-                CreatedBy = GetCurrentUserId()
-            };
-
-            _context.BusinessUsers.Add(user);
-            await _context.SaveChangesAsync();
-
-            // 5. Log the action
-            await LogAuditAsync("Create", "UserManagement", user.Id, "User", name, $"Created user {email} with role {role}");
-
-            TempData["Success"] = $"User \"{name}\" created successfully.";
-            return RedirectToAction(nameof(UserManagement));
+                _logger.LogError(ex, "Error creating user");
+                TempData["Error"] = "An error occurred while creating the user. Please try again.";
+                return RedirectToAction(nameof(UserManagement));
+            }
         }
 
         [HttpPost]

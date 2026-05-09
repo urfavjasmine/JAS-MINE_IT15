@@ -50,12 +50,12 @@ namespace JAS_MINE_IT15.Controllers
             {
                 // Set defaults - show all logs if no date range specified
                 startDate ??= new DateTime(2000, 1, 1);
-                endDate ??= DateTime.Now;
+                endDate ??= DateTime.Now.AddDays(1).Date;  // Include all of today
 
                 // Query base logs
                 var query = _context.AuditLogs
                     .AsNoTracking()
-                    .Where(l => l.CreatedAt >= startDate && l.CreatedAt <= endDate);
+                    .Where(l => l.CreatedAt >= startDate && l.CreatedAt < endDate);
 
                 // Apply filters
                 if (!string.IsNullOrWhiteSpace(search))

@@ -96,7 +96,7 @@
             <div class="card bg-light">
                 <div class="card-body">
                     <h6 class="card-title text-muted">Date Range</h6>
-                    <p class="mb-0">@Model.StartDate.ToString("MMM d") - @Model.EndDate.ToString("MMM d")</p>
+                    <p class="mb-0">@Model.StartDate.ToString("MMM d") - @Model.EndDate.AddDays(-1).ToString("MMM d")</p>
                 </div>
             </div>
         </div>
@@ -136,7 +136,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if (Model.Logs.Any())
+                    @if (Model?.Logs != null && Model.Logs.Any())
                     {
                         @foreach (var log in Model.Logs)
                         {
@@ -191,7 +191,7 @@
     </div>
 
     <!-- Pagination -->
-    @if (Model.TotalPages > 1)
+    @if (Model?.TotalPages > 1)
     {
         <nav class="mt-4">
             <ul class="pagination justify-content-center">
