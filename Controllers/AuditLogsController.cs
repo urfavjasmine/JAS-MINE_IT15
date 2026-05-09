@@ -48,16 +48,16 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
-                // Set defaults - show all logs if no date range specified
-                startDate ??= new DateTime(2000, 1, 1);
-                endDate ??= DateTime.Now.AddDays(1).Date;  // Include all of today
+                // Always show ALL logs - no date restrictions
+                // Date inputs are optional and only used if explicitly provided
+                DateTime actualStartDate = startDate ?? new DateTime(1900, 1, 1);  // Way back to ensure all records
+                DateTime actualEndDate = endDate?.AddDays(1).Date ?? DateTime.Now.AddDays(1).Date;
 
-                // Query base logs
+                // Query base logs - NO date filter, show everything
                 var query = _context.AuditLogs
-                    .AsNoTracking()
-                    .Where(l => l.CreatedAt >= startDate && l.CreatedAt < endDate);
+                    .AsNoTracking();
 
-                // Apply filters
+                // Apply optional filters only if provided
                 if (!string.IsNullOrWhiteSpace(search))
                 {
                     var searchLower = search.ToLower();
@@ -99,8 +99,8 @@ namespace JAS_MINE_IT15.Controllers
                     Action = action ?? "",
                     EventType = eventType ?? "",
                     Severity = severity ?? "",
-                    StartDate = startDate.Value,
-                    EndDate = endDate.Value,
+                    StartDate = actualStartDate,
+                    EndDate = actualEndDate.AddDays(-1),
                     CurrentPage = page,
                     PageSize = pageSize,
                     TotalCount = totalCount,

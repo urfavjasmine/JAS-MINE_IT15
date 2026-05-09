@@ -35,13 +35,13 @@
         </div>
         <div class="card-body">
             <form method="get" class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Search</label>
                     <input type="text" name="search" class="form-control" 
                         placeholder="Action, Module, Email..." value="@Model.Search">
                 </div>
 
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label">Module</label>
                     <select name="module" class="form-select">
                         <option value="">-- All Modules --</option>
@@ -52,7 +52,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label">Action</label>
                     <select name="action" class="form-select">
                         <option value="">-- All Actions --</option>
@@ -63,17 +63,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">From Date</label>
-                    <input type="date" name="startDate" class="form-control" value="@Model.StartDate.ToString("yyyy-MM-dd")">
-                </div>
-
-                <div class="col-md-2">
-                    <label class="form-label">To Date</label>
-                    <input type="date" name="endDate" class="form-control" value="@Model.EndDate.ToString("yyyy-MM-dd")">
-                </div>
-
-                <div class="col-md-1 d-flex align-items-end">
+                <div class="col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-search"></i> Search
                     </button>
@@ -84,7 +74,7 @@
 
     <!-- Stats Summary -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card bg-light">
                 <div class="card-body">
                     <h6 class="card-title text-muted">Total Records</h6>
@@ -92,22 +82,23 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card bg-light">
                 <div class="card-body">
-                    <h6 class="card-title text-muted">Date Range</h6>
-                    <p class="mb-0">@Model.StartDate.ToString("MMM d") - @Model.EndDate.AddDays(-1).ToString("MMM d")</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <h6 class="card-title text-muted">Page</h6>
+                    <h6 class="card-title text-muted">Current Page</h6>
                     <p class="mb-0">@Model.CurrentPage of @Model.TotalPages</p>
                 </div>
             </div>
         </div>
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Records Per Page</h6>
+                    <p class="mb-0">@Model.PageSize</p>
+                </div>
+            </div>
+        </div>
+    </div>
         <div class="col-md-3">
             <div class="card bg-light">
                 <div class="card-body">
