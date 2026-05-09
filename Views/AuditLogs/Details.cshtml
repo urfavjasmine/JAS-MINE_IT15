@@ -1,0 +1,270 @@
+@using JAS_MINE_IT15.Models.Entities
+@model AuditLog
+
+@{
+    ViewData["Title"] = $"Audit Log Details - {Model.Id}";
+}
+
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-10">
+            <h1 class="mb-0">
+                <i class="fas fa-file-alt"></i> Audit Log Details
+            </h1>
+            <p class="text-muted">ID: @Model.Id</p>
+        </div>
+        <div class="col-md-2 text-end">
+            <a href="@Url.Action("Index")" class="btn btn-sm btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Details -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Event Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Event ID</label>
+                        <p><code>@Model.Id</code></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Action</label>
+                        <p><span class="badge bg-info">@Model.Action</span></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Module</label>
+                        <p><span class="badge bg-secondary">@Model.Module</span></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Timestamp</label>
+                        <p>@Model.CreatedAt.ToString("MMMM dd, yyyy \\a\\t HH:mm:ss") UTC</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Target Type</label>
+                        <p>@(Model.TargetType ?? "-")</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Target ID</label>
+                        <p>@(Model.TargetId?.ToString() ?? "-")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">User Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">User ID</label>
+                        <p>@(Model.UserId?.ToString() ?? "System")</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">User Email</label>
+                        <p><code>@(Model.UserEmail ?? "-")</code></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">User Name</label>
+                        <p>@(Model.UserName ?? "-")</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">IP Address</label>
+                        <p><code>@(Model.IpAddress ?? "-")</code></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Session ID</label>
+                        <p><code>@(Model.SessionId?.Substring(0, Math.Min(20, Model.SessionId?.Length ?? 0)) + "..." ?? "-")</code></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Barangay ID</label>
+                        <p>@(Model.BarangayId?.ToString() ?? "System-wide")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Description & Target Info -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Event Description</h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">@(Model.Description ?? "-")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Target Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Target Name</label>
+                        <p>@(Model.TargetName ?? "-")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Changes -->
+    @if (!string.IsNullOrEmpty(Model.OldValues) || !string.IsNullOrEmpty(Model.NewValues))
+    {
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-minus-circle text-danger"></i> Previous Values
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.OldValues))
+                        {
+                            <pre class="mb-0"><code>@Model.OldValues</code></pre>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No previous values available</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-plus-circle text-success"></i> New Values
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(Model.NewValues))
+                        {
+                            <pre class="mb-0"><code>@Model.NewValues</code></pre>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No new values available</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Audit Integrity Information -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lock"></i> Audit Integrity Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Hash Algorithm</label>
+                                <p>@(Model.HashAlgorithm ?? "SHA-256")</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Active</label>
+                                <p>
+                                    @if (Model.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Event Hash</label>
+                                <p><code class="small">@(Model.Hash ?? "Not computed")</code></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Previous Hash</label>
+                                <p><code class="small">@(Model.PreviousHash ?? "No previous event")</code></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Agent Information -->
+    @if (!string.IsNullOrEmpty(Model.UserAgent))
+    {
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-globe"></i> Client Information
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0">@Model.UserAgent</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Actions -->
+    <div class="mt-4 mb-4">
+        <a href="@Url.Action("Index")" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Logs
+        </a>
+        <a href="@Url.Action("Dashboard")" class="btn btn-info">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+        <button class="btn btn-sm btn-secondary" onclick="window.print()">
+            <i class="fas fa-print"></i> Print
+        </button>
+    </div>
+</div>
+
+<style>
+    pre {
+        background-color: #f5f5f5;
+        padding: 12px;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    code {
+        color: #d63384;
+    }
+
+    pre code {
+        color: inherit;
+    }
+</style>

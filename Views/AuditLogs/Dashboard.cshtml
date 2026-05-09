@@ -1,0 +1,303 @@
+@using JAS_MINE_IT15.Controllers
+@model SecurityDashboardModel
+
+@{
+    ViewData["Title"] = "Security Dashboard";
+}
+
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-0">
+                <i class="fas fa-shield-alt"></i> Security Dashboard
+            </h1>
+            <p class="text-muted">Real-time security monitoring and alerts (Last 24 hours)</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-sm btn-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <a href="@Url.Action("Index")" class="btn btn-sm btn-secondary">
+                <i class="fas fa-history"></i> View Logs
+            </a>
+        </div>
+    </div>
+
+    <!-- Critical Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="card-title text-danger">
+                        <i class="fas fa-exclamation-circle"></i> Critical Events
+                    </h6>
+                    <h2 class="mb-0">@Model.CriticalAlertsCount</h2>
+                    <small class="text-muted">Immediate action required</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-warning">
+                        <i class="fas fa-exclamation-triangle"></i> High-Risk Events
+                    </h6>
+                    <h2 class="mb-0">@Model.HighRiskAlertsCount</h2>
+                    <small class="text-muted">Suspicious activity detected</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="card-title text-info">
+                        <i class="fas fa-chart-bar"></i> Total Events
+                    </h6>
+                    <h2 class="mb-0">@Model.Metrics.TotalEventsToday</h2>
+                    <small class="text-muted">Last 24 hours</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-title text-success">
+                        <i class="fas fa-check-circle"></i> Last Updated
+                    </h6>
+                    <h6 class="mb-0">@Model.Metrics.GeneratedAt.ToString("HH:mm:ss")</h6>
+                    <small class="text-muted">@Model.Metrics.GeneratedAt.ToString("MMM d, yyyy")</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security Events Summary -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-list"></i> Event Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 border-end">
+                            <p class="text-muted small mb-1">Failed Login Attempts</p>
+                            <h4 class="text-danger">@Model.Metrics.FailedLogins</h4>
+                            <a href="@Url.Action("FailedLogins")" class="small text-decoration-none">View Report →</a>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted small mb-1">MFA Failures</p>
+                            <h4 class="text-warning">@Model.Metrics.MfaFailures</h4>
+                            <a href="@Url.Action("MfaFailures")" class="small text-decoration-none">View Report →</a>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6 border-end">
+                            <p class="text-muted small mb-1">Authorization Denials</p>
+                            <h4 class="text-info">@Model.Metrics.AuthorizationDenials</h4>
+                            <a href="@Url.Action("AuthorizationDenials")" class="small text-decoration-none">View Report →</a>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted small mb-1">Data Modifications</p>
+                            <h4 class="text-primary">-</h4>
+                            <a href="@Url.Action("DataModifications")" class="small text-decoration-none">View Report →</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-pie-chart"></i> Severity Distribution
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @if (Model.Metrics.EventsBySeverity != null)
+                    {
+                        @foreach (var severity in Model.Metrics.EventsBySeverity)
+                        {
+                            var percentage = Model.Metrics.TotalEventsToday > 0 
+                                ? (severity.Value * 100 / Model.Metrics.TotalEventsToday) 
+                                : 0;
+                            var color = severity.Key switch
+                            {
+                                "Critical" => "danger",
+                                "High" => "warning",
+                                "Medium" => "info",
+                                _ => "secondary"
+                            };
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>@severity.Key</span>
+                                    <span class="badge bg-@color">@severity.Value</span>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-@color" style="width: @percentage%">
+                                        @percentage%
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-bell"></i> Recent Failed Logins (Last 10)
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Email</th>
+                                <th>IP Address</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.RecentFailedLogins.Any())
+                            {
+                                @foreach (var log in Model.RecentFailedLogins)
+                                {
+                                    <tr class="border-danger border-start border-5">
+                                        <td><small>@log.CreatedAt.ToString("HH:mm:ss")</small></td>
+                                        <td><small>@(log.UserEmail ?? "-")</small></td>
+                                        <td><code>@(log.IpAddress ?? "-")</code></td>
+                                        <td><small>@(log.Description?.Substring(0, Math.Min(40, log.Description?.Length ?? 0)) ?? "-")</small></td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center text-success py-3">
+                                        <i class="fas fa-check-circle"></i> No failed login attempts detected
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MFA Failures & Auth Denials -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-mobile-alt"></i> Recent MFA Failures (Last 10)
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.RecentMfaFailures.Any())
+                            {
+                                @foreach (var log in Model.RecentMfaFailures)
+                                {
+                                    <tr class="border-warning border-start border-5">
+                                        <td><small>@log.CreatedAt.ToString("HH:mm")</small></td>
+                                        <td><small>@(log.UserEmail ?? "-")</small></td>
+                                        <td><small>@(log.Description?.Substring(0, Math.Min(30, log.Description?.Length ?? 0)) ?? "-")</small></td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center text-success py-2">
+                                        <small>No MFA failures</small>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lock"></i> Recent Authorization Denials (Last 10)
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Resource</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.RecentAuthDenials.Any())
+                            {
+                                @foreach (var log in Model.RecentAuthDenials)
+                                {
+                                    <tr class="border-info border-start border-5">
+                                        <td><small>@log.CreatedAt.ToString("HH:mm")</small></td>
+                                        <td><small>@(log.UserEmail ?? "-")</small></td>
+                                        <td><small>@(log.TargetName?.Substring(0, Math.Min(30, log.TargetName?.Length ?? 0)) ?? "-")</small></td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center text-success py-2">
+                                        <small>No authorization denials</small>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(function () {
+            // Uncomment to enable auto-refresh
+            // location.reload();
+        }, 30000);
+
+        // Play sound alert for critical events
+        function playAlert() {
+            // Optional: play alert sound for critical events
+        }
+    </script>
+}

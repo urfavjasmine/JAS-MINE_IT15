@@ -1,0 +1,248 @@
+@using JAS_MINE_IT15.Controllers
+@using JAS_MINE_IT15.Models.Entities
+
+@model AuditLogDisplayModel
+
+@{
+    ViewData["Title"] = "Audit Logs";
+}
+
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-0">
+                <i class="fas fa-history"></i> Audit Logs
+            </h1>
+            <p class="text-muted">System activity and security event logs</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="@Url.Action("Dashboard")" class="btn btn-info me-2">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="@Url.Action("ExportCsv")" class="btn btn-success">
+                <i class="fas fa-download"></i> Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">
+                <i class="fas fa-filter"></i> Search & Filter
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" class="form-control" 
+                        placeholder="Action, Module, Email..." value="@Model.Search">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Module</label>
+                    <select name="module" class="form-select">
+                        <option value="">-- All Modules --</option>
+                        @foreach (var m in Model.AvailableModules)
+                        {
+                            <option value="@m.Value" selected="@(m.Value == Model.Module)">@m.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Action</label>
+                    <select name="action" class="form-select">
+                        <option value="">-- All Actions --</option>
+                        @foreach (var a in Model.AvailableActions)
+                        {
+                            <option value="@a.Value" selected="@(a.Value == Model.Action)">@a.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="startDate" class="form-control" value="@Model.StartDate.ToString("yyyy-MM-dd")">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="endDate" class="form-control" value="@Model.EndDate.ToString("yyyy-MM-dd")">
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Total Records</h6>
+                    <h3 class="mb-0">@Model.TotalCount.ToString("N0")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Date Range</h6>
+                    <p class="mb-0">@Model.StartDate.ToString("MMM d") - @Model.EndDate.ToString("MMM d")</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Page</h6>
+                    <p class="mb-0">@Model.CurrentPage of @Model.TotalPages</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Quick Links</h6>
+                    <a href="@Url.Action("FailedLogins")" class="text-decoration-none small">Failed Logins</a>
+                    <a href="@Url.Action("MfaFailures")" class="text-decoration-none small ms-3">MFA Failures</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Logs Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 10%">ID</th>
+                        <th style="width: 15%">User</th>
+                        <th style="width: 12%">Action</th>
+                        <th style="width: 12%">Module</th>
+                        <th style="width: 20%">Description</th>
+                        <th style="width: 12%">IP Address</th>
+                        <th style="width: 15%">Timestamp</th>
+                        <th style="width: 4%">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Logs.Any())
+                    {
+                        @foreach (var log in Model.Logs)
+                        {
+                            <tr>
+                                <td>
+                                    <code>@log.Id</code>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.UserEmail))
+                                    {
+                                        <small>@log.UserEmail</small>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">System</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">@log.Action</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">@log.Module</span>
+                                </td>
+                                <td>
+                                    <small>@(log.Description?.Substring(0, Math.Min(50, log.Description?.Length ?? 0)) ?? "-")</small>
+                                </td>
+                                <td>
+                                    <code>@(log.IpAddress ?? "-")</code>
+                                </td>
+                                <td>
+                                    <small>@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</small>
+                                </td>
+                                <td>
+                                    <a href="@Url.Action("Details", new { id = log.Id })" class="btn btn-sm btn-outline-primary" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="fas fa-inbox"></i> No audit logs found
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                @if (Model.CurrentPage > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("Index", new { page = 1 })">First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("Index", new { page = Model.CurrentPage - 1 })">Previous</a>
+                    </li>
+                }
+
+                @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); i++)
+                {
+                    if (i == Model.CurrentPage)
+                    {
+                        <li class="page-item active">
+                            <span class="page-link">@i</span>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="page-item">
+                            <a class="page-link" href="@Url.Action("Index", new { page = i })">@i</a>
+                        </li>
+                    }
+                }
+
+                @if (Model.CurrentPage < Model.TotalPages)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("Index", new { page = Model.CurrentPage + 1 })">Next</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("Index", new { page = Model.TotalPages })">Last</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Auto-refresh every 30 seconds
+            setInterval(function () {
+                // Optional: Auto-refresh audit logs
+                // location.reload();
+            }, 30000);
+        });
+    </script>
+}

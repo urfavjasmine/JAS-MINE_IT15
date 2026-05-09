@@ -49,7 +49,9 @@ builder.Services.AddScoped<IPasswordHistoryService, PasswordHistoryService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<ISecurityEventLogger, SecurityEventLogger>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
+builder.Services.AddScoped<IValidationService, ValidationService>();
 
 // PayMongo configuration
 builder.Services.Configure<JAS_MINE_IT15.Models.PayMongoSettings>(
