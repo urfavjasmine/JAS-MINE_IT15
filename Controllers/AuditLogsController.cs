@@ -48,8 +48,8 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
-                // Set defaults
-                startDate ??= DateTime.Now.AddDays(-30);
+                // Set defaults - show all logs if no date range specified
+                startDate ??= new DateTime(2000, 1, 1);
                 endDate ??= DateTime.Now;
 
                 // Query base logs

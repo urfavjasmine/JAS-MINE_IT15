@@ -3717,6 +3717,17 @@ namespace JAS_MINE_IT15.Controllers
             return View(vm);
         }
 
+        /// <summary>
+        /// GET CreateUser - Redirect to UserManagement
+        /// (POST only - GET requests are redirected)
+        /// </summary>
+        [HttpGet]
+        [Authorize(Roles = "super_admin,barangay_admin")]
+        public IActionResult CreateUser()
+        {
+            return RedirectToAction(nameof(UserManagement));
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "super_admin,barangay_admin")]

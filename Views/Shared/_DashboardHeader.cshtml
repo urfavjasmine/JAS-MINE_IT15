@@ -8,7 +8,12 @@
     var userName = string.IsNullOrWhiteSpace(sessionUserName)
         ? (User.Identity?.Name ?? claimEmail ?? "User")
         : sessionUserName;
-    var barangay = Context.Session.GetString("Barangay") ?? "Purok Office";
+    
+    // Get user role
+    var userRoles = User.FindAll(ClaimTypes.Role);
+    var roleDisplay = userRoles.Any() 
+        ? string.Join(" | ", userRoles.Select(r => r.Value.Replace("_", " ").ToUpper()))
+        : "User";
 
     var firstName = userName.Split(' ')[0];
 }
@@ -25,7 +30,7 @@
 
         <div class="d-none d-sm-block">
             <div class="fw-semibold">Welcome, @firstName</div>
-            <small class="text-muted">@barangay</small>
+            <small class="text-muted">Role: @roleDisplay</small>
         </div>
     </div>
 
