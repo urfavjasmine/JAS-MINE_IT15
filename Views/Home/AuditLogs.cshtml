@@ -89,6 +89,13 @@
 
 <div class="page-wrap">
 
+    @if (Context.Request.Query.ContainsKey("debugLogs"))
+    {
+        <div class="alert alert-warning" style="border-radius:8px;">
+            Debug: Role=@Context.Session.GetString("Role"), BarangayId=@Context.Session.GetString("BarangayId"), Logs=@Model.TotalCount
+        </div>
+    }
+
     <!-- Title + buttons -->
     @if (TempData["Success"] != null)
     {
@@ -356,7 +363,17 @@
         document.getElementById('archiveId').value = id;
     }
 
-    async { } // dummy for script context
+    async function fetchAuditLogs() {
+        try {
+            const response = await fetch('/api/AuditLogsApi');
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Audit logs fetched successfully', data);
+            }
+        } catch (error) {
+            console.error('Error fetching audit logs:', error);
+        }
+    }
 
     function exportLogsToPdf() {
         const { jsPDF } = window.jspdf;

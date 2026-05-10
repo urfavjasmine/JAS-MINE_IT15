@@ -122,6 +122,9 @@ namespace JAS_MINE_IT15.Controllers
         {
             var barangayId = businessUser.BarangayId;
 
+            role = string.IsNullOrWhiteSpace(role) ? (businessUser.Role ?? string.Empty) : role;
+            role = role.Trim().ToLowerInvariant();
+
             var previousLogin = await _context.AuditLogs
                 .AsNoTracking()
                 .Where(a => a.IsActive
@@ -4299,11 +4302,89 @@ namespace JAS_MINE_IT15.Controllers
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
 
-            // DEBUG: Log to verify role detection
-            System.Diagnostics.Debug.WriteLine($"AuditLogs - Role: {role}, BarangayId: {barangayId}");
+            if (string.IsNullOrWhiteSpace(role))
+            {
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId.HasValue)
+                {
+                    var dbUser = await _context.BusinessUsers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Id == currentUserId.Value);
+
+                    if (dbUser != null)
+                    {
+                        role = dbUser.Role ?? string.Empty;
+                        if (!barangayId.HasValue)
+                        {
+                            barangayId = dbUser.BarangayId;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(role))
+                {
+                    if (User.IsInRole("super_admin")) role = "super_admin";
+                    else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
+                    else if (User.IsInRole("barangay_secretary")) role = "barangay_secretary";
+                    else if (User.IsInRole("barangay_staff")) role = "barangay_staff";
+                    else if (User.IsInRole("council_member")) role = "council_member";
+                }
+            }
+
+            role = NormalizeRole(role);
+
+            // Re-check Identity roles for privileged access when session/db role is missing or stale
+            if (role != "super_admin" && role != "barangay_admin")
+            {
+                if (User.IsInRole("super_admin")) role = "super_admin";
+                else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
+            }
+
+            if (role == "super_admin")
+            {
+                barangayId = null;
+            }
+
+            // Backfill BarangayId for barangay_admin when session-derived values are missing
+            if (role == "barangay_admin" && !barangayId.HasValue)
+            {
+                var currentUserIdForBackfill = GetCurrentUserId();
+                if (currentUserIdForBackfill.HasValue)
+                {
+                    barangayId = await _context.BusinessUsers
+                        .AsNoTracking()
+                        .Where(u => u.Id == currentUserIdForBackfill.Value)
+                        .Select(u => u.BarangayId)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (!barangayId.HasValue)
+                {
+                    var currentEmail = User?.Identity?.Name;
+                    if (!string.IsNullOrWhiteSpace(currentEmail))
+                    {
+                        var normalizedEmail = currentEmail.Trim().ToLower();
+                        barangayId = await _context.BusinessUsers
+                            .AsNoTracking()
+                            .Where(u => u.IsActive && u.Email.ToLower() == normalizedEmail)
+                            .Select(u => u.BarangayId)
+                            .FirstOrDefaultAsync();
+                    }
+                }
+            }
+
+            _logger.LogInformation("AuditLogs role detection: Role={Role}, BarangayId={BarangayId}, UserId={UserId}",
+                role, barangayId, GetCurrentUserId());
 
             // Build query based on role
-            IQueryable<AuditLog> logQuery = _context.AuditLogs.Where(l => l.IsActive);
+            var baseQuery = _context.AuditLogs.AsNoTracking();
+            var hasActiveLogs = await baseQuery.AnyAsync(l => l.IsActive);
+            if (hasActiveLogs)
+            {
+                baseQuery = baseQuery.Where(l => l.IsActive);
+            }
+
+            IQueryable<AuditLog> logQuery = baseQuery;
 
             // Role-based filtering
             if (role == "super_admin")
@@ -4325,17 +4406,18 @@ namespace JAS_MINE_IT15.Controllers
             // Get logs
             var rawLogs = await logQuery.OrderByDescending(l => l.CreatedAt).ToListAsync();
 
-            System.Diagnostics.Debug.WriteLine($"AuditLogs - Total logs retrieved: {rawLogs.Count}");
+            _logger.LogInformation("AuditLogs retrieved {Count} log(s) after role filter. Role={Role}, BarangayId={BarangayId}, ActiveOnly={ActiveOnly}",
+                rawLogs.Count, role, barangayId, hasActiveLogs);
 
-            var list = rawLogs.Select(l => new LogItem
+            var list = rawLogs.Select(log => new LogItem
             {
-                Id = l.Id.ToString(),
-                Timestamp = l.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                User = l.UserName ?? l.UserEmail ?? "System",
-                Action = l.Action ?? "",
-                Module = l.Module ?? "",
-                Target = l.TargetName ?? l.TargetType ?? "",
-                Ip = l.IpAddress ?? ""
+                Id = log.Id.ToString(),
+                Timestamp = log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                User = log.UserName ?? log.UserEmail ?? "System",
+                Action = log.Action ?? "",
+                Module = log.Module ?? "",
+                Target = log.TargetName ?? log.TargetType ?? "",
+                Ip = log.IpAddress ?? ""
             }).ToList();
 
             // Apply search filter
