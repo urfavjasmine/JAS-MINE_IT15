@@ -4387,12 +4387,15 @@ namespace JAS_MINE_IT15.Controllers
             IQueryable<AuditLog> logQuery = baseQuery;
 
             // Role-based filtering
-            if (role == "super_admin")
+            var isSuperAdmin = User.IsInRole("super_admin") || role == "super_admin" || role == "superadmin";
+            var isBarangayAdmin = User.IsInRole("barangay_admin") || role == "barangay_admin" || role == "barangayadmin";
+
+            if (isSuperAdmin)
             {
                 // Super admin sees ALL logs - no BarangayId filter
                 // logQuery stays as is (all active logs)
             }
-            else if (role == "barangay_admin" && barangayId.HasValue)
+            else if (isBarangayAdmin && barangayId.HasValue)
             {
                 // Barangay admin sees only their barangay logs
                 logQuery = logQuery.Where(l => l.BarangayId == barangayId.Value);
@@ -4510,9 +4513,11 @@ namespace JAS_MINE_IT15.Controllers
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
 
+            var isSuperAdmin = User.IsInRole("super_admin") || role == "super_admin" || role == "superadmin";
+
             // STRICT TENANT ISOLATION: same as AuditLogs GET
             var logQuery = _context.AuditLogs.Where(l => l.IsActive);
-            if (role == "super_admin")
+            if (isSuperAdmin)
             {
                 // Super admin sees ALL logs (no additional filter)
             }
