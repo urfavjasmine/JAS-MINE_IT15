@@ -286,20 +286,29 @@ namespace JAS_MINE_IT15.Controllers
         /// POST /api/paymongo/webhook
         /// </summary>
         [HttpPost("webhook")]
-        public async Task<IActionResult> Webhook()
+        public async Task<IActionResult> Webhook([FromBody] JsonElement payload)
         {
-            using var reader = new StreamReader(Request.Body);
-            var json = await reader.ReadToEndAsync();
-            
-            _logger.LogInformation("PayMongo Webhook received: {Json}", json);
-
             try
             {
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-                var eventData = root.GetProperty("data");
-                var eventAttributes = eventData.GetProperty("attributes");
-                var eventType = eventAttributes.GetProperty("type").GetString();
+                if (payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+                {
+                    return BadRequest(new { error = "Webhook payload is required" });
+                }
+
+                if (!payload.TryGetProperty("data", out var eventData) ||
+                    !eventData.TryGetProperty("attributes", out var eventAttributes))
+                {
+                    return BadRequest(new { error = "Invalid webhook payload structure" });
+                }
+
+                var eventType = eventAttributes.TryGetProperty("type", out var typeValue)
+                    ? typeValue.GetString()
+                    : null;
+
+                if (string.IsNullOrWhiteSpace(eventType))
+                {
+                    return BadRequest(new { error = "Webhook event type is missing" });
+                }
 
                 _logger.LogInformation("PayMongo Webhook event type: {EventType}", eventType);
 

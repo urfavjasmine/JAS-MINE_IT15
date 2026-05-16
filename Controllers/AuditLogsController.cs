@@ -48,6 +48,33 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid audit log filter parameters received.");
+                    TempData["Error"] = "Invalid filter parameters.";
+
+                    var invalidModel = new AuditLogDisplayModel
+                    {
+                        Logs = new List<Models.Entities.AuditLog>(),
+                        Search = search ?? "",
+                        Module = module ?? "",
+                        Action = action ?? "",
+                        EventType = eventType ?? "",
+                        Severity = severity ?? "",
+                        StartDate = startDate ?? new DateTime(1900, 1, 1),
+                        EndDate = endDate ?? DateTime.Now,
+                        CurrentPage = 1,
+                        PageSize = pageSize,
+                        TotalCount = 0,
+                        TotalPages = 0,
+                        AvailableModules = await GetAvailableModulesAsync(),
+                        AvailableActions = await GetAvailableActionsAsync(),
+                        AvailableEventTypes = await GetAvailableEventTypesAsync()
+                    };
+
+                    return View(invalidModel);
+                }
+
                 // Always show ALL logs - no date restrictions
                 // Date inputs are optional and only used if explicitly provided
                 DateTime actualStartDate = startDate ?? new DateTime(1900, 1, 1);  // Way back to ensure all records
@@ -166,6 +193,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid failed login report parameters.");
+                    TempData["Error"] = "Invalid report parameters.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 startDate ??= DateTime.Now.AddDays(-30);
                 endDate ??= DateTime.Now;
 
@@ -202,6 +236,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid MFA failure report parameters.");
+                    TempData["Error"] = "Invalid report parameters.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 startDate ??= DateTime.Now.AddDays(-7);
                 endDate ??= DateTime.Now;
 
@@ -238,6 +279,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid authorization denial report parameters.");
+                    TempData["Error"] = "Invalid report parameters.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 startDate ??= DateTime.Now.AddDays(-30);
                 endDate ??= DateTime.Now;
 
@@ -274,6 +322,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid data modification report parameters.");
+                    TempData["Error"] = "Invalid report parameters.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 startDate ??= DateTime.Now.AddDays(-30);
                 endDate ??= DateTime.Now;
 
@@ -313,6 +368,13 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid export parameters for audit logs.");
+                    TempData["Error"] = "Invalid export parameters.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 startDate ??= DateTime.Now.AddDays(-30);
                 endDate ??= DateTime.Now;
 
