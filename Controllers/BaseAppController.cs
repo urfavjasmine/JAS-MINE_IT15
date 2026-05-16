@@ -24,13 +24,18 @@ namespace JAS_MINE_IT15.Controllers
 
         protected bool IsAdminRole()
         {
-            return User.IsInRole("super_admin") || User.IsInRole("barangay_admin");
+            var role = GetCurrentRole();
+            return role == "super_admin" || role == "barangay_admin"
+                || User.IsInRole("super_admin") || User.IsInRole("barangay_admin");
         }
 
-        protected string GetCurrentRole() =>
-            User.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role)?.Value
-            ?? HttpContext.Session.GetString("Role")
-            ?? "";
+        protected string GetCurrentRole()
+        {
+            var role = User.Claims.FirstOrDefault(c => c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role)?.Value
+                ?? HttpContext.Session.GetString("Role")
+                ?? "";
+            return NormalizeRole(role);
+        }
 
         protected int? GetCurrentBarangayId()
         {
@@ -53,6 +58,13 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         protected bool IsViewOnly() => GetCurrentRole() == "council_member";
+
+        protected static string NormalizeRole(string role)
+        {
+            if (string.IsNullOrWhiteSpace(role)) return string.Empty;
+            var normalized = role.Trim().ToLowerInvariant().Replace(" ", "_");
+            return normalized == "admin" ? "super_admin" : normalized;
+        }
 
         protected bool CanModify()
         {
