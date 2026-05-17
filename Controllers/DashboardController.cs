@@ -419,7 +419,7 @@ namespace JAS_MINE_IT15.Controllers
                 return string.Empty;
             }
 
-            var titled = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.ToLowerInvariant());
+            var titled = global::System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.ToLowerInvariant());
             return NormalizeAcronyms(titled);
         }
 
