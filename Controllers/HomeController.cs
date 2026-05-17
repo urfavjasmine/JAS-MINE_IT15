@@ -4828,32 +4828,44 @@ namespace JAS_MINE_IT15.Controllers
                 var identityUser = await _userManager.FindByEmailAsync(request.Email);
                 if (identityUser != null)
                 {
-                    if (string.IsNullOrWhiteSpace(newPassword))
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
+                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                    var tokenHash = HashResetToken(encodedToken);
+                    var expiresAtUtc = DateTime.UtcNow.AddHours(1);
+
+                    var callbackUrl = Url.Action(
+                        nameof(ResetPassword),
+                        "Home",
+                        new { token = encodedToken, email = identityUser.Email },
+                        protocol: Request.Scheme);
+
+                    if (string.IsNullOrWhiteSpace(callbackUrl))
                     {
-                        TempData["Error"] = "A new password is required to approve this request.";
+                        TempData["Error"] = "Failed to generate reset link.";
                         return RedirectToAction(nameof(PasswordRequests));
                     }
 
-                    var tempPassword = newPassword;
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
-                    var resetResult = await _userManager.ResetPasswordAsync(identityUser, token, tempPassword);
-
-                    if (resetResult.Succeeded)
+                    var body = $"Please reset your password by clicking this link: <a href='{callbackUrl}'>Reset Password</a>";
+                    try
                     {
-                        await _passwordHistoryService.RecordPasswordAsync(identityUser);
+                        await _emailSender.SendEmailAsync(identityUser.Email!, "Reset your JAS-MINE password", body);
 
+                        request.Token = tokenHash;
+                        request.ExpiresAt = expiresAtUtc;
                         request.Status = "Approved";
-                        request.ProcessedAt = DateTime.Now;
+                        request.ProcessedAt = DateTime.UtcNow;
                         request.ProcessedById = GetCurrentUserId();
-                        request.Notes = $"Password reset to temporary password. User must change on next login.";
+                        request.IsActive = true;
+                        request.Notes = "Approved: reset link sent.";
                         await _context.SaveChangesAsync();
-                        await LogAuditAsync("Approve", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Approved password reset for {request.Email}");
-                        TempData["Success"] = $"Password reset for {request.Email}. Temporary password set.";
+
+                        await LogAuditAsync("Approve", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Approved password reset link for {request.Email}");
+                        TempData["Success"] = $"Password reset link sent to {request.Email}.";
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
-                        TempData["Error"] = $"Failed to reset password: {errors}";
+                        _logger.LogError(ex, "Failed to send password reset email to {Email}", identityUser.Email);
+                        TempData["Error"] = "Failed to send password reset email. Please try again.";
                     }
                 }
                 else
@@ -4983,7 +4995,7 @@ namespace JAS_MINE_IT15.Controllers
 
             var resetRequest = _context.PasswordResetRequests
                 .FirstOrDefault(r => r.IsActive
-                    && r.Status == "Pending"
+                    && (r.Status == "Pending" || r.Status == "Approved")
                     && r.Email.ToLower() == emailValue
                     && r.Token == tokenHash);
 
@@ -5032,7 +5044,7 @@ namespace JAS_MINE_IT15.Controllers
 
             var resetRequest = await _context.PasswordResetRequests
                 .FirstOrDefaultAsync(r => r.IsActive
-                    && r.Status == "Pending"
+                    && (r.Status == "Pending" || r.Status == "Approved")
                     && r.Email.ToLower() == emailValue
                     && r.Token == tokenHash);
 

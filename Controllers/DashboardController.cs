@@ -279,10 +279,10 @@ namespace JAS_MINE_IT15.Controllers
                 .Select(a => new ActivityItem
                 {
                     Timestamp = a.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
-                    User = a.UserName ?? a.UserEmail ?? "System",
-                    Action = a.Action,
-                    Module = a.Module,
-                    Target = a.TargetName ?? ""
+                    User = FormatActivityUser(a.UserName, a.UserEmail),
+                    Action = FormatActivityAction(a.Action),
+                    Module = FormatActivityModule(a.Module),
+                    Target = FormatActivityTarget(a.TargetName)
                 })
                 .ToListAsync();
 
@@ -290,6 +290,157 @@ namespace JAS_MINE_IT15.Controllers
         }
 
         #endregion
+
+        private static string FormatActivityUser(string? userName, string? userEmail)
+        {
+            if (!string.IsNullOrWhiteSpace(userName))
+            {
+                return userName.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(userEmail))
+            {
+                var trimmedEmail = userEmail.Trim();
+                var normalizedEmail = trimmedEmail.ToLowerInvariant();
+
+                if (normalizedEmail == "system_admin@jasmine.gov.ph")
+                {
+                    return "System Admin";
+                }
+
+                if (trimmedEmail.Contains('*'))
+                {
+                    return "Unknown User";
+                }
+
+                return trimmedEmail;
+            }
+
+            return "System";
+        }
+
+        private static string FormatActivityAction(string? action)
+        {
+            if (string.IsNullOrWhiteSpace(action))
+            {
+                return "Action";
+            }
+
+            var trimmed = action.Trim();
+            return trimmed switch
+            {
+                "GET" => "View",
+                "POST" => "Submit",
+                "PUT" => "Update",
+                "PATCH" => "Update",
+                "DELETE" => "Delete",
+                _ => HumanizeToken(trimmed)
+            };
+        }
+
+        private static string FormatActivityModule(string? module)
+        {
+            if (string.IsNullOrWhiteSpace(module))
+            {
+                return "System";
+            }
+
+            var trimmed = module.Trim();
+            if (trimmed.EndsWith("Controller", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = trimmed[..^"Controller".Length];
+            }
+
+            return trimmed switch
+            {
+                "PasswordRequests" => "Password Reset Requests",
+                "KnowledgeRepository" => "Knowledge Repository",
+                "KnowledgeDiscussions" => "Knowledge Discussions",
+                "SubscriptionPayments" => "Subscription Payments",
+                "BarangaySubscriptions" => "Barangay Subscriptions",
+                _ => HumanizeToken(trimmed)
+            };
+        }
+
+        private static string FormatActivityTarget(string? target)
+        {
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return string.Empty;
+            }
+
+            var normalized = HumanizeToken(target.Trim());
+            if (string.Equals(normalized, "Requests", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            return normalized;
+        }
+
+        private static string HumanizeToken(string value)
+        {
+            var cleaned = value.Replace("_", " ").Replace("-", " ");
+            if (cleaned.Contains('/'))
+            {
+                var parts = cleaned.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                return string.Join(" / ", parts.Select(SplitPascalCase).Select(NormalizeLabel));
+            }
+
+            return NormalizeLabel(SplitPascalCase(cleaned));
+        }
+
+        private static string SplitPascalCase(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var builder = new System.Text.StringBuilder(value.Length + 8);
+            for (var i = 0; i < value.Length; i++)
+            {
+                var current = value[i];
+                if (i > 0 && char.IsUpper(current) && (char.IsLower(value[i - 1]) || char.IsDigit(value[i - 1])))
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(current);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string NormalizeLabel(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var titled = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.ToLowerInvariant());
+            return NormalizeAcronyms(titled);
+        }
+
+        private static string NormalizeAcronyms(string value)
+        {
+            var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                parts[i] = parts[i].ToLowerInvariant() switch
+                {
+                    "mfa" => "MFA",
+                    "ip" => "IP",
+                    "id" => "ID",
+                    "api" => "API",
+                    "otp" => "OTP",
+                    _ => parts[i]
+                };
+            }
+
+            return string.Join(" ", parts);
+        }
 
         #region System Monitoring (super_admin only)
 

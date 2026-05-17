@@ -311,7 +311,14 @@
                         </div>
                         <div class="flex-grow-1">
                             <div class="fw-semibold">@item.User <span class="text-muted fw-normal">@item.Action</span></div>
-                            <small class="text-muted">@item.Module - @item.Target</small>
+                            @if (!string.IsNullOrWhiteSpace(item.Target))
+                            {
+                                <small class="text-muted">@item.Module - @item.Target</small>
+                            }
+                            else
+                            {
+                                <small class="text-muted">@item.Module</small>
+                            }
                         </div>
                         <small class="text-muted">@item.Timestamp</small>
                     </div>
