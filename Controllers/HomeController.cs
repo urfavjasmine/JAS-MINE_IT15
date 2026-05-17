@@ -4290,14 +4290,23 @@ namespace JAS_MINE_IT15.Controllers
 
         // GET: /Home/AuditLogs
         [HttpGet]
-        public async Task<IActionResult> AuditLogs(string q = "", string module = "all", string action = "all")
+        public async Task<IActionResult> AuditLogs(string q = "", string module = "all", string actionFilter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
 
             q = (q ?? "").Trim().ToLower();
             module = (module ?? "all").Trim();
-            action = (action ?? "all").Trim();
+
+            var rawActionFilter = string.IsNullOrWhiteSpace(actionFilter)
+                ? (Request.Query["action"].ToString() ?? string.Empty)
+                : actionFilter;
+            var normalizedActionFilter = (rawActionFilter ?? "all").Trim();
+            if (string.Equals(normalizedActionFilter, "AuditLogs", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalizedActionFilter, "all actions", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedActionFilter = "all";
+            }
 
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
@@ -4440,16 +4449,16 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             // Apply action filter
-            if (action != "all")
+            if (normalizedActionFilter != "all")
             {
-                list = list.Where(l => l.Action == action).ToList();
+                list = list.Where(l => l.Action == normalizedActionFilter).ToList();
             }
 
             var vm = new AuditLogsViewModel
             {
                 SearchQuery = q,
                 ModuleFilter = module,
-                ActionFilter = action,
+                ActionFilter = normalizedActionFilter,
                 Logs = list,
                 TotalCount = rawLogs.Count // Track total before filtering
             };
@@ -4461,7 +4470,7 @@ namespace JAS_MINE_IT15.Controllers
         [ValidateAntiForgeryToken]
         [DenyViewOnly]
         [Authorize(Roles = "super_admin,barangay_admin")]
-        public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all", string action = "all")
+        public async Task<IActionResult> ArchiveLog(string id, string q = "", string module = "all", string actionFilter = "all")
         {
             if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
             if (!IsAdminRole()) return RedirectToDashboard();
@@ -4477,7 +4486,7 @@ namespace JAS_MINE_IT15.Controllers
             }
 
             TempData["Success"] = "Log entry archived.";
-            return RedirectToAction(nameof(AuditLogs), new { q, module, action });
+            return RedirectToAction(nameof(AuditLogs), new { q, module, actionFilter });
         }
 
         [HttpPost]
