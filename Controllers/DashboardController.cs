@@ -790,6 +790,15 @@ namespace JAS_MINE_IT15.Controllers
                 CanModify = CanModify()
             };
 
+            var currentEmail = User?.Identity?.Name ?? HttpContext.Session.GetString("UserName") ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(currentEmail))
+            {
+                var normalizedEmail = currentEmail.Trim().ToLowerInvariant();
+                vm.HasApprovedPasswordReset = await _context.PasswordResetRequests
+                    .AsNoTracking()
+                    .AnyAsync(r => r.IsActive && r.Status == "Approved" && r.Email.ToLower() == normalizedEmail);
+            }
+
             // If no BarangayId is set, show empty dashboard with warning
             if (!barangayId.HasValue)
             {
@@ -1086,6 +1095,7 @@ namespace JAS_MINE_IT15.Controllers
         public bool IsViewOnly { get; set; }
         public bool CanModify { get; set; }
         public string? WarningMessage { get; set; }
+        public bool HasApprovedPasswordReset { get; set; }
 
         // Barangay-specific counts
         public int TotalDocuments { get; set; }

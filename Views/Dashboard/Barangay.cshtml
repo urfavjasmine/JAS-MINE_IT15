@@ -116,6 +116,18 @@
         </div>
     }
 
+    @if (Model?.HasApprovedPasswordReset == true)
+    {
+        <div class="alert alert-info d-flex align-items-center" role="alert">
+            <i class="bi bi-shield-lock-fill me-2"></i>
+            <div>
+                Your password reset request was approved. Click
+                <a class="alert-link" href="@Url.Action("ApprovedResetLink", "Home")">here</a>
+                to reset your password now.
+            </div>
+        </div>
+    }
+
     @* ========== COUNCIL MEMBER: View-Only Banner ========== *@
     @if (isCouncil)
     {

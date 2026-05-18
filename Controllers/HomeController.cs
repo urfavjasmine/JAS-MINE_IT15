@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -36,7 +35,6 @@ namespace JAS_MINE_IT15.Controllers
         private readonly INotificationService _notificationService;
         private readonly ILogger<HomeController> _logger;
         private readonly IPayMongoService _payMongoService;
-        private readonly IEmailSender _emailSender;
         private readonly ITurnstileService _turnstileService;
         private readonly IAuthThrottleService _authThrottleService;
         private readonly ISecurityAlertService _securityAlertService;
@@ -58,7 +56,6 @@ namespace JAS_MINE_IT15.Controllers
             INotificationService notificationService,
             ILogger<HomeController> logger,
             IPayMongoService payMongoService,
-            IEmailSender emailSender,
             ITurnstileService turnstileService,
             IAuthThrottleService authThrottleService,
             ISecurityAlertService securityAlertService,
@@ -74,7 +71,6 @@ namespace JAS_MINE_IT15.Controllers
             _notificationService = notificationService;
             _logger = logger;
             _payMongoService = payMongoService;
-            _emailSender = emailSender;
             _turnstileService = turnstileService;
             _authThrottleService = authThrottleService;
             _securityAlertService = securityAlertService;
@@ -4311,6 +4307,33 @@ namespace JAS_MINE_IT15.Controllers
             var role = GetCurrentRole();
             var barangayId = GetCurrentBarangayId();
 
+            IdentityUser? identityUser = null;
+            if (string.IsNullOrWhiteSpace(role) || !barangayId.HasValue)
+            {
+                identityUser = await _userManager.GetUserAsync(User);
+                var identityEmail = identityUser?.Email ?? identityUser?.UserName;
+                if (!string.IsNullOrWhiteSpace(identityEmail))
+                {
+                    var normalizedEmail = identityEmail.Trim().ToLowerInvariant();
+                    var dbUserByEmail = await _context.BusinessUsers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.IsActive && u.Email.ToLower() == normalizedEmail);
+
+                    if (dbUserByEmail != null)
+                    {
+                        if (string.IsNullOrWhiteSpace(role))
+                        {
+                            role = dbUserByEmail.Role ?? string.Empty;
+                        }
+
+                        if (!barangayId.HasValue)
+                        {
+                            barangayId = dbUserByEmail.BarangayId;
+                        }
+                    }
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(role))
             {
                 var currentUserId = GetCurrentUserId();
@@ -4332,11 +4355,21 @@ namespace JAS_MINE_IT15.Controllers
 
                 if (string.IsNullOrWhiteSpace(role))
                 {
-                    if (User.IsInRole("super_admin")) role = "super_admin";
-                    else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
-                    else if (User.IsInRole("barangay_secretary")) role = "barangay_secretary";
-                    else if (User.IsInRole("barangay_staff")) role = "barangay_staff";
-                    else if (User.IsInRole("council_member")) role = "council_member";
+                    identityUser ??= await _userManager.GetUserAsync(User);
+                    if (identityUser != null)
+                    {
+                        var identityRoles = await _userManager.GetRolesAsync(identityUser);
+                        role = identityRoles.FirstOrDefault() ?? string.Empty;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(role))
+                    {
+                        if (User.IsInRole("super_admin")) role = "super_admin";
+                        else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
+                        else if (User.IsInRole("barangay_secretary")) role = "barangay_secretary";
+                        else if (User.IsInRole("barangay_staff")) role = "barangay_staff";
+                        else if (User.IsInRole("council_member")) role = "council_member";
+                    }
                 }
             }
 
@@ -4369,7 +4402,8 @@ namespace JAS_MINE_IT15.Controllers
 
                 if (!barangayId.HasValue)
                 {
-                    var currentEmail = User?.Identity?.Name;
+                    identityUser ??= await _userManager.GetUserAsync(User);
+                    var currentEmail = identityUser?.Email ?? identityUser?.UserName ?? User?.Identity?.Name;
                     if (!string.IsNullOrWhiteSpace(currentEmail))
                     {
                         var normalizedEmail = currentEmail.Trim().ToLower();
@@ -4382,6 +4416,7 @@ namespace JAS_MINE_IT15.Controllers
                 }
             }
 
+            _logger.LogInformation("AuditLogs resolved role/barangay. Role={Role}, BarangayId={BarangayId}", role, barangayId);
             _logger.LogInformation("AuditLogs role detection: Role={Role}, BarangayId={BarangayId}, UserId={UserId}",
                 role, barangayId, GetCurrentUserId());
 
@@ -4812,6 +4847,50 @@ namespace JAS_MINE_IT15.Controllers
             return View();
         }
 
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> ApprovedResetLink()
+        {
+            if (!IsLoggedIn()) return RedirectToAction(nameof(Login));
+
+            var identityUser = await _userManager.GetUserAsync(User);
+            if (identityUser == null)
+            {
+                TempData["Error"] = "User account not found.";
+                return RedirectToDashboard();
+            }
+
+            var email = (identityUser.Email ?? User?.Identity?.Name ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "User email not available.";
+                return RedirectToDashboard();
+            }
+
+            var request = await _context.PasswordResetRequests
+                .Where(r => r.IsActive && r.Status == "Approved" && r.Email.ToLower() == email)
+                .OrderByDescending(r => r.ProcessedAt ?? r.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (request == null)
+            {
+                TempData["Error"] = "No approved password reset request found.";
+                return RedirectToDashboard();
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var tokenHash = HashResetToken(encodedToken);
+
+            request.Token = tokenHash;
+            request.ExpiresAt = DateTime.UtcNow.AddHours(1);
+            request.ProcessedAt = DateTime.UtcNow;
+            request.Notes = "Approved: reset link generated in-app.";
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(ResetPassword), new { token = encodedToken, email = identityUser.Email });
+        }
+
         // POST: Process password reset request (approve = reset password)
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -4837,45 +4916,15 @@ namespace JAS_MINE_IT15.Controllers
                 var identityUser = await _userManager.FindByEmailAsync(request.Email);
                 if (identityUser != null)
                 {
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
-                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                    var tokenHash = HashResetToken(encodedToken);
-                    var expiresAtUtc = DateTime.UtcNow.AddHours(1);
+                    request.Status = "Approved";
+                    request.ProcessedAt = DateTime.UtcNow;
+                    request.ProcessedById = GetCurrentUserId();
+                    request.IsActive = true;
+                    request.Notes = "Approved: reset link available in-app.";
+                    await _context.SaveChangesAsync();
 
-                    var callbackUrl = Url.Action(
-                        nameof(ResetPassword),
-                        "Home",
-                        new { token = encodedToken, email = identityUser.Email },
-                        protocol: Request.Scheme);
-
-                    if (string.IsNullOrWhiteSpace(callbackUrl))
-                    {
-                        TempData["Error"] = "Failed to generate reset link.";
-                        return RedirectToAction(nameof(PasswordRequests));
-                    }
-
-                    var body = $"Please reset your password by clicking this link: <a href='{callbackUrl}'>Reset Password</a>";
-                    try
-                    {
-                        await _emailSender.SendEmailAsync(identityUser.Email!, "Reset your JAS-MINE password", body);
-
-                        request.Token = tokenHash;
-                        request.ExpiresAt = expiresAtUtc;
-                        request.Status = "Approved";
-                        request.ProcessedAt = DateTime.UtcNow;
-                        request.ProcessedById = GetCurrentUserId();
-                        request.IsActive = true;
-                        request.Notes = "Approved: reset link sent.";
-                        await _context.SaveChangesAsync();
-
-                        await LogAuditAsync("Approve", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Approved password reset link for {request.Email}");
-                        TempData["Success"] = $"Password reset link sent to {request.Email}.";
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to send password reset email to {Email}", identityUser.Email);
-                        TempData["Error"] = "Failed to send password reset email. Please try again.";
-                    }
+                    await LogAuditAsync("Approve", "PasswordRequests", request.Id, "PasswordReset", request.Email, $"Approved password reset request for {request.Email} (in-app).");
+                    TempData["Success"] = $"Password reset approved for {request.Email}. User can reset in-app.";
                 }
                 else
                 {
@@ -4959,25 +5008,7 @@ namespace JAS_MINE_IT15.Controllers
                 _context.PasswordResetRequests.Add(resetRequest);
                 await _context.SaveChangesAsync();
 
-                var callbackUrl = Url.Action(
-                    nameof(ResetPassword),
-                    "Home",
-                    new { token = encodedToken, email = identityUser.Email },
-                    protocol: Request.Scheme);
-
-                if (!string.IsNullOrWhiteSpace(callbackUrl))
-                {
-                    var body = $"Please reset your password by clicking this link: <a href='{callbackUrl}'>Reset Password</a>";
-                    try
-                    {
-                        await _emailSender.SendEmailAsync(identityUser.Email!, "Reset your JAS-MINE password", body);
-                        await LogAuditAsync("Create", "PasswordRequests", resetRequest.Id, "PasswordReset", identityUser.Email, "Self-service password reset link issued.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to send password reset email to {Email}", identityUser.Email);
-                    }
-                }
+                await LogAuditAsync("Create", "PasswordRequests", resetRequest.Id, "PasswordReset", identityUser.Email, "Self-service password reset request submitted.");
             }
 
             model.Submitted = true;
