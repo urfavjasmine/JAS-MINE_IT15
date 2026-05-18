@@ -337,6 +337,181 @@ namespace JAS_MINE_IT15.Controllers
                 ? (apiFailedRequestsLast24Hours * 100.0 / apiRequestsLast24Hours)
                 : 0;
 
+            // ===== NEW COMPREHENSIVE METRICS =====
+            
+            // MFA Failures
+            var mfaFailures = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Description!.ToLower().Contains("mfa") || a.Description!.ToLower().Contains("otp")));
+
+            // Successful Logins
+            var successfulLogins = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && a.Action != null
+                && (a.Action.ToLower().Contains("login") && !a.Action.ToLower().Contains("failed")));
+
+            // Authorization Denials
+            var authDenials = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Action != null && a.Action.ToLower().Contains("denied"))
+                || (a.Description != null && a.Description.ToLower().Contains("access denied")));
+
+            // Data Modifications
+            var docsCreated = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Module == "KnowledgeRepository" || a.Module == "Documents")
+                && (a.Action == "Created" || a.Action == "Uploaded"));
+
+            var docsModified = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Module == "KnowledgeRepository" || a.Module == "Documents")
+                && a.Action == "Updated");
+
+            var docsDeleted = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Module == "KnowledgeRepository" || a.Module == "Documents")
+                && a.Action == "Deleted");
+
+            var policiesModified = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && a.Module == "Policies"
+                && (a.Action == "Created" || a.Action == "Updated"));
+
+            var usersModified = await auditQuery.CountAsync(a =>
+                a.CreatedAt >= rangeStart
+                && (a.Module == "Users" || a.Module == "UserManagement")
+                && (a.Action == "Created" || a.Action == "Updated"));
+
+            // Recent Security Events (MFA/Auth failures, denials)
+            var securityEvents = await auditQuery
+                .Where(a => a.CreatedAt >= rangeStart
+                    && (a.Action!.ToLower().Contains("failed")
+                        || a.Action!.ToLower().Contains("denied")
+                        || a.Description!.ToLower().Contains("mfa")
+                        || a.Description!.ToLower().Contains("locked")))
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(10)
+                .Select(a => new SecurityEventItem
+                {
+                    Id = a.Id,
+                    Timestamp = a.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    EventType = a.Action ?? "Unknown",
+                    Severity = a.Description != null && (a.Description.Contains("locked") || a.Description.Contains("denied")) ? "Critical" : "Warning",
+                    Description = a.Description ?? "",
+                    User = a.UserName ?? a.UserEmail ?? "System"
+                })
+                .ToListAsync();
+
+            // Recent Data Changes
+            var dataChanges = await auditQuery
+                .Where(a => a.CreatedAt >= rangeStart
+                    && (a.Action == "Created" || a.Action == "Updated" || a.Action == "Deleted")
+                    && (a.Module == "KnowledgeRepository" || a.Module == "Policies" || a.Module == "Users"))
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(15)
+                .Select(a => new DataChangeItem
+                {
+                    Id = a.Id,
+                    Timestamp = a.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Action = a.Action ?? "Unknown",
+                    EntityType = a.TargetType ?? a.Module ?? "Unknown",
+                    EntityName = a.TargetName ?? "",
+                    ChangedBy = a.UserName ?? a.UserEmail ?? "System",
+                    Details = a.Description ?? ""
+                })
+                .ToListAsync();
+
+            // Active Users in Range
+            var activeUsers = await auditQuery
+                .Where(a => a.CreatedAt >= rangeStart && a.UserId.HasValue)
+                .GroupBy(a => new { a.UserId, a.UserEmail, a.UserName })
+                .Select(g => new UserActivityItem
+                {
+                    UserId = g.Key.UserId ?? 0,
+                    Email = g.Key.UserEmail ?? "",
+                    Name = g.Key.UserName ?? "Unknown",
+                    ActionCount = g.Count(),
+                    LastActive = g.Max(x => x.CreatedAt).ToString("yyyy-MM-dd HH:mm:ss"),
+                    Role = ""
+                })
+                .OrderByDescending(x => x.ActionCount)
+                .Take(10)
+                .ToListAsync();
+
+            // Module Activity Breakdown
+            var moduleActivity = await auditQuery
+                .Where(a => a.CreatedAt >= rangeStart)
+                .GroupBy(a => a.Module)
+                .Select(g => new ModuleActivityItem
+                {
+                    Module = g.Key ?? "Unknown",
+                    EventCount = g.Count(),
+                    CreatedCount = g.Count(x => x.Action == "Created" || x.Action == "Uploaded"),
+                    ModifiedCount = g.Count(x => x.Action == "Updated"),
+                    DeletedCount = g.Count(x => x.Action == "Deleted")
+                })
+                .OrderByDescending(x => x.EventCount)
+                .Take(10)
+                .ToListAsync();
+
+            // System Alerts (combination of critical events)
+            var systemAlerts = new List<SystemAlertItem>();
+            if (failedLoginEventsLast24Hours > Math.Max(1, failedLoginThreshold))
+            {
+                systemAlerts.Add(new SystemAlertItem
+                {
+                    Id = 1,
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Title = "High Failed Login Attempts",
+                    Severity = "Critical",
+                    Message = $"{failedLoginEventsLast24Hours} failed login attempts detected in {rangeLabel}"
+                });
+            }
+
+            if (lockedAccountsCount > 0)
+            {
+                systemAlerts.Add(new SystemAlertItem
+                {
+                    Id = 2,
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Title = "Locked User Accounts",
+                    Severity = "Warning",
+                    Message = $"{lockedAccountsCount} user accounts are currently locked"
+                });
+            }
+
+            if (mfaFailures > 5)
+            {
+                systemAlerts.Add(new SystemAlertItem
+                {
+                    Id = 3,
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Title = "MFA Failures Detected",
+                    Severity = "Warning",
+                    Message = $"{mfaFailures} MFA verification failures in {rangeLabel}"
+                });
+            }
+
+            if (apiFailedRequestsLast24Hours > Math.Max(1, apiFailureThreshold))
+            {
+                systemAlerts.Add(new SystemAlertItem
+                {
+                    Id = 4,
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Title = "API Failures Spike",
+                    Severity = "Critical",
+                    Message = $"{apiFailedRequestsLast24Hours} API request failures in {rangeLabel}"
+                });
+            }
+
+            // Count new users created in range
+            var newUsersInRange = await _context.BusinessUsers.CountAsync(u =>
+                u.IsActive && u.CreatedAt >= rangeStart);
+
+            // Count inactive accounts (locked out)
+            var inactiveAccountsCount = await _userManager.Users.CountAsync(u =>
+                u.LockoutEnd.HasValue && u.LockoutEnd > DateTime.UtcNow);
+
             var vm = new SecurityDashboardViewModel
             {
                 Role = role,
@@ -352,15 +527,35 @@ namespace JAS_MINE_IT15.Controllers
                 IsFailedLoginAlert = failedLoginEventsLast24Hours >= Math.Max(1, failedLoginThreshold),
                 LockedAccountsCount = lockedAccountsCount,
                 LockedAccounts = lockedAccounts,
+                MfaFailuresInRange = mfaFailures,
+                SuccessfulLoginsInRange = successfulLogins,
+                TotalLoginAttemptsInRange = failedLoginEventsLast24Hours + successfulLogins,
                 ApiRequestsInRange = apiRequestsLast24Hours,
                 ApiFailedRequestsInRange = apiFailedRequestsLast24Hours,
                 ApiRateLimitedInRange = apiRateLimitedLast24Hours,
                 ApiFailureAlertThreshold = Math.Max(1, apiFailureThreshold),
                 IsApiFailureAlert = apiFailedRequestsLast24Hours >= Math.Max(1, apiFailureThreshold),
                 ApiFailureRatePercent = Math.Round(apiFailureRatePercent, 2),
+                AuthorizationDenialsInRange = authDenials,
+                SuspiciousActivitiesInRange = mfaFailures + authDenials,
+                RecentSecurityEvents = securityEvents,
+                DocumentsCreatedInRange = docsCreated,
+                DocumentsModifiedInRange = docsModified,
+                DocumentsDeletedInRange = docsDeleted,
+                PoliciesModifiedInRange = policiesModified,
+                UsersModifiedInRange = usersModified,
+                RecentDataChanges = dataChanges,
+                ActiveUsersInRange = activeUsers.Count,
+                TopActiveUsers = activeUsers,
+                NewUsersInRange = newUsersInRange,
+                InactiveAccountsCount = inactiveAccountsCount,
+                CriticalAlertsCount = systemAlerts.Count(x => x.Severity == "Critical"),
+                WarningAlertsCount = systemAlerts.Count(x => x.Severity == "Warning"),
+                RecentAlerts = systemAlerts.OrderByDescending(x => x.Timestamp).Take(8).ToList(),
                 RecentAdminActions = recentAdminActions,
                 TopApiEndpoints = topApiEndpoints,
-                DailyApiUsage = dailyApiUsage
+                DailyApiUsage = dailyApiUsage,
+                ModuleActivityBreakdown = moduleActivity
             };
 
             return vm;

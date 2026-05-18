@@ -4431,8 +4431,9 @@ namespace JAS_MINE_IT15.Controllers
             IQueryable<AuditLog> logQuery = baseQuery;
 
             // Role-based filtering
-            var isSuperAdmin = User.IsInRole("super_admin") || role == "super_admin" || role == "superadmin";
-            var isBarangayAdmin = User.IsInRole("barangay_admin") || role == "barangay_admin" || role == "barangayadmin";
+            var normalizedRoleCheck = role ?? string.Empty;
+            var isSuperAdmin = (User?.IsInRole("super_admin") ?? false) || normalizedRoleCheck == "super_admin" || normalizedRoleCheck == "superadmin";
+            var isBarangayAdmin = (User?.IsInRole("barangay_admin") ?? false) || normalizedRoleCheck == "barangay_admin" || normalizedRoleCheck == "barangayadmin";
 
             if (isSuperAdmin)
             {
