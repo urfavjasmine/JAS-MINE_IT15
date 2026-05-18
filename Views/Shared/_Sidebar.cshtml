@@ -366,11 +366,6 @@
 
                 @* MULTI-TENANT ISOLATION: Announcements removed - barangay-specific data only *@
 
-                <a class="jm-item @(IsActive("AuditLogs") ? "active" : "")" href="@Url.Action("AuditLogs", "Home")">
-                    <div class="jm-icon"><i class="bi bi-shield-check"></i></div>
-                    <div class="jm-text">Audit Logs</div>
-                </a>
-
                 <a class="jm-item @(IsActive("Settings") ? "active" : "")" href="@Url.Action("Settings", "Home")">
                     <div class="jm-icon"><i class="bi bi-gear"></i></div>
                     <div class="jm-text">Settings</div>
