@@ -62,7 +62,7 @@ namespace JAS_MINE_IT15.Controllers
                         EventType = eventType ?? "",
                         Severity = severity ?? "",
                         StartDate = startDate ?? new DateTime(1900, 1, 1),
-                        EndDate = endDate ?? DateTime.Now,
+                        EndDate = endDate ?? DateTime.UtcNow,
                         CurrentPage = 1,
                         PageSize = pageSize,
                         TotalCount = 0,
@@ -78,7 +78,7 @@ namespace JAS_MINE_IT15.Controllers
                 // Always show ALL logs - no date restrictions
                 // Date inputs are optional and only used if explicitly provided
                 DateTime actualStartDate = startDate ?? new DateTime(1900, 1, 1);  // Way back to ensure all records
-                DateTime actualEndDate = endDate?.AddDays(1).Date ?? DateTime.Now.AddDays(1).Date;
+                DateTime actualEndDate = endDate?.AddDays(1).Date ?? DateTime.UtcNow.AddDays(1).Date;
 
                 // Query base logs - NO date filter, show everything
                 var query = _context.AuditLogs
@@ -156,8 +156,9 @@ namespace JAS_MINE_IT15.Controllers
         {
             try
             {
-                var fromDate = DateTime.Now.AddHours(-24);
-                var toDate = DateTime.Now;
+                // CRITICAL: Use UTC to match AuditService logging (which now uses DateTime.UtcNow)
+                var fromDate = DateTime.UtcNow.AddHours(-24);
+                var toDate = DateTime.UtcNow;
 
                 var metrics = await _securityEventLogger.GetMetricsAsync(fromDate, toDate);
                 var failedLogins = await _securityEventLogger.GetFailedLoginsAsync(fromDate, toDate);
@@ -200,8 +201,8 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                startDate ??= DateTime.Now.AddDays(-30);
-                endDate ??= DateTime.Now;
+                startDate ??= DateTime.UtcNow.AddDays(-30);
+                endDate ??= DateTime.UtcNow;
 
                 var logs = await _securityEventLogger.GetFailedLoginsAsync(startDate.Value, endDate.Value);
 
@@ -243,8 +244,8 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                startDate ??= DateTime.Now.AddDays(-7);
-                endDate ??= DateTime.Now;
+                startDate ??= DateTime.UtcNow.AddDays(-7);
+                endDate ??= DateTime.UtcNow;
 
                 var logs = await _securityEventLogger.GetMfaFailuresAsync(startDate.Value, endDate.Value);
 
@@ -286,8 +287,8 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                startDate ??= DateTime.Now.AddDays(-30);
-                endDate ??= DateTime.Now;
+                startDate ??= DateTime.UtcNow.AddDays(-30);
+                endDate ??= DateTime.UtcNow;
 
                 var logs = await _securityEventLogger.GetAuthorizationDenialsAsync(startDate.Value, endDate.Value);
 
@@ -329,8 +330,8 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                startDate ??= DateTime.Now.AddDays(-30);
-                endDate ??= DateTime.Now;
+                startDate ??= DateTime.UtcNow.AddDays(-30);
+                endDate ??= DateTime.UtcNow;
 
                 var logs = await _securityEventLogger.GetDataModificationsAsync(startDate.Value, endDate.Value);
 
@@ -375,8 +376,8 @@ namespace JAS_MINE_IT15.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                startDate ??= DateTime.Now.AddDays(-30);
-                endDate ??= DateTime.Now;
+                startDate ??= DateTime.UtcNow.AddDays(-30);
+                endDate ??= DateTime.UtcNow;
 
                 var query = _context.AuditLogs
                     .AsNoTracking()

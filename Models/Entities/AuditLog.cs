@@ -76,7 +76,11 @@ namespace JAS_MINE_IT15.Models.Entities
 
         public bool IsActive { get; set; } = true;
 
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        /// <summary>
+        /// Timestamp when the audit event was recorded.
+        /// Set by code (not database default) to ensure hash verification consistency.
+        /// </summary>
+        public DateTime CreatedAt { get; set; }
 
         // Navigation properties
         [ForeignKey("UserId")]

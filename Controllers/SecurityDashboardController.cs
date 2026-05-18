@@ -62,7 +62,7 @@ namespace JAS_MINE_IT15.Controllers
                     page.Header().Column(col =>
                     {
                         col.Item().Text("JAS-MINE Security Dashboard Report").Bold().FontSize(16);
-                        col.Item().Text($"Scope: {(vm.IsSuperAdmin ? "Super Admin" : "Admin")} | Range: {vm.RangeLabel} | Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                        col.Item().Text($"Scope: {(vm.IsSuperAdmin ? "Super Admin" : "Admin")} | Range: {vm.RangeLabel} | Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
                     });
 
                     page.Content().Column(col =>
@@ -162,13 +162,15 @@ namespace JAS_MINE_IT15.Controllers
                 });
             }).GeneratePdf();
 
-            var fileName = $"security-dashboard-{vm.Range}-{DateTime.Now:yyyyMMddHHmmss}.pdf";
+            var fileName = $"security-dashboard-{vm.Range}-{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
         }
 
         private async Task<SecurityDashboardViewModel> BuildDashboardViewModelAsync(string range, int failedLoginThreshold, int apiFailureThreshold)
         {
-            var now = DateTime.Now;
+            // CRITICAL: Use UTC to match AuditService logging (which now uses DateTime.UtcNow)
+            // This ensures dashboard queries find all recent audit logs without timezone mismatches
+            var now = DateTime.UtcNow;
             var normalizedRange = NormalizeRange(range);
             var rangeStart = normalizedRange switch
             {

@@ -55,6 +55,7 @@ namespace JAS_MINE_IT15.Data
 
             public override int SaveChanges(bool acceptAllChangesOnSuccess)
             {
+                  ApplyEmailHashes();
                   ApplyAuditLogHashChain();
                   return base.SaveChanges(acceptAllChangesOnSuccess);
             }

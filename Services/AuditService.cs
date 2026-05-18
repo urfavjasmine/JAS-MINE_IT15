@@ -62,7 +62,7 @@ namespace JAS_MINE_IT15.Services
                     SessionId = httpContext?.Session.Id,
                     BarangayId = barangayId ?? _tenantService.GetCurrentBarangayId(),
                     IsActive = true,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 _context.AuditLogs.Add(log);
