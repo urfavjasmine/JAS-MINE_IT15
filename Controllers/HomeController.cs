@@ -4310,7 +4310,7 @@ namespace JAS_MINE_IT15.Controllers
             IdentityUser? identityUser = null;
             if (string.IsNullOrWhiteSpace(role) || !barangayId.HasValue)
             {
-                identityUser = await _userManager.GetUserAsync(User);
+                identityUser = User != null ? await _userManager.GetUserAsync(User) : null;
                 var identityEmail = identityUser?.Email ?? identityUser?.UserName;
                 if (!string.IsNullOrWhiteSpace(identityEmail))
                 {
@@ -4355,7 +4355,7 @@ namespace JAS_MINE_IT15.Controllers
 
                 if (string.IsNullOrWhiteSpace(role))
                 {
-                    identityUser ??= await _userManager.GetUserAsync(User);
+                    identityUser ??= User != null ? await _userManager.GetUserAsync(User) : null;
                     if (identityUser != null)
                     {
                         var identityRoles = await _userManager.GetRolesAsync(identityUser);
@@ -4364,11 +4364,11 @@ namespace JAS_MINE_IT15.Controllers
 
                     if (string.IsNullOrWhiteSpace(role))
                     {
-                        if (User.IsInRole("super_admin")) role = "super_admin";
-                        else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
-                        else if (User.IsInRole("barangay_secretary")) role = "barangay_secretary";
-                        else if (User.IsInRole("barangay_staff")) role = "barangay_staff";
-                        else if (User.IsInRole("council_member")) role = "council_member";
+                        if (User?.IsInRole("super_admin") ?? false) role = "super_admin";
+                        else if (User?.IsInRole("barangay_admin") ?? false) role = "barangay_admin";
+                        else if (User?.IsInRole("barangay_secretary") ?? false) role = "barangay_secretary";
+                        else if (User?.IsInRole("barangay_staff") ?? false) role = "barangay_staff";
+                        else if (User?.IsInRole("council_member") ?? false) role = "council_member";
                     }
                 }
             }
@@ -4378,8 +4378,8 @@ namespace JAS_MINE_IT15.Controllers
             // Re-check Identity roles for privileged access when session/db role is missing or stale
             if (role != "super_admin" && role != "barangay_admin")
             {
-                if (User.IsInRole("super_admin")) role = "super_admin";
-                else if (User.IsInRole("barangay_admin")) role = "barangay_admin";
+                if (User?.IsInRole("super_admin") ?? false) role = "super_admin";
+                else if (User?.IsInRole("barangay_admin") ?? false) role = "barangay_admin";
             }
 
             if (role == "super_admin")
@@ -4402,7 +4402,7 @@ namespace JAS_MINE_IT15.Controllers
 
                 if (!barangayId.HasValue)
                 {
-                    identityUser ??= await _userManager.GetUserAsync(User);
+                    identityUser ??= User != null ? await _userManager.GetUserAsync(User) : null;
                     var currentEmail = identityUser?.Email ?? identityUser?.UserName ?? User?.Identity?.Name;
                     if (!string.IsNullOrWhiteSpace(currentEmail))
                     {
