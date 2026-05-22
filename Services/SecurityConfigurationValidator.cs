@@ -11,23 +11,11 @@ namespace JAS_MINE_IT15.Services
                 return;
             }
 
-            var smtpHost = configuration["Smtp:Host"] ?? string.Empty;
-            var smtpUser = configuration["Smtp:UserName"] ?? string.Empty;
-            var smtpPassword = configuration["Smtp:Password"] ?? string.Empty;
-            var smtpFromEmail = configuration["Smtp:FromEmail"] ?? string.Empty;
             var auditHmacKey = configuration[$"{AuditIntegritySettings.SectionName}:HmacKey"] ?? string.Empty;
             var encryptionEnabled = bool.TryParse(configuration[$"{FieldEncryptionSettings.SectionName}:Enabled"], out var enabled) && enabled;
             var encryptionKey = configuration[$"{FieldEncryptionSettings.SectionName}:Key"] ?? string.Empty;
 
             var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(smtpHost)
-                || string.IsNullOrWhiteSpace(smtpUser)
-                || string.IsNullOrWhiteSpace(smtpPassword)
-                || string.IsNullOrWhiteSpace(smtpFromEmail))
-            {
-                errors.Add("Smtp settings (Host/UserName/Password/FromEmail) must be configured in non-development environments.");
-            }
 
             if (string.IsNullOrWhiteSpace(auditHmacKey))
             {
