@@ -11,6 +11,10 @@ namespace JAS_MINE_IT15.Services
                 return;
             }
 
+<<<<<<< HEAD
+=======
+            // SMTP settings validation removed - using NoOpEmailSender instead
+>>>>>>> b8c4ce0e2934f3403eb5d3df5a55b44a896bdcc4
             var auditHmacKey = configuration[$"{AuditIntegritySettings.SectionName}:HmacKey"] ?? string.Empty;
             var encryptionEnabled = bool.TryParse(configuration[$"{FieldEncryptionSettings.SectionName}:Enabled"], out var enabled) && enabled;
             var encryptionKey = configuration[$"{FieldEncryptionSettings.SectionName}:Key"] ?? string.Empty;

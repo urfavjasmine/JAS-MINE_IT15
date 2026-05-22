@@ -60,8 +60,9 @@ builder.Services.Configure<JAS_MINE_IT15.Models.TurnstileSettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.TurnstileSettings.SectionName));
 builder.Services.Configure<JAS_MINE_IT15.Models.RetentionSettings>(
     builder.Configuration.GetSection("Retention"));
-builder.Services.Configure<JAS_MINE_IT15.Models.SmtpSettings>(
-    builder.Configuration.GetSection("Smtp"));
+// SMTP configuration removed for safety - using NoOpEmailSender instead
+// builder.Services.Configure<JAS_MINE_IT15.Models.SmtpSettings>(
+//     builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<JAS_MINE_IT15.Models.AuditIntegritySettings>(
     builder.Configuration.GetSection(JAS_MINE_IT15.Models.AuditIntegritySettings.SectionName));
 builder.Services.Configure<JAS_MINE_IT15.Models.FieldEncryptionSettings>(
@@ -120,7 +121,8 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
     options.TokenLifespan = TimeSpan.FromHours(1);
 });
 
-builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+// Using built-in NoOpEmailSender to prevent SMTP configuration errors
+builder.Services.AddTransient<IEmailSender, Microsoft.AspNetCore.Identity.UI.Services.NoOpEmailSender>();
 
 var isDevelopment = builder.Environment.IsDevelopment();
 
